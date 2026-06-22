@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VSP-VOIP Super Admin Dashboard — Technical Documentation</title>
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --card: #ffffff;
+      --border: #e2e8f0;
+      --text: #1e293b;
+      --muted: #64748b;
+      --accent: #6366f1;
+      --accent-soft: #eef2ff;
+      --green: #047857;
+      --green-bg: #ecfdf5;
+      --amber: #b45309;
+      --amber-bg: #fffbeb;
+      --red: #b91c1c;
+      --red-bg: #fef2f2;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+    header.doc-header {
+      background: linear-gradient(135deg, #4f46e5 0%, #6366f1 45%, #7c3aed 100%);
+      color: #fff;
+      padding: 2.5rem 1.5rem;
+    }
+    header.doc-header .wrap { padding-top: 0; padding-bottom: 0; }
+    header.doc-header h1 { margin: 0 0 0.5rem; font-size: 1.75rem; }
+    header.doc-header p { margin: 0; opacity: 0.92; max-width: 720px; }
+    .meta { margin-top: 1rem; font-size: 0.875rem; opacity: 0.85; }
+    nav.toc {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      margin: -2rem auto 2rem;
+      max-width: 1100px;
+      position: relative;
+      z-index: 1;
+      box-shadow: 0 4px 16px rgb(15 23 42 / 0.06);
+    }
+    nav.toc h2 { margin: 0 0 0.75rem; font-size: 1rem; }
+    nav.toc ol { margin: 0; padding-left: 1.25rem; columns: 2; column-gap: 2rem; }
+    nav.toc a { color: var(--accent); text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section { margin-bottom: 2.5rem; }
+    h2 { font-size: 1.35rem; margin: 0 0 1rem; color: #0f172a; border-bottom: 2px solid var(--accent-soft); padding-bottom: 0.5rem; }
+    h3 { font-size: 1.05rem; margin: 1.5rem 0 0.75rem; color: #334155; }
+    h4 { font-size: 0.95rem; margin: 1rem 0 0.5rem; color: #475569; }
+    p { margin: 0 0 1rem; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1rem;
+      box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+    }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+    .stat-box {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem;
+      text-align: center;
+    }
+    .stat-box .num { font-size: 1.75rem; font-weight: 700; color: var(--accent); }
+    .stat-box .lbl { font-size: 0.8rem; color: var(--muted); margin-top: 0.25rem; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+      background: var(--card);
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      margin: 0.75rem 0 1.25rem;
+    }
+    th, td { padding: 0.65rem 0.85rem; text-align: left; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+    th { background: #f8fafc; font-weight: 600; color: #475569; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #fafbff; }
+    code, .path {
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.82rem;
+      background: #f1f5f9;
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      color: #4338ca;
+    }
+    .badge {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+    .badge-yes { background: var(--green-bg); color: var(--green); }
+    .badge-partial { background: var(--amber-bg); color: var(--amber); }
+    .badge-no { background: var(--red-bg); color: var(--red); }
+    .badge-soon { background: #f1f5f9; color: #64748b; }
+    .callout {
+      border-left: 4px solid var(--accent);
+      background: var(--accent-soft);
+      padding: 1rem 1.25rem;
+      border-radius: 0 8px 8px 0;
+      margin: 1rem 0;
+    }
+    .callout-warn { border-left-color: #f59e0b; background: #fffbeb; }
+    .callout strong { display: block; margin-bottom: 0.35rem; }
+    ul { margin: 0.5rem 0 1rem; padding-left: 1.25rem; }
+    li { margin-bottom: 0.35rem; }
+    .arch-diagram {
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 1.25rem;
+      border-radius: 10px;
+      font-family: Consolas, monospace;
+      font-size: 0.8rem;
+      line-height: 1.7;
+      overflow-x: auto;
+      white-space: pre;
+    }
+    footer { text-align: center; color: var(--muted); font-size: 0.8rem; padding: 2rem 1rem; border-top: 1px solid var(--border); margin-top: 2rem; }
+    @media (max-width: 640px) {
+      nav.toc ol { columns: 1; }
+      .summary-grid { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="doc-header">
+  <div class="wrap">
+    <h1>VSP-VOIP Super Admin Dashboard</h1>
+    <p>Technical documentation: pages, API endpoints, data sources, and what is dynamic vs static or placeholder.</p>
+    <p class="meta">Generated from codebase analysis · Portal: <code>http://localhost:3001/admin</code> · API: <code>http://localhost:3000/api/admin</code></p>
+  </div>
+</header>
+
+<nav class="toc wrap">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#executive-summary">Executive summary</a></li>
+    <li><a href="#architecture">Architecture</a></li>
+    <li><a href="#auth">Authentication &amp; role gating</a></li>
+    <li><a href="#navigation">Sidebar navigation map</a></li>
+    <li><a href="#api-endpoints">Admin API endpoints</a></li>
+    <li><a href="#overview">Overview dashboard (/admin)</a></li>
+    <li><a href="#pages">All admin pages</a></li>
+    <li><a href="#kpis">KPI data sources (backend)</a></li>
+    <li><a href="#datatables">DataTable pages</a></li>
+    <li><a href="#placeholders">Placeholders &amp; roadmap</a></li>
+    <li><a href="#gaps">Known gaps</a></li>
+  </ol>
+</nav>
+
+<main class="wrap">
+
+  <!-- EXECUTIVE SUMMARY -->
+  <section id="executive-summary">
+    <h2>1. Executive summary — Is everything dynamic?</h2>
+
+    <div class="callout">
+      <strong>Short answer: No — not everything is fully dynamic.</strong>
+      Most implemented Super Admin screens load live data from PostgreSQL via the Express API. Several telecom KPIs use <em>estimates or heuristics</em>, some nav items are marked <strong>Soon</strong>, two pages are pure placeholders, and two nav links return 404.
+    </div>
+
+    <div class="summary-grid">
+      <div class="stat-box">
+        <div class="num">~75–80%</div>
+        <div class="lbl">Implemented UI backed by live APIs</div>
+      </div>
+      <div class="stat-box">
+        <div class="num">8 / 11</div>
+        <div class="lbl">Page files fully or mostly dynamic</div>
+      </div>
+      <div class="stat-box">
+        <div class="num">20</div>
+        <div class="lbl">Admin REST endpoints</div>
+      </div>
+      <div class="stat-box">
+        <div class="num">6 / 9</div>
+        <div class="lbl">Overview KPI cards fully dynamic</div>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Category</th>
+          <th>Dynamic?</th>
+          <th>Details</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Tenant management</td>
+          <td><span class="badge badge-yes">Yes</span></td>
+          <td>List, create, suspend, billing fees, users, numbers — all from DB via API.</td>
+        </tr>
+        <tr>
+          <td>Orders &amp; invoicing</td>
+          <td><span class="badge badge-yes">Yes</span></td>
+          <td>Order list, detail, fulfill, cancel, invoice email — live order data.</td>
+        </tr>
+        <tr>
+          <td>Revenue reports</td>
+          <td><span class="badge badge-yes">Yes</span></td>
+          <td>Aggregated from fulfilled/paid orders in PostgreSQL.</td>
+        </tr>
+        <tr>
+          <td>Audit trail</td>
+          <td><span class="badge badge-yes">Yes</span></td>
+          <td><code>adminAuditLog</code> table, limit 100–200 rows.</td>
+        </tr>
+        <tr>
+          <td>Platform settings</td>
+          <td><span class="badge badge-yes">Yes</span></td>
+          <td>Stripe, bank, Telnyx IDs, default fees — read/write via API. Telnyx status is a live ping.</td>
+        </tr>
+        <tr>
+          <td>Overview KPIs</td>
+          <td><span class="badge badge-partial">Partial</span></td>
+          <td>MRR, tenants, extensions, calls, DIDs are real. MOS, SIP rate, LNP, carrier balance are estimated or hardcoded.</td>
+        </tr>
+        <tr>
+          <td>DID inventory page</td>
+          <td><span class="badge badge-partial">Partial</span></td>
+          <td>Assigned numbers derived from tenant list. No wholesale pool API; "Telnyx" label is static.</td>
+        </tr>
+        <tr>
+          <td>Voice quality page</td>
+          <td><span class="badge badge-no">No</span></td>
+          <td>Static "Coming soon" placeholder — no API.</td>
+        </tr>
+        <tr>
+          <td>RBAC &amp; security page</td>
+          <td><span class="badge badge-no">No</span></td>
+          <td>Static "Coming soon" placeholder — no API.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ARCHITECTURE -->
+  <section id="architecture">
+    <h2>2. Architecture</h2>
+    <div class="arch-diagram">┌─────────────────────────────────────────────────────────────────┐
+│  Browser — Next.js Portal (port 3001)                           │
+│  web/src/app/(app)/admin/*                                        │
+│  Components: admin-nav, sidebar, data-table, kpi-card, slide-over │
+└────────────────────────────┬────────────────────────────────────┘
+                             │ fetch() + JWT cookie
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  Express API (port 3000) — routes/admin.js                      │
+│  Middleware: authMiddleware + requireRole('SUPER_ADMIN')          │
+└────────────────────────────┬────────────────────────────────────┘
+                             │ Prisma ORM
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  PostgreSQL — tenants, users, phoneNumbers, numberOrders,         │
+│  callLogs, adminAuditLog, platformSettings                        │
+└────────────────────────────┬────────────────────────────────────┘
+                             │ External
+                             ▼
+                    Telnyx API (connectivity check, fulfillment)
+                    Stripe (subscriptions, webhooks — via settings)</div>
+
+    <h3>Key source files</h3>
+    <table>
+      <thead><tr><th>Layer</th><th>Path</th><th>Role</th></tr></thead>
+      <tbody>
+        <tr><td>Pages</td><td><span class="path">web/src/app/(app)/admin/</span></td><td>11 route files (overview, tenants, orders, revenue, audit, inventory, settings, 2 placeholders)</td></tr>
+        <tr><td>Navigation</td><td><span class="path">web/src/components/admin-nav.tsx</span></td><td>6 sidebar sections, 16 nav items</td></tr>
+        <tr><td>Sidebar shell</td><td><span class="path">web/src/components/sidebar.tsx</span></td><td>Full AdminNav when SUPER_ADMIN without tenantName</td></tr>
+        <tr><td>API client</td><td><span class="path">web/src/lib/api.ts</span></td><td>getAdminDashboard, getAdminTenants, etc.</td></tr>
+        <tr><td>Backend</td><td><span class="path">routes/admin.js</span></td><td>All /api/admin/* routes</td></tr>
+        <tr><td>Auth</td><td><span class="path">lib/auth.js</span></td><td>JWT + requireRole('SUPER_ADMIN')</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- AUTH -->
+  <section id="auth">
+    <h2>3. Authentication &amp; role gating</h2>
+    <table>
+      <thead><tr><th>Layer</th><th>Behavior</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Backend (authoritative)</td>
+          <td>Every <code>/api/admin/*</code> route uses <code>authMiddleware</code> + <code>requireRole('SUPER_ADMIN')</code>. Returns 403 if role does not match.</td>
+        </tr>
+        <tr>
+          <td>Login redirect</td>
+          <td>SUPER_ADMIN → <code>/admin</code>. Other roles → <code>/dashboard</code>.</td>
+        </tr>
+        <tr>
+          <td>Per-page frontend</td>
+          <td>Functional pages call <code>getMe()</code> and redirect non–super-admins to <code>/dashboard</code>; 401 → <code>/login</code>.</td>
+        </tr>
+        <tr>
+          <td>App layout</td>
+          <td>Requires authentication only — no role check at layout level.</td>
+        </tr>
+        <tr>
+          <td>Placeholder pages</td>
+          <td><code>/admin/voice-quality</code> and <code>/admin/security</code> do <strong>not</strong> enforce SUPER_ADMIN on the frontend (static content only).</td>
+        </tr>
+        <tr>
+          <td>Super admin with tenant</td>
+          <td>If user has <code>tenantName</code>, sidebar shows compact admin links instead of full AdminNav.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- NAVIGATION -->
+  <section id="navigation">
+    <h2>4. Sidebar navigation map</h2>
+    <p>Defined in <span class="path">web/src/components/admin-nav.tsx</span>. Items marked <span class="badge badge-soon">Soon</span> are roadmap entries.</p>
+    <table>
+      <thead>
+        <tr><th>Section</th><th>Label</th><th>Route</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Dashboard</td><td>System vitals</td><td><code>/admin</code></td><td><span class="badge badge-yes">Live</span></td></tr>
+        <tr><td>Dashboard</td><td>Voice quality</td><td><code>/admin/voice-quality</code></td><td><span class="badge badge-soon">Soon</span> Placeholder page</td></tr>
+        <tr><td>Tenant management</td><td>Company directory</td><td><code>/admin/tenants</code></td><td><span class="badge badge-yes">Live</span></td></tr>
+        <tr><td>Tenant management</td><td>Resource quotas</td><td><code>/admin/tenants</code></td><td><span class="badge badge-soon">Soon</span> Same page as directory — no quota UI</td></tr>
+        <tr><td>Inventory &amp; assets</td><td>DID number pool</td><td><code>/admin/inventory</code></td><td><span class="badge badge-partial">Partial</span></td></tr>
+        <tr><td>Inventory &amp; assets</td><td>Number porting</td><td><code>/admin/inventory/porting</code></td><td><span class="badge badge-no">404</span> No page file</td></tr>
+        <tr><td>Trunking &amp; routing</td><td>SIP trunks (Telnyx)</td><td><code>/admin/settings</code></td><td><span class="badge badge-yes">Live</span></td></tr>
+        <tr><td>Trunking &amp; routing</td><td>Least cost routing</td><td><code>/admin/trunking/lcr</code></td><td><span class="badge badge-no">404</span> No page file</td></tr>
+        <tr><td>Tariffs &amp; billing</td><td>Revenue &amp; tariffs</td><td><code>/admin/revenue</code></td><td><span class="badge badge-yes">Live</span></td></tr>
+        <tr><td>Tariffs &amp; billing</td><td>Orders &amp; invoicing</td><td><code>/admin/orders</code></td><td><span class="badge badge-yes">Live</span></td></tr>
+        <tr><td>Tariffs &amp; billing</td><td>Merchant integration</td><td><code>/admin/settings</code></td><td><span class="badge badge-yes">Live</span> (Stripe section)</td></tr>
+        <tr><td>System ops</td><td>Forensic audit trail</td><td><code>/admin/audit</code></td><td><span class="badge badge-yes">Live</span></td></tr>
+        <tr><td>System ops</td><td>RBAC &amp; compliance</td><td><code>/admin/security</code></td><td><span class="badge badge-soon">Soon</span> Placeholder page</td></tr>
+        <tr><td>System ops</td><td>Platform settings</td><td><code>/admin/settings</code></td><td><span class="badge badge-yes">Live</span></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- API ENDPOINTS -->
+  <section id="api-endpoints">
+    <h2>5. Admin API endpoints</h2>
+    <p>Base URL: <code>GET/POST/PUT /api/admin/*</code> — all require JWT + <code>SUPER_ADMIN</code> role.</p>
+    <table>
+      <thead><tr><th>Method</th><th>Endpoint</th><th>Used by</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td>GET</td><td><code>/dashboard</code></td><td>Overview</td><td>Stats, KPIs, recent orders, Telnyx status, billing alerts</td></tr>
+        <tr><td>GET</td><td><code>/platform-settings</code></td><td>Settings</td><td>Read Stripe/bank/Telnyx/fee config (secrets masked)</td></tr>
+        <tr><td>PUT</td><td><code>/platform-settings</code></td><td>Settings</td><td>Save platform configuration</td></tr>
+        <tr><td>GET</td><td><code>/telnyx/status</code></td><td>Settings</td><td>Live Telnyx connectivity check</td></tr>
+        <tr><td>GET</td><td><code>/tenants</code></td><td>Tenants, Inventory</td><td>Tenant list with user/number counts</td></tr>
+        <tr><td>POST</td><td><code>/tenants</code></td><td>Tenants</td><td>Create tenant (duplicate name → 409)</td></tr>
+        <tr><td>POST</td><td><code>/tenants/cleanup-empty</code></td><td>Tenants</td><td>Remove empty duplicate tenants</td></tr>
+        <tr><td>GET</td><td><code>/tenants/:id</code></td><td>Tenant detail</td><td>Tenant + users + phone numbers</td></tr>
+        <tr><td>PUT</td><td><code>/tenants/:id</code></td><td>Tenant detail</td><td>Rename tenant</td></tr>
+        <tr><td>PUT</td><td><code>/tenants/:id/billing</code></td><td>Tenant detail</td><td>Per-tenant fee overrides</td></tr>
+        <tr><td>PUT</td><td><code>/tenants/:id/status</code></td><td>Tenants</td><td>Suspend / activate tenant</td></tr>
+        <tr><td>POST</td><td><code>/tenants/:id/users</code></td><td>Tenant detail</td><td>Create tenant user</td></tr>
+        <tr><td>GET</td><td><code>/orders</code></td><td>Orders list</td><td>Orders with status/payment filters (max 100)</td></tr>
+        <tr><td>GET</td><td><code>/orders/:id</code></td><td>Order detail</td><td>Order + invoice preview + mailto</td></tr>
+        <tr><td>PUT</td><td><code>/orders/:id</code></td><td>Order detail</td><td>Payment reference / admin notes</td></tr>
+        <tr><td>POST</td><td><code>/orders/:id/mark-invoice-sent</code></td><td>Order detail</td><td>Mark invoice sent; optional SMTP</td></tr>
+        <tr><td>POST</td><td><code>/orders/:id/fulfill</code></td><td>Order detail</td><td>Manual bank fulfill → Telnyx purchase</td></tr>
+        <tr><td>POST</td><td><code>/orders/:id/cancel</code></td><td>Order detail</td><td>Cancel pending manual order</td></tr>
+        <tr><td>GET</td><td><code>/revenue</code></td><td>Revenue</td><td>Aggregated revenue by tenant and month</td></tr>
+        <tr><td>GET</td><td><code>/audit-log?limit=N</code></td><td>Audit</td><td>Admin audit log (max 200)</td></tr>
+      </tbody>
+    </table>
+    <p>Supporting endpoint (not under /admin): <code>GET /api/auth/me</code> — used on every page for authentication and role checks.</p>
+  </section>
+
+  <!-- OVERVIEW -->
+  <section id="overview">
+    <h2>6. Overview dashboard — <code>/admin</code></h2>
+    <p><strong>File:</strong> <span class="path">web/src/app/(app)/admin/page.tsx</span><br>
+    <strong>API:</strong> <code>GET /api/admin/dashboard</code> via <code>getAdminDashboard()</code><br>
+    <strong>Overall:</strong> <span class="badge badge-partial">Partially dynamic</span></p>
+
+    <h3>Hero banner</h3>
+    <table>
+      <thead><tr><th>Widget</th><th>API field</th><th>Dynamic?</th></tr></thead>
+      <tbody>
+        <tr><td>Telnyx trunk Online/Offline</td><td><code>telnyxStatus.connected</code></td><td><span class="badge badge-yes">Yes</span> Live Telnyx ping</td></tr>
+        <tr><td>Calls (24h)</td><td><code>stats.kpis.callsLast24h</code></td><td><span class="badge badge-yes">Yes</span> <code>callLog</code> count</td></tr>
+      </tbody>
+    </table>
+
+    <h3>KPI Section A — Business &amp; tenant growth</h3>
+    <table>
+      <thead><tr><th>KPI card</th><th>API field</th><th>Dynamic?</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>Total active tenants</td><td><code>activeTenantCount</code>, <code>tenantCount</code>, <code>suspendedTenantCount</code></td><td><span class="badge badge-yes">Yes</span></td><td>Growth % from <code>tenantGrowthPercent</code> (month-over-month)</td></tr>
+        <tr><td>Monthly recurring revenue</td><td><code>kpis.mrrEstimate</code></td><td><span class="badge badge-yes">Yes</span></td><td>Sum of per-number monthly fees from DB</td></tr>
+        <tr><td>Total live extensions</td><td><code>kpis.totalExtensions</code></td><td><span class="badge badge-yes">Yes</span></td><td>Users with <code>tenantId != null</code></td></tr>
+      </tbody>
+    </table>
+
+    <h3>KPI Section B — Telecom &amp; voice engineering</h3>
+    <table>
+      <thead><tr><th>KPI card</th><th>API field</th><th>Dynamic?</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>Active concurrent calls</td><td><code>activeConcurrentCalls</code> / <code>maxConcurrentCapacity</code></td><td><span class="badge badge-yes">Yes</span></td><td>Last 5 min call logs; capacity from env <code>PLATFORM_MAX_CONCURRENT_CALLS</code> (default 1500)</td></tr>
+        <tr><td>Global average MOS</td><td><code>kpis.averageMos</code></td><td><span class="badge badge-partial">Partial</span></td><td><strong>Not real telemetry.</strong> Uses env <code>PLATFORM_ESTIMATED_MOS</code> (default 4.3) when Telnyx is connected</td></tr>
+        <tr><td>SIP endpoint registration</td><td><code>kpis.sipRegistrationRate</code></td><td><span class="badge badge-partial">Partial</span></td><td><strong>Heuristic:</strong> 100% if credential connection configured + extensions exist; not actual SIP polling</td></tr>
+      </tbody>
+    </table>
+
+    <h3>KPI Section C — Inventory &amp; financials</h3>
+    <table>
+      <thead><tr><th>KPI card</th><th>API field</th><th>Dynamic?</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>Assigned DIDs</td><td><code>phoneNumberCount</code></td><td><span class="badge badge-yes">Yes</span></td><td><code>prisma.phoneNumber.count()</code></td></tr>
+        <tr><td>Carrier spend vs balance</td><td><code>telnyxConnected</code>, <code>carrierBalanceNote</code></td><td><span class="badge badge-partial">Partial</span></td><td>Shows connection status; note is static text "check carrier portal" — no Telnyx balance API</td></tr>
+        <tr><td>Pending LNP requests</td><td><code>pendingLnpRequests</code></td><td><span class="badge badge-no">No</span></td><td><strong>Hardcoded 0</strong> in backend; UI badge "Soon"</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Status cards, alerts &amp; table</h3>
+    <table>
+      <thead><tr><th>Widget</th><th>Source</th><th>Dynamic?</th></tr></thead>
+      <tbody>
+        <tr><td>Stripe card payments</td><td><code>stripeEnabled</code></td><td><span class="badge badge-yes">Yes</span></td></tr>
+        <tr><td>Bank transfer invoicing</td><td><code>manualPaymentEnabled</code></td><td><span class="badge badge-yes">Yes</span></td></tr>
+        <tr><td>Order revenue (lifetime)</td><td><code>revenueTotal</code></td><td><span class="badge badge-yes">Yes</span></td></tr>
+        <tr><td>Billing alerts</td><td><code>billingAlerts[]</code> from audit log</td><td><span class="badge badge-yes">Yes</span></td></tr>
+        <tr><td>Recent orders DataTable</td><td><code>recentOrders[]</code> (last 8)</td><td><span class="badge badge-yes">Yes</span></td></tr>
+        <tr><td>Quick action badge (pending bank)</td><td><code>pendingBankOrders</code></td><td><span class="badge badge-yes">Yes</span></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ALL PAGES -->
+  <section id="pages">
+    <h2>7. All admin pages — detailed breakdown</h2>
+
+    <div class="card">
+      <h3><code>/admin/tenants</code> — Company directory</h3>
+      <p><span class="path">web/src/app/(app)/admin/tenants/page.tsx</span> · <span class="badge badge-yes">Fully dynamic</span></p>
+      <p><strong>APIs:</strong> <code>GET /tenants</code>, <code>POST /tenants</code>, <code>POST /tenants/cleanup-empty</code>, <code>PUT /tenants/:id/status</code></p>
+      <p><strong>DataTable columns:</strong> Tenant name, Status, Setup/number, First month, Recurring/mo, Numbers, Users, Actions (Suspend, Manage).</p>
+      <p><strong>Create tenant:</strong> Slide-over panel → POST with name and fee fields. Form defaults (e.g. monthly $8) are UI defaults only.</p>
+    </div>
+
+    <div class="card">
+      <h3><code>/admin/tenants/[id]</code> — Tenant detail</h3>
+      <p><span class="path">web/src/app/(app)/admin/tenants/[id]/page.tsx</span> · <span class="badge badge-yes">Fully dynamic</span></p>
+      <p><strong>Sections:</strong> Organization name (editable), Platform fees (setup/first/recurring), Suspend/activate, Users DataTable, Phone numbers DataTable, Add user form.</p>
+      <p><strong>API data not shown in UI:</strong> <code>_count.callLogs</code>, Stripe subscription IDs (returned by API but not displayed).</p>
+    </div>
+
+    <div class="card">
+      <h3><code>/admin/orders</code> — Orders &amp; invoicing</h3>
+      <p><span class="path">web/src/app/(app)/admin/orders/page.tsx</span> · <span class="badge badge-yes">Fully dynamic</span></p>
+      <p><strong>API:</strong> <code>GET /orders?status=&amp;paymentMethod=</code> (max 100 rows). Default filter: PENDING.</p>
+      <p><strong>DataTable:</strong> Date, Tenant, Payment method, Invoice #, Total, Status, Reference.</p>
+    </div>
+
+    <div class="card">
+      <h3><code>/admin/orders/[id]</code> — Order detail</h3>
+      <p><span class="path">web/src/app/(app)/admin/orders/[id]/page.tsx</span> · <span class="badge badge-yes">Fully dynamic</span></p>
+      <p><strong>Actions:</strong> Edit payment reference, Send invoice (bank), Fulfill (Telnyx purchase), Cancel. Stripe orders show explanatory static copy.</p>
+    </div>
+
+    <div class="card">
+      <h3><code>/admin/revenue</code> — Revenue &amp; tariffs</h3>
+      <p><span class="path">web/src/app/(app)/admin/revenue/page.tsx</span> · <span class="badge badge-yes">Fully dynamic</span></p>
+      <p><strong>API:</strong> <code>GET /revenue</code> — sums <code>totalCharged</code> on FULFILLED/PAID/PARTIAL orders.</p>
+      <p><strong>Widgets:</strong> Total revenue + order count cards; DataTables by tenant and by month. No tariff editor on this page (tariffs in settings + per-tenant billing).</p>
+    </div>
+
+    <div class="card">
+      <h3><code>/admin/audit</code> — Forensic audit trail</h3>
+      <p><span class="path">web/src/app/(app)/admin/audit/page.tsx</span> · <span class="badge badge-yes">Fully dynamic</span></p>
+      <p><strong>API:</strong> <code>GET /audit-log?limit=100</code></p>
+      <p><strong>DataTable:</strong> When, Admin email, Action, Entity type/id, Details (JSON).</p>
+    </div>
+
+    <div class="card">
+      <h3><code>/admin/inventory</code> — DID number pool</h3>
+      <p><span class="path">web/src/app/(app)/admin/inventory/page.tsx</span> · <span class="badge badge-partial">Partially dynamic</span></p>
+      <p><strong>API:</strong> Reuses <code>GET /tenants</code> — no dedicated inventory endpoint.</p>
+      <ul>
+        <li><strong>Dynamic:</strong> Assigned DIDs (sum of tenant numberCount), active tenants with numbers, tenant allocation table.</li>
+        <li><strong>Static:</strong> "Wholesale pool" KPI shows hardcoded label "Telnyx" with "External" badge.</li>
+        <li><strong>Missing:</strong> Unassigned DID pool count (<code>availableDidPool</code> is null in dashboard API and unused).</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3><code>/admin/settings</code> — Platform settings</h3>
+      <p><span class="path">web/src/app/(app)/admin/settings/page.tsx</span> · <span class="badge badge-yes">Fully dynamic</span></p>
+      <p><strong>APIs:</strong> <code>GET/PUT /platform-settings</code>, <code>GET /telnyx/status</code></p>
+      <p><strong>Sections:</strong> Stripe keys (masked on load), Webhook URL (server-computed), Bank transfer fields, Telnyx connection IDs, Telnyx live status panel, Default VSP markup fees.</p>
+      <p><strong>Static UI only:</strong> Example pricing math uses hardcoded carrier $1.25 in help text; Stripe dashboard external link.</p>
+    </div>
+
+    <div class="card">
+      <h3><code>/admin/voice-quality</code> — Voice quality &amp; heatmaps</h3>
+      <p><span class="path">web/src/app/(app)/admin/voice-quality/page.tsx</span> · <span class="badge badge-no">Not dynamic</span></p>
+      <p>Uses <code>AdminPlaceholderPage</code> — static "Coming soon" roadmap. No API calls. Nav badge: Soon.</p>
+    </div>
+
+    <div class="card">
+      <h3><code>/admin/security</code> — RBAC &amp; compliance</h3>
+      <p><span class="path">web/src/app/(app)/admin/security/page.tsx</span> · <span class="badge badge-no">Not dynamic</span></p>
+      <p>Uses <code>AdminPlaceholderPage</code> — static "Coming soon" roadmap. No API calls. No role management UI exists yet.</p>
+    </div>
+  </section>
+
+  <!-- KPI BACKEND -->
+  <section id="kpis">
+    <h2>8. KPI data sources (backend detail)</h2>
+    <p>All computed in <span class="path">routes/admin.js</span> → <code>GET /dashboard</code>.</p>
+    <table>
+      <thead><tr><th>Metric</th><th>Database / service source</th><th>Placeholder?</th></tr></thead>
+      <tbody>
+        <tr><td>Tenant counts</td><td><code>prisma.tenant.count()</code></td><td>No</td></tr>
+        <tr><td>Tenant growth %</td><td>Tenants created this month vs last month</td><td>No</td></tr>
+        <tr><td>MRR estimate</td><td>Sum of <code>phoneNumber.tenantMonthlyTotal</code> or <code>platformMonthly</code> or 8</td><td>No</td></tr>
+        <tr><td>Stripe subscriptions</td><td>Tenants with <code>stripeSubscriptionId</code></td><td>No</td></tr>
+        <tr><td>Total extensions</td><td>Users where <code>tenantId != null</code></td><td>No</td></tr>
+        <tr><td>Active concurrent calls</td><td><code>callLog</code> last 5 min, active statuses</td><td>No</td></tr>
+        <tr><td>Max capacity</td><td>Env <code>PLATFORM_MAX_CONCURRENT_CALLS</code> (default 1500)</td><td>Config default</td></tr>
+        <tr><td>Calls 24h</td><td><code>callLog</code> count last 24 hours</td><td>No</td></tr>
+        <tr><td>Average MOS</td><td>Env <code>PLATFORM_ESTIMATED_MOS</code> when Telnyx connected</td><td><strong>Estimated — not real MOS</strong></td></tr>
+        <tr><td>SIP registration %</td><td>Heuristic from credential connection + extensions</td><td><strong>Estimated — not SIP polling</strong></td></tr>
+        <tr><td>Phone number count</td><td><code>prisma.phoneNumber.count()</code></td><td>No</td></tr>
+        <tr><td>Pending LNP</td><td>Hardcoded <code>0</code></td><td><strong>Placeholder</strong></td></tr>
+        <tr><td>Available DID pool</td><td><code>null</code> (not used in UI)</td><td>N/A</td></tr>
+        <tr><td>Carrier balance note</td><td>Static string when Telnyx connected</td><td><strong>Placeholder</strong></td></tr>
+        <tr><td>Revenue total</td><td>Aggregate <code>numberOrder.totalCharged</code></td><td>No</td></tr>
+        <tr><td>Pending bank orders</td><td>Count PENDING + MANUAL_BANK</td><td>No</td></tr>
+        <tr><td>Stripe / bank / SMTP flags</td><td>Platform settings + env</td><td>No</td></tr>
+        <tr><td>Billing alerts</td><td>Recent <code>adminAuditLog</code> billing events</td><td>No</td></tr>
+        <tr><td>Recent orders</td><td>Last 8 orders from DB</td><td>No</td></tr>
+        <tr><td>Telnyx status</td><td><code>getTelnyxStatus()</code> — live API ping</td><td>No</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- DATATABLES -->
+  <section id="datatables">
+    <h2>9. DataTable pages</h2>
+    <p>All tables use client-side search, sort, and pagination via <span class="path">web/src/components/data-table.tsx</span>. Server-side pagination is limited to API row caps (orders: 100, audit: 100–200).</p>
+    <table>
+      <thead><tr><th>Page</th><th>Table title</th><th>API source</th><th>Dynamic?</th></tr></thead>
+      <tbody>
+        <tr><td><code>/admin</code></td><td>Recent orders</td><td><code>GET /dashboard</code> → recentOrders</td><td><span class="badge badge-yes">Yes</span></td></tr>
+        <tr><td><code>/admin/tenants</code></td><td>Tenant directory</td><td><code>GET /tenants</code></td><td><span class="badge badge-yes">Yes</span></td></tr>
+        <tr><td><code>/admin/tenants/[id]</code></td><td>Users; Phone numbers</td><td><code>GET /tenants/:id</code></td><td><span class="badge badge-yes">Yes</span></td></tr>
+        <tr><td><code>/admin/orders</code></td><td>Order directory</td><td><code>GET /orders</code></td><td><span class="badge badge-yes">Yes</span></td></tr>
+        <tr><td><code>/admin/revenue</code></td><td>By tenant; By month</td><td><code>GET /revenue</code></td><td><span class="badge badge-yes">Yes</span></td></tr>
+        <tr><td><code>/admin/audit</code></td><td>Audit log</td><td><code>GET /audit-log</code></td><td><span class="badge badge-yes">Yes</span></td></tr>
+        <tr><td><code>/admin/inventory</code></td><td>Tenant number allocation</td><td><code>GET /tenants</code> (derived)</td><td><span class="badge badge-partial">Partial</span></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- PLACEHOLDERS -->
+  <section id="placeholders">
+    <h2>10. Placeholders &amp; "Soon" roadmap items</h2>
+    <div class="callout callout-warn">
+      <strong>These are not dynamic today.</strong>
+      They appear in navigation or KPI cards but have no live backend integration.
+    </div>
+    <table>
+      <thead><tr><th>Feature</th><th>Nav / UI location</th><th>Current state</th></tr></thead>
+      <tbody>
+        <tr><td>Voice quality heatmaps</td><td>/admin/voice-quality</td><td>Placeholder page only</td></tr>
+        <tr><td>RBAC &amp; compliance</td><td>/admin/security</td><td>Placeholder page only</td></tr>
+        <tr><td>Resource quotas</td><td>Nav → /admin/tenants</td><td>Nav "Soon"; no quota UI or API</td></tr>
+        <tr><td>Number porting (LNP)</td><td>/admin/inventory/porting</td><td>Nav "Soon"; route 404; KPI hardcoded 0</td></tr>
+        <tr><td>Least cost routing</td><td>/admin/trunking/lcr</td><td>Nav "Soon"; route 404</td></tr>
+        <tr><td>Global average MOS</td><td>Overview KPI</td><td>Env constant, not call-quality telemetry</td></tr>
+        <tr><td>SIP registration rate</td><td>Overview KPI</td><td>Configuration heuristic, not live SIP stats</td></tr>
+        <tr><td>Carrier balance</td><td>Overview KPI</td><td>Static note; no Telnyx balance API</td></tr>
+        <tr><td>Wholesale DID pool</td><td>Inventory KPI</td><td>Static "Telnyx" label</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- GAPS -->
+  <section id="gaps">
+    <h2>11. Known gaps &amp; recommendations</h2>
+    <ul>
+      <li><strong>Replace estimated KPIs</strong> — Wire MOS and SIP registration to Telnyx/webhook telemetry or a monitoring service.</li>
+      <li><strong>LNP workflow</strong> — Build porting page + API; replace hardcoded <code>pendingLnpRequests: 0</code>.</li>
+      <li><strong>Inventory API</strong> — Add wholesale pool count from Telnyx number search or inventory table.</li>
+      <li><strong>Carrier balance</strong> — Integrate Telnyx billing/balance API for live spend vs balance KPI.</li>
+      <li><strong>Fix dead nav links</strong> — Create pages for <code>/admin/inventory/porting</code> and <code>/admin/trunking/lcr</code>, or remove links until ready.</li>
+      <li><strong>Resource quotas</strong> — Separate page + API for per-tenant limits (users, DIDs, concurrent calls).</li>
+      <li><strong>RBAC UI</strong> — Role management beyond binary SUPER_ADMIN / TENANT_ADMIN.</li>
+      <li><strong>Placeholder page auth</strong> — Add SUPER_ADMIN gate to voice-quality and security pages for consistency.</li>
+    </ul>
+  </section>
+
+</main>
+
+<footer>
+  VSP-VOIP Super Admin Dashboard Documentation · Project: e:\vsp-voip · Open this file in any browser
+</footer>
+
+</body>
+</html>

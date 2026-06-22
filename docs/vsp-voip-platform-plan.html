@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VSP-VOIP Platform Plan — RingCentral-Style Web Application</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #1a2332;
+      --surface2: #243044;
+      --text: #e7ecf3;
+      --muted: #9aa8bc;
+      --accent: #00c853;
+      --accent2: #00b0ff;
+      --warn: #ffb300;
+      --border: #2d3a4f;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.65;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background: linear-gradient(135deg, #1a2332 0%, #0d2137 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 2.5rem 2rem;
+    }
+    header h1 { margin: 0 0 0.5rem; font-size: 1.85rem; }
+    header p { margin: 0; color: var(--muted); max-width: 900px; }
+    .badge {
+      display: inline-block;
+      background: var(--accent);
+      color: #000;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      margin-bottom: 0.75rem;
+    }
+    nav.toc {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      overflow-x: auto;
+    }
+    nav.toc a {
+      color: var(--accent2);
+      text-decoration: none;
+      margin-right: 1.25rem;
+      font-size: 0.9rem;
+      white-space: nowrap;
+    }
+    nav.toc a:hover { text-decoration: underline; }
+    main { max-width: 1100px; margin: 0 auto; padding: 2rem; }
+    section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.75rem;
+      margin-bottom: 1.5rem;
+    }
+    h2 {
+      margin-top: 0;
+      color: var(--accent2);
+      font-size: 1.35rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.5rem;
+    }
+    h3 { color: var(--text); font-size: 1.05rem; margin-top: 1.5rem; }
+    h4 { color: var(--muted); font-size: 0.95rem; margin-top: 1rem; }
+    p, li { color: var(--text); }
+    .muted { color: var(--muted); font-size: 0.92rem; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      margin: 1rem 0;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.65rem 0.85rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--surface2); color: var(--accent2); }
+    tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+    .done { color: var(--accent); font-weight: 600; }
+    .todo { color: var(--warn); font-weight: 600; }
+    .phase {
+      display: grid;
+      grid-template-columns: 80px 1fr;
+      gap: 1rem;
+      margin: 1rem 0;
+      padding: 1rem;
+      background: var(--surface2);
+      border-radius: 8px;
+      border-left: 4px solid var(--accent);
+    }
+    .phase-num { font-size: 1.5rem; font-weight: 800; color: var(--accent); }
+    pre, code {
+      font-family: "Cascadia Code", Consolas, monospace;
+      font-size: 0.85rem;
+    }
+    pre {
+      background: #0a0e14;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      overflow-x: auto;
+      color: #b5c4de;
+    }
+    .flow {
+      background: #0a0e14;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem;
+      font-family: monospace;
+      font-size: 0.82rem;
+      line-height: 1.5;
+      overflow-x: auto;
+      white-space: pre;
+      color: #a8d4a8;
+    }
+    .grid2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    @media (max-width: 768px) {
+      .grid2 { grid-template-columns: 1fr; }
+      main { padding: 1rem; }
+    }
+    ul.checklist { list-style: none; padding-left: 0; }
+    ul.checklist li::before { content: "☐ "; color: var(--warn); }
+    ul.checklist li.done-item::before { content: "✓ "; color: var(--accent); }
+    .screen-card {
+      background: var(--surface2);
+      border-radius: 8px;
+      padding: 1rem;
+      margin: 0.5rem 0;
+    }
+    .screen-card strong { color: var(--accent2); }
+    footer {
+      text-align: center;
+      padding: 2rem;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <span class="badge">VSP-VOIP PLATFORM PLAN</span>
+  <h1>RingCentral-Style Web Application — Complete Flow &amp; Design Guide</h1>
+  <p>
+    Step-by-step blueprint for building a white-label UCaaS platform on <strong>Telnyx</strong> + <strong>Node.js/Express</strong> + <strong>PostgreSQL</strong>.
+    Web portal for admins and tenants; <strong>Flutter</strong> mobile apps consume the same REST API.
+  </p>
+  <p class="muted">Document version: June 2026 · Current backend: e:\vsp-voip (Phase 1 inbound greeting working)</p>
+</header>
+
+<nav class="toc">
+  <a href="#overview">Overview</a>
+  <a href="#what-you-get">What You Get</a>
+  <a href="#architecture">Architecture</a>
+  <a href="#tech-stack">Tech Stack</a>
+  <a href="#roles">User Roles</a>
+  <a href="#menus">Menus</a>
+  <a href="#screens">Screens</a>
+  <a href="#api">API for Web + Flutter</a>
+  <a href="#call-flow">Call Flow</a>
+  <a href="#phases">Phases</a>
+  <a href="#flutter">Flutter Handoff</a>
+  <a href="#telnyx">Telnyx Official</a>
+  <a href="#checklist">Checklist</a>
+</nav>
+
+<main>
+
+<!-- ========== OVERVIEW ========== -->
+<section id="overview">
+  <h2>1. Overview — What You Are Building</h2>
+  <p>
+    A <strong>multi-tenant cloud phone platform</strong> (like RingCentral / Zoom Phone) where:
+  </p>
+  <ul>
+    <li><strong>You (Platform Owner)</strong> operate VSP-VOIP and onboard business customers (tenants).</li>
+    <li><strong>Each Tenant</strong> (e.g. Asuitech Solutions) gets phone numbers, users, greetings, call logs, and optional mobile apps.</li>
+    <li><strong>Telnyx</strong> is the carrier layer (PSTN, SIP, TeXML / Voice API). Your software is the control plane.</li>
+    <li><strong>Web app</strong> = admin + tenant portals. <strong>Flutter app</strong> = softphone / call history for end users (built by another developer using your API).</li>
+  </ul>
+
+  <h3>What Already Works (Phase 1 — Done)</h3>
+  <table>
+    <tr><th>Feature</th><th>Status</th><th>Notes</th></tr>
+    <tr><td>Inbound call to assigned number</td><td class="done">Done</td><td>+1 (309) 988-0196 → Asuitech greeting</td></tr>
+    <tr><td>TeXML webhook</td><td class="done">Done</td><td>/webhook, /webhook/status</td></tr>
+    <tr><td>Tenant routing by dialed number</td><td class="done">Done</td><td>PostgreSQL + cache</td></tr>
+    <tr><td>Call logging</td><td class="done">Done</td><td>CallLog model, GET /api/calls</td></tr>
+    <tr><td>Number search / buy / assign APIs</td><td class="done">Done</td><td>Telnyx integration</td></tr>
+    <tr><td>Web UI / Auth / Admin portal</td><td class="todo">Not started</td><td>This document defines it</td></tr>
+    <tr><td>Outbound calling / softphone</td><td class="todo">Not started</td><td>Phase 4+</td></tr>
+  </table>
+</section>
+
+<!-- ========== WHAT YOU GET ========== -->
+<section id="what-you-get">
+  <h2>2. What You Will Get (End Product)</h2>
+  <div class="grid2">
+    <div>
+      <h3>Platform Owner (Super Admin)</h3>
+      <ul>
+        <li>Dashboard: tenants, numbers, minutes, revenue</li>
+        <li>Create / suspend tenants</li>
+        <li>Assign DIDs from Telnyx inventory</li>
+        <li>Global Telnyx &amp; billing settings</li>
+        <li>Audit logs &amp; support tools</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Tenant Admin (Business Customer)</h3>
+      <ul>
+        <li>Company profile &amp; branding (logo, greeting text)</li>
+        <li>Manage phone numbers</li>
+        <li>Users &amp; extensions</li>
+        <li>Call routing (IVR, hours, forward)</li>
+        <li>Call history &amp; recordings</li>
+        <li>Billing &amp; plan view</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Tenant User (Employee)</h3>
+      <ul>
+        <li>Web softphone (optional Phase 5)</li>
+        <li>Voicemail inbox</li>
+        <li>Call history</li>
+        <li>Profile &amp; presence</li>
+        <li><em>Same features in Flutter app</em></li>
+      </ul>
+    </div>
+    <div>
+      <h3>Caller (Public)</h3>
+      <ul>
+        <li>Calls tenant's published number</li>
+        <li>Hears custom greeting</li>
+        <li>IVR menu (Phase 3)</li>
+        <li>Queue / voicemail / transfer</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ========== ARCHITECTURE ========== -->
+<section id="architecture">
+  <h2>3. System Architecture</h2>
+  <div class="flow">┌─────────────────────────────────────────────────────────────────────────────┐
+│                           CLIENTS                                            │
+├──────────────────────┬──────────────────────┬─────────────────────────────┤
+│  Web Portal          │  Flutter Mobile Apps │  PSTN Callers               │
+│  (React / Next.js)   │  (iOS + Android)     │  (Any phone)                │
+└──────────┬───────────┴──────────┬───────────┴──────────────┬──────────────┘
+           │ REST + JWT           │ REST + JWT               │ Phone call
+           ▼                      ▼                          ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    VSP-VOIP API (Express / Node.js)                          │
+│  /api/auth  /api/tenants  /api/numbers  /api/calls  /api/users  /api/ivr   │
+│  /webhook (TeXML)  /webhook/status  /webhooks/telnyx (Voice API - future)   │
+└──────────┬──────────────────────────────┬───────────────────────────────────┘
+           │                              │
+           ▼                              ▼
+┌─────────────────────┐        ┌─────────────────────┐
+│  PostgreSQL (Prisma) │        │  Telnyx CPaaS       │
+│  Tenants, Users,     │        │  Numbers, Voice,    │
+│  Numbers, Calls, IVR │        │  SMS, WebRTC        │
+└─────────────────────┘        └─────────────────────┘</div>
+
+  <h3>Deployment (Production)</h3>
+  <table>
+    <tr><th>Component</th><th>Recommendation</th></tr>
+    <tr><td>API server</td><td>Railway, Render, AWS ECS, or Azure App Service</td></tr>
+    <tr><td>Database</td><td>Managed PostgreSQL (RDS, Supabase, Neon)</td></tr>
+    <tr><td>Web frontend</td><td>Vercel or Netlify (static/SSR)</td></tr>
+    <tr><td>Webhooks</td><td>Public HTTPS URL (no ngrok in production)</td></tr>
+    <tr><td>Files / recordings</td><td>S3-compatible storage (Telnyx Cloud Storage or AWS S3)</td></tr>
+  </table>
+</section>
+
+<!-- ========== TECH STACK ========== -->
+<section id="tech-stack">
+  <h2>4. Recommended Technology Stack</h2>
+
+  <h3>Backend (Keep &amp; Extend — Already Started)</h3>
+  <table>
+    <tr><th>Layer</th><th>Technology</th><th>Why</th></tr>
+    <tr><td>Runtime</td><td>Node.js 20+ with TypeScript</td><td>Same codebase as today; migrate server.js → TS gradually</td></tr>
+    <tr><td>API</td><td>Express (or Fastify)</td><td>Already working; add route modules</td></tr>
+    <tr><td>ORM</td><td>Prisma 7 + PostgreSQL</td><td>Already configured</td></tr>
+    <tr><td>Auth</td><td>JWT + refresh tokens (or Auth0 / Clerk for faster launch)</td><td>Web + Flutter use same tokens</td></tr>
+    <tr><td>Voice</td><td>Telnyx TeXML + Voice API</td><td>TeXML for IVR/greeting; Voice API for outbound/softphone later</td></tr>
+    <tr><td>Validation</td><td>Zod</td><td>Shared request schemas</td></tr>
+    <tr><td>Docs</td><td>OpenAPI (Swagger)</td><td>Flutter developer reads API spec</td></tr>
+  </table>
+
+  <h3>Web Frontend (Recommended)</h3>
+  <table>
+    <tr><th>Option</th><th>Stack</th><th>Best For</th></tr>
+    <tr>
+      <td><strong>Option A (Recommended)</strong></td>
+      <td><strong>Next.js 15 + React + TypeScript + Tailwind CSS + shadcn/ui</strong></td>
+      <td>RingCentral-style admin dashboards, SSR, SEO for marketing pages, large ecosystem</td>
+    </tr>
+    <tr>
+      <td>Option B</td>
+      <td>React (Vite) + TypeScript + Tailwind + shadcn/ui</td>
+      <td>Pure SPA admin portal, simpler deploy as static site</td>
+    </tr>
+    <tr>
+      <td>Option C</td>
+      <td>Vue 3 (Nuxt) + TypeScript + Tailwind</td>
+      <td>If team prefers Vue</td>
+    </tr>
+  </table>
+
+  <p><strong>Recommendation:</strong> Use <strong>Next.js App Router</strong> with a monorepo or separate repo:</p>
+  <pre>vsp-voip/
+├── apps/
+│   ├── api/          ← Express backend (move server.js here)
+│   └── web/          ← Next.js admin + tenant portal
+├── packages/
+│   └── shared/       ← Types, Zod schemas (web + API share)
+└── docs/</pre>
+
+  <h3>UI Component Libraries (Dashboard Look)</h3>
+  <ul>
+    <li><strong>shadcn/ui</strong> — clean tables, dialogs, forms (RingCentral-like)</li>
+    <li><strong>TanStack Table</strong> — call logs, number lists</li>
+    <li><strong>Recharts</strong> — usage charts on dashboard</li>
+    <li><strong>React Hook Form + Zod</strong> — forms</li>
+  </ul>
+
+  <h3>Mobile (Separate Developer — Flutter)</h3>
+  <table>
+    <tr><th>Item</th><th>Choice</th></tr>
+    <tr><td>Framework</td><td>Flutter 3.x (Dart)</td></tr>
+    <tr><td>HTTP</td><td>dio package → your REST API</td></tr>
+    <tr><td>Auth</td><td>Same JWT as web; secure storage (flutter_secure_storage)</td></tr>
+    <tr><td>Softphone (later)</td><td>Telnyx WebRTC SDK or SIP library</td></tr>
+    <tr><td>State</td><td>Riverpod or Bloc</td></tr>
+  </table>
+  <p class="muted">Flutter app does NOT duplicate business logic — it only calls your API. You publish OpenAPI docs for the mobile team.</p>
+</section>
+
+<!-- ========== ROLES ========== -->
+<section id="roles">
+  <h2>5. User Roles &amp; Permissions</h2>
+  <table>
+    <tr><th>Role</th><th>Scope</th><th>Can Do</th></tr>
+    <tr><td>Super Admin</td><td>Platform</td><td>All tenants, billing, Telnyx keys, system settings</td></tr>
+    <tr><td>Tenant Admin</td><td>One company</td><td>Numbers, users, IVR, greetings, reports for their tenant</td></tr>
+    <tr><td>Tenant User</td><td>One company</td><td>Own extension, voicemail, call history, softphone</td></tr>
+    <tr><td>Read-only</td><td>One company</td><td>View reports only (optional)</td></tr>
+  </table>
+
+  <h3>Database Additions (Future Prisma Models)</h3>
+  <pre>User       → id, email, passwordHash, role, tenantId
+Extension  → id, userId, extNumber, sipCredentials
+Greeting   → id, tenantId, message, voice, enabled
+IvrMenu    → id, tenantId, options JSON
+BusinessHours → tenantId, timezone, schedule JSON
+Subscription → tenantId, plan, status</pre>
+</section>
+
+<!-- ========== MENUS ========== -->
+<section id="menus">
+  <h2>6. Navigation Menus (Web Application)</h2>
+
+  <h3>6A. Super Admin Portal — Top-Level Menu</h3>
+  <table>
+    <tr><th>Menu</th><th>Sub-menu Items</th></tr>
+    <tr><td>Dashboard</td><td>Overview, active calls, alerts</td></tr>
+    <tr><td>Tenants</td><td>All tenants, Create tenant, Suspended</td></tr>
+    <tr><td>Phone Numbers</td><td>Inventory, Assign to tenant, Port requests</td></tr>
+    <tr><td>Calls</td><td>Global CDR, live calls, recordings</td></tr>
+    <tr><td>Billing</td><td>Plans, invoices, usage</td></tr>
+    <tr><td>Integrations</td><td>Telnyx settings, webhooks, API keys</td></tr>
+    <tr><td>Reports</td><td>Usage by tenant, revenue, quality</td></tr>
+    <tr><td>Settings</td><td>Platform branding, email, security, admins</td></tr>
+  </table>
+
+  <h3>6B. Tenant Admin Portal — Top-Level Menu</h3>
+  <table>
+    <tr><th>Menu</th><th>Sub-menu Items</th></tr>
+    <tr><td>Dashboard</td><td>Today's calls, missed calls, quick stats</td></tr>
+    <tr><td>Phone Numbers</td><td>My numbers, Buy number, Settings per number</td></tr>
+    <tr><td>Users &amp; Extensions</td><td>Users list, Add user, Extension map</td></tr>
+    <tr><td>Auto Attendant / IVR</td><td>Greeting, menu options, business hours</td></tr>
+    <tr><td>Call Routing</td><td>Forward rules, ring groups, queues</td></tr>
+    <tr><td>Call History</td><td>Inbound, outbound, export CSV</td></tr>
+    <tr><td>Voicemail</td><td>Boxes, greetings, transcriptions</td></tr>
+    <tr><td>Recordings</td><td>Search, playback, retention</td></tr>
+    <tr><td>Reports</td><td>Usage, answer rate, peak hours</td></tr>
+    <tr><td>Company Settings</td><td>Profile, branding, timezone, billing plan</td></tr>
+  </table>
+
+  <h3>6C. Tenant User Portal — Simplified Menu</h3>
+  <table>
+    <tr><th>Menu</th><th>Items</th></tr>
+    <tr><td>Home</td><td>Extension status, recent calls</td></tr>
+    <tr><td>Calls</td><td>Dial pad (Phase 5), history</td></tr>
+    <tr><td>Voicemail</td><td>Inbox</td></tr>
+    <tr><td>Profile</td><td>Name, password, notification prefs</td></tr>
+  </table>
+</section>
+
+<!-- ========== SCREENS ========== -->
+<section id="screens">
+  <h2>7. Screen Inventory (Every Page to Design)</h2>
+
+  <h3>Public / Auth Screens</h3>
+  <div class="screen-card"><strong>Login</strong> — Email + password; tenant subdomain optional (asuitech.vspvoip.com)</div>
+  <div class="screen-card"><strong>Forgot Password</strong> — Email reset flow</div>
+  <div class="screen-card"><strong>Marketing Landing</strong> — Product overview, pricing, sign up (optional)</div>
+
+  <h3>Super Admin Screens</h3>
+  <div class="screen-card"><strong>Platform Dashboard</strong> — Cards: total tenants, active numbers, calls today, MRR</div>
+  <div class="screen-card"><strong>Tenant List</strong> — Table: name, status, numbers count, plan, created date, actions</div>
+  <div class="screen-card"><strong>Create / Edit Tenant</strong> — Form: company name, admin email, plan, TeXML app link</div>
+  <div class="screen-card"><strong>Tenant Detail</strong> — Tabs: overview, numbers, users, calls, billing</div>
+  <div class="screen-card"><strong>Number Inventory</strong> — Search Telnyx, buy, assign to tenant</div>
+  <div class="screen-card"><strong>Global Call Logs</strong> — Filter by tenant, date, direction</div>
+  <div class="screen-card"><strong>Telnyx Integration</strong> — API key status, TeXML apps, webhook URLs</div>
+  <div class="screen-card"><strong>Platform Settings</strong> — Brand name, logo, support email</div>
+
+  <h3>Tenant Admin Screens</h3>
+  <div class="screen-card"><strong>Tenant Dashboard</strong> — Calls today, missed, avg duration, chart</div>
+  <div class="screen-card"><strong>My Phone Numbers</strong> — List assigned numbers; click → number settings</div>
+  <div class="screen-card"><strong>Buy a Number</strong> — Area code search (uses /api/numbers/search)</div>
+  <div class="screen-card"><strong>Number Settings</strong> — Assigned greeting, IVR, forward target, recording on/off</div>
+  <div class="screen-card"><strong>Greeting Editor</strong> — Text preview, voice select, "Test call" button</div>
+  <div class="screen-card"><strong>IVR Builder</strong> — Visual or form: "Press 1 for Sales, 2 for Support"</div>
+  <div class="screen-card"><strong>Business Hours</strong> — Weekly schedule; after-hours route to voicemail</div>
+  <div class="screen-card"><strong>Users List</strong> — Add/edit/deactivate users, assign extension</div>
+  <div class="screen-card"><strong>User Detail</strong> — Extension, devices, permissions</div>
+  <div class="screen-card"><strong>Call History</strong> — Table: from, to, duration, status, recording link</div>
+  <div class="screen-card"><strong>Voicemail Inboxes</strong> — Per extension messages</div>
+  <div class="screen-card"><strong>Company Profile</strong> — Name, logo, address, timezone</div>
+  <div class="screen-card"><strong>Billing &amp; Plan</strong> — Current plan, usage, upgrade</div>
+
+  <h3>Tenant User Screens</h3>
+  <div class="screen-card"><strong>User Home</strong> — Extension, presence, last 5 calls</div>
+  <div class="screen-card"><strong>Call History</strong> — Personal calls only</div>
+  <div class="screen-card"><strong>Voicemail</strong> — Play, delete, mark read</div>
+  <div class="screen-card"><strong>Softphone</strong> — Dial pad + active call UI (Phase 5)</div>
+  <div class="screen-card"><strong>Profile Settings</strong> — Password, notifications</div>
+</section>
+
+<!-- ========== API ========== -->
+<section id="api">
+  <h2>8. REST API — Web &amp; Flutter Share the Same Endpoints</h2>
+
+  <h3>Auth</h3>
+  <pre>POST /api/auth/login          → { email, password } → { accessToken, refreshToken, user }
+POST /api/auth/refresh        → { refreshToken } → { accessToken }
+POST /api/auth/logout
+GET  /api/auth/me             → current user + tenant</pre>
+
+  <h3>Tenants (Super Admin)</h3>
+  <pre>GET    /api/tenants
+POST   /api/tenants
+GET    /api/tenants/:id
+PATCH  /api/tenants/:id
+DELETE /api/tenants/:id</pre>
+
+  <h3>Phone Numbers</h3>
+  <pre>GET  /api/numbers/search?areaCode=313        ← already exists
+POST /api/numbers/buy                          ← already exists
+POST /api/numbers/assign                       ← already exists
+GET  /api/tenants/:tenantId/numbers
+PATCH /api/numbers/:id                         ← greeting, IVR settings</pre>
+
+  <h3>Calls</h3>
+  <pre>GET /api/calls?tenantId=&amp;from=&amp;to=&amp;limit=   ← already exists
+GET /api/calls/:id
+GET /api/calls/:id/recording                   ← future</pre>
+
+  <h3>Greetings (New)</h3>
+  <pre>GET  /api/tenants/:tenantId/greeting
+PUT  /api/tenants/:tenantId/greeting           → { message, voice, pauseSeconds }</pre>
+
+  <h3>Users &amp; Extensions (New)</h3>
+  <pre>GET  /api/tenants/:tenantId/users
+POST /api/tenants/:tenantId/users
+PATCH /api/users/:id
+GET  /api/users/:id/voicemail</pre>
+
+  <h3>Webhooks (Telnyx — No JWT)</h3>
+  <pre>POST /webhook              ← TeXML instructions (already exists)
+POST /webhook/status         ← call progress (already exists)</pre>
+
+  <p class="muted">Deliver <strong>openapi.yaml</strong> to Flutter developer. They implement screens against these endpoints only.</p>
+</section>
+
+<!-- ========== CALL FLOW ========== -->
+<section id="call-flow">
+  <h2>9. End-to-End Call Flow (Current + Future)</h2>
+
+  <h3>9A. Inbound Call Today (Working)</h3>
+  <div class="flow">Caller dials +1 (309) 988-0196
+        │
+        ▼
+   Telnyx PSTN
+        │
+        ▼ POST /webhook
+   VSP-VOIP Server
+        │
+        ├─ Lookup PhoneNumber → Tenant (Asuitech)
+        ├─ Build TeXML: "Welcome to Asuitech Solutions..."
+        └─ Log CallLog
+        │
+        ▼
+   Caller hears greeting → line open 60 sec → hang up</div>
+
+  <h3>9B. Inbound Call with Web Portal (Phase 3)</h3>
+  <div class="flow">Caller dials tenant number
+        │
+        ▼
+   Telnyx → POST /webhook
+        │
+        ▼
+   Server reads Greeting + IvrMenu from DB (edited in web UI)
+        │
+        ├─ After hours? → voicemail TeXML
+        ├─ IVR Press 1 → Dial extension
+        └─ Default → greeting + queue / forward</div>
+
+  <h3>9C. Outbound from Flutter App (Phase 5)</h3>
+  <div class="flow">User taps Call in Flutter app
+        │
+        ▼ POST /api/calls/outbound
+        │
+        ▼
+   Server → Telnyx Voice API / WebRTC token
+        │
+        ▼
+   Flutter WebRTC SDK ↔ Telnyx ↔ PSTN</div>
+</section>
+
+<!-- ========== PHASES ========== -->
+<section id="phases">
+  <h2>10. Step-by-Step Build Phases</h2>
+
+  <div class="phase">
+    <div class="phase-num">1</div>
+    <div>
+      <strong>Voice Foundation</strong> <span class="done">DONE</span>
+      <p>TeXML webhook, tenant routing, greeting, call logs, number APIs, PostgreSQL, Telnyx ngrok testing.</p>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-num">2</div>
+    <div>
+      <strong>API + Auth Layer</strong> <span class="todo">NEXT</span>
+      <p>Add User model, JWT auth, role middleware, OpenAPI docs. Refactor server.js into routes/. Deploy API to production HTTPS.</p>
+      <ul>
+        <li>POST /api/auth/login</li>
+        <li>Protect /api/* routes</li>
+        <li>Super admin seed user</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-num">3</div>
+    <div>
+      <strong>Web Portal — Core Admin UI</strong>
+      <p>Next.js app: login, super admin tenant CRUD, tenant admin dashboard, number management, greeting editor (writes to DB → webhook reads it).</p>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-num">4</div>
+    <div>
+      <strong>IVR &amp; Routing</strong>
+      <p>Business hours, IVR menu builder, call forward, ring groups. TeXML generated dynamically from DB.</p>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-num">5</div>
+    <div>
+      <strong>Flutter Mobile App</strong> (other developer)
+      <p>Login, call history, voicemail list, push notifications. API spec handoff from Phase 2.</p>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-num">6</div>
+    <div>
+      <strong>Outbound &amp; Softphone</strong>
+      <p>Telnyx WebRTC / Voice API, dial pad in web + Flutter, click-to-call.</p>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-num">7</div>
+    <div>
+      <strong>Billing &amp; White-Label</strong>
+      <p>Stripe subscriptions, usage metering, custom domains per tenant, email notifications.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ========== FLUTTER ========== -->
+<section id="flutter">
+  <h2>11. Flutter Developer Handoff Package</h2>
+  <p>Give your mobile developer these items:</p>
+  <table>
+    <tr><th>Deliverable</th><th>Description</th></tr>
+    <tr><td>openapi.yaml</td><td>Full REST API specification</td></tr>
+    <tr><td>Staging API URL</td><td>https://api.vspvoip.com (or your domain)</td></tr>
+    <tr><td>Test credentials</td><td>Tenant user login for sandbox</td></tr>
+    <tr><td>Auth flow doc</td><td>JWT in Authorization: Bearer header</td></tr>
+    <tr><td>Screen map</td><td>Section 7 User screens → Flutter routes</td></tr>
+    <tr><td>Design system</td><td>Logo, colors, fonts (match web portal)</td></tr>
+  </table>
+
+  <h3>Flutter Screens (Mirror Web User Portal)</h3>
+  <ol>
+    <li>Splash → Login</li>
+    <li>Home (extension status, recent calls)</li>
+    <li>Call History (paginated list from GET /api/calls)</li>
+    <li>Voicemail Inbox</li>
+    <li>Voicemail Player</li>
+    <li>Profile / Settings</li>
+    <li>Dial Pad + Active Call (Phase 6 — WebRTC)</li>
+  </ol>
+</section>
+
+<!-- ========== TELNYX OFFICIAL ========== -->
+<section id="telnyx">
+  <h2>13. Telnyx Official Documentation — Finalized Architecture</h2>
+  <p>
+    VSP-VOIP buys numbers from and routes calls through <strong>Telnyx</strong>.
+    This section maps our platform plan to Telnyx's recommended docs (index:
+    <a href="https://developers.telnyx.com/llms.txt" style="color:var(--accent2)">developers.telnyx.com/llms.txt</a>).
+  </p>
+
+  <h3>13A. What Telnyx Provides vs What We Build</h3>
+  <table>
+    <tr><th>Telnyx (Carrier / CPaaS)</th><th>VSP-VOIP (Your Platform)</th></tr>
+    <tr><td>PSTN connectivity, phone number inventory</td><td>Tenant accounts, branding, web portal</td></tr>
+    <tr><td>TeXML / Voice API execution</td><td>Business logic, greetings, IVR rules in DB</td></tr>
+    <tr><td>Number Orders API</td><td>Search/buy UI → your /api/numbers/* → Telnyx API</td></tr>
+    <tr><td>Webhook delivery + Ed25519 signatures</td><td>/webhook, /webhook/status + verify</td></tr>
+    <tr><td>Recordings, TTS voices, queues (verbs)</td><td>Admin screens to configure them</td></tr>
+    <tr><td>Managed Accounts (optional, approved)</td><td>One Telnyx sub-account per tenant (Phase 7)</td></tr>
+  </table>
+
+  <h3>13B. Number Lifecycle (Telnyx Official Flow)</h3>
+  <p>Per <a href="https://developers.telnyx.com/docs/numbers/phone-numbers/getting-started" style="color:var(--accent2)">Phone Numbers Getting Started</a>:</p>
+  <div class="flow">1. SEARCH   → GET /v2/available_phone_numbers          (you have: /api/numbers/search)
+2. ORDER    → POST /v2/number_orders                     (you have: /api/numbers/buy)
+3. CONFIG   → PATCH /v2/phone_numbers/{id}               (assign TeXML app connection)
+4. REGULATORY → Requirement groups if country requires   (Phase 3 — US local usually simple)
+5. YOUR DB  → PhoneNumber linked to Tenant               (you have: /api/numbers/assign)
+6. VOICE    → Number → TeXML Application → /webhook</div>
+
+  <h3>13C. TeXML Application Settings (Telnyx Required)</h3>
+  <p>Per <a href="https://developers.telnyx.com/docs/voice/programmable-voice/texml-fundamentals" style="color:var(--accent2)">TeXML Fundamentals</a>:</p>
+  <table>
+    <tr><th>Telnyx Field</th><th>Your Value</th><th>Status</th></tr>
+    <tr><td>Webhook URL (Voice URL)</td><td>https://YOUR-DOMAIN/webhook</td><td class="done">Done (ngrok dev)</td></tr>
+    <tr><td>Voice Method</td><td>POST</td><td class="done">Done</td></tr>
+    <tr><td>Call progress events URL</td><td>https://YOUR-DOMAIN/webhook/status</td><td class="done">Done</td></tr>
+    <tr><td>Status Callback Method</td><td>POST</td><td class="done">Done</td></tr>
+    <tr><td>Webhook Failover URL</td><td>Backup production URL</td><td class="todo">Production</td></tr>
+    <tr><td>Hang-up on timeout</td><td>Wait for initial TeXML HTTP response (not call length)</td><td class="done">Configured</td></tr>
+    <tr><td>DTMF Type</td><td>RFC 2833</td><td class="done">OK</td></tr>
+  </table>
+
+  <h3>13D. TeXML vs Voice API</h3>
+  <table>
+    <tr><th>Use Case</th><th>Telnyx Product</th><th>When</th></tr>
+    <tr><td>Inbound greeting, IVR, Dial, Queue</td><td><strong>TeXML</strong></td><td>Phase 1–4 (current)</td></tr>
+    <tr><td>Outbound softphone, real-time control</td><td><strong>Voice API</strong></td><td>Phase 5–6</td></tr>
+  </table>
+  <p class="muted">Do not assign the same number to both TeXML and Voice API apps.</p>
+
+  <h3>13E. Webhooks (Telnyx Security Requirements)</h3>
+  <ul>
+    <li>Verify Ed25519 signatures on every webhook</li>
+    <li>API Key (<code>KEY...</code>) for REST only</li>
+    <li>Public Key for webhook verification only</li>
+    <li>Respond HTTP 200 quickly; async logging after</li>
+    <li>Production: HTTPS only</li>
+  </ul>
+
+  <h3>13F. Multi-Tenant / Reseller</h3>
+  <ol>
+    <li><strong>Single Telnyx account + your DB</strong> — current MVP (route by dialed number)</li>
+    <li><strong>Managed Accounts</strong> — requires Telnyx approval; one sub-account per customer</li>
+  </ol>
+  <p><strong>Share your Telnyx email below</strong> — we will map each requirement to a phase.</p>
+  <table>
+    <tr><th>Topic</th><th>Official Link</th></tr>
+    <tr><td>Reselling</td><td><a href="https://support.telnyx.com/en/articles/1130655-can-i-resell-your-services" style="color:var(--accent2)">Can I resell?</a></td></tr>
+    <tr><td>Managed Accounts</td><td><a href="https://developers.telnyx.com/docs/account/managed-accounts" style="color:var(--accent2)">Managed Accounts</a></td></tr>
+    <tr><td>Number orders</td><td><a href="https://developers.telnyx.com/docs/numbers/phone-numbers/number-orders" style="color:var(--accent2)">Number Orders</a></td></tr>
+    <tr><td>Regulatory</td><td><a href="https://developers.telnyx.com/docs/numbers/regulatory-documents" style="color:var(--accent2)">Regulatory docs</a></td></tr>
+    <tr><td>TeXML Say</td><td><a href="https://developers.telnyx.com/docs/voice/programmable-voice/texml-verbs/say" style="color:var(--accent2)">Say verb</a></td></tr>
+    <tr><td>IVR tutorial</td><td><a href="https://developers.telnyx.com/docs/voice/programmable-voice/ivr-demo" style="color:var(--accent2)">IVR Demo</a></td></tr>
+  </table>
+
+  <h3>13G. Finalized Roadmap (Telnyx-Aligned)</h3>
+  <table>
+    <tr><th>Phase</th><th>VSP-VOIP</th><th>Telnyx</th></tr>
+    <tr><td>1 ✓</td><td>Inbound greeting</td><td>TeXML Instruction Fetching</td></tr>
+    <tr><td>2</td><td>Auth, production HTTPS</td><td>Webhook Fundamentals</td></tr>
+    <tr><td>3</td><td>Web portal number buy</td><td>Number Search + Orders API</td></tr>
+    <tr><td>4</td><td>IVR, hours, forward</td><td>Gather, Dial, Enqueue</td></tr>
+    <tr><td>5</td><td>Flutter call history</td><td>TeXML Calls / Recordings API</td></tr>
+    <tr><td>6</td><td>Softphone</td><td>Voice API + WebRTC</td></tr>
+    <tr><td>7</td><td>Tenant isolation</td><td>Managed Accounts (approved)</td></tr>
+  </table>
+
+  <h3>13H. Architecture Decision (Telnyx Email — Finalized)</h3>
+  <p>Telnyx compared three UCaaS architectures. <strong>VSP-VOIP uses Option 3</strong> (Pure Telnyx API). You are already on the correct path.</p>
+  <table>
+    <tr><th>Option</th><th>What it is</th><th>VSP-VOIP?</th></tr>
+    <tr>
+      <td>1. FusionPBX + FreeSWITCH</td>
+      <td>Open-source PBX GUI + media server; Telnyx via <strong>SIP trunk</strong></td>
+      <td class="todo">No — you build the portal yourself</td>
+    </tr>
+    <tr>
+      <td>2. FreeSWITCH + OpenSIPS/Kamailio</td>
+      <td>Custom SIP proxy + media; Telnyx via <strong>SIP trunk</strong></td>
+      <td class="todo">No — high complexity, SIP expertise</td>
+    </tr>
+    <tr>
+      <td><strong>3. Pure Telnyx API + WebRTC</strong></td>
+      <td>TeXML / Call Control API + Numbers API; no servers to run</td>
+      <td class="done"><strong>YES — current stack</strong></td>
+    </tr>
+  </table>
+
+  <h4>How Telnyx products map to Option 3 (your stack)</h4>
+  <table>
+    <tr><th>Telnyx product</th><th>Your use</th><th>Doc</th></tr>
+    <tr><td>Phone Numbers API</td><td>Search, buy, assign numbers</td><td><a href="https://developers.telnyx.com/docs/numbers/phone-numbers/getting-started" style="color:var(--accent2)">Numbers</a></td></tr>
+    <tr><td>TeXML Application</td><td>Inbound greeting, IVR (Phase 1–4)</td><td><a href="https://developers.telnyx.com/docs/voice/programmable-voice/texml-fundamentals" style="color:var(--accent2)">TeXML</a></td></tr>
+    <tr><td>Voice API + WebRTC</td><td>Flutter softphone (Phase 6)</td><td><a href="https://developers.telnyx.com/docs/voice/programmable-voice/voice-api-fundamentals" style="color:var(--accent2)">Voice API</a></td></tr>
+    <tr><td>REST API v2</td><td>All backend calls</td><td><a href="https://developers.telnyx.com/development/api-fundamentals" style="color:var(--accent2)">API Fundamentals</a></td></tr>
+    <tr><td>SIP Trunking</td><td><em>Not needed now</em> — only if you add FreeSWITCH later</td><td><a href="https://developers.telnyx.com/docs/voice/sip-trunking/get-started" style="color:var(--accent2)">SIP Trunking</a></td></tr>
+  </table>
+
+  <p><strong>SIP Trunking vs TeXML (important):</strong></p>
+  <ul>
+    <li><strong>SIP Trunking</strong> = connect a PBX (FreeSWITCH, Asterisk, FusionPBX) to Telnyx for PSTN. You manage SIP servers.</li>
+    <li><strong>TeXML / Voice API</strong> = Telnyx runs call logic; your server returns XML or JSON commands. <strong>You chose this.</strong></li>
+    <li>Both can buy numbers from Telnyx — you use the <strong>Numbers API</strong>, not SIP credentials.</li>
+  </ul>
+
+  <h4>When to reconsider Options 1 or 2</h4>
+  <p>Only if you later need on-prem SIP, custom codec processing, or 100k+ concurrent calls on your own media servers. For a new 2026 cloud UCaaS with Flutter apps, Telnyx recommended Option 3 — matches your plan.</p>
+</section>
+
+<!-- ========== CHECKLIST ========== -->
+<section id="checklist">
+  <h2>12. Master Checklist</h2>
+
+  <h3>Before Starting Web UI</h3>
+  <ul class="checklist">
+    <li class="done-item">Inbound greeting working on Telnyx</li>
+    <li class="done-item">Call progress URL configured</li>
+    <li class="done-item">Tenant + PhoneNumber + CallLog in database</li>
+    <li>Deploy API to production HTTPS (remove ngrok)</li>
+    <li>Add User + auth endpoints</li>
+    <li>Add Greeting model (message editable from UI)</li>
+    <li>Publish OpenAPI spec</li>
+    <li>Choose frontend: Next.js recommended</li>
+    <li>Create Figma wireframes for Section 7 screens</li>
+    <li>Set up Git repo structure (monorepo optional)</li>
+  </ul>
+
+  <h3>Telnyx Production Checklist</h3>
+  <ul class="checklist">
+    <li>TeXML app webhook → production URL</li>
+    <li>Call progress events → /webhook/status</li>
+    <li>Rotate API keys (never commit .env)</li>
+    <li>Enable webhook signature verification (TELNYX_PUBLIC_KEY)</li>
+    <li>Assign numbers to TeXML app (not Voice API app unless Phase 6)</li>
+  </ul>
+</section>
+
+</main>
+
+<footer>
+  VSP-VOIP Platform Plan · Generated for Asuitech Solutions / VSP-VOIP project · Open in any browser
+</footer>
+
+</body>
+</html>

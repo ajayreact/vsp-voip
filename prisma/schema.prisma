@@ -1,0 +1,800 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  TENANT_ADMIN
+  TENANT_USER
+}
+
+enum OrderStatus {
+  PENDING
+  PENDING_PAYMENT
+  PAID
+  FULFILLED
+  PARTIAL
+  FAILED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  STRIPE
+  MANUAL_BANK
+  RAZORPAY
+}
+
+enum PaymentReviewStatus {
+  NONE
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum GatewayMode {
+  test
+  live
+}
+
+enum PortRequestStatus {
+  DRAFT
+  SUBMITTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  FAILED
+}
+
+enum BillingStatus {
+  ACTIVE
+  GRACE
+  SUSPENDED
+}
+
+enum ReceivableStatus {
+  PENDING
+  PAID
+  WRITTEN_OFF
+  CANCELLED
+}
+
+enum IntegrityAlertType {
+  NUMBER_WITHOUT_PAID_ORDER
+  TELNYX_NOT_IN_DB
+  DB_NOT_IN_TELNYX
+  INVOICE_WITHOUT_FULFILLMENT
+  FULFILLMENT_WITHOUT_INVOICE
+  UNPAID_FULFILLMENT
+}
+
+enum ExtensionStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum ExtensionDeviceType {
+  WEBRTC
+  MOBILE
+  SIP
+}
+
+enum ExtensionDeviceStatus {
+  ONLINE
+  OFFLINE
+  EXPIRED
+}
+
+enum ForwardDestinationType {
+  EXTENSION
+  RING_GROUP
+  EXTERNAL_NUMBER
+}
+
+enum DndInboundAction {
+  VOICEMAIL
+  FORWARD
+}
+
+enum RecordingPolicy {
+  ALWAYS
+  INBOUND_ONLY
+  OUTBOUND_ONLY
+  ON_DEMAND
+  DISABLED
+}
+
+enum AfterHoursAction {
+  BLOCK
+  ALLOW
+  VOICEMAIL_ONLY
+}
+
+enum RingStrategy {
+  SIMULTANEOUS
+  SEQUENTIAL
+  ROUND_ROBIN
+  LONGEST_IDLE
+}
+
+model Tenant {
+  id                    String        @id @default(uuid())
+  name                  String
+  contactEmail          String?
+  timezone              String        @default("America/New_York")
+  isActive              Boolean       @default(true)
+  billingStatus         BillingStatus @default(ACTIVE)
+  billingGraceUntil     DateTime?
+  paymentFailedAt       DateTime?
+  stripeCustomerId      String?
+  stripeSubscriptionId  String?
+  platformFeeSetup      Decimal       @default(0) @db.Decimal(10, 2)
+  platformFeeMonthly    Decimal       @default(8) @db.Decimal(10, 2)
+  platformFeeFirstMonth Decimal?      @db.Decimal(10, 2)
+  maxUsers              Int?
+  maxPhoneNumbers       Int?
+  maxConcurrentCalls    Int?
+  phoneNumbers          PhoneNumber[]
+  callLogs              CallLog[]
+  voicemails            Voicemail[]
+  callRecordings        CallRecording[]
+  smsMessages           SmsMessage[]
+  users                 User[]
+  greeting              Greeting?
+  numberOrders          NumberOrder[]
+  portRequests          PortRequest[]
+  receivables           TenantReceivable[]
+  paymentRefunds        PaymentRefund[]
+  callQualityMetrics    CallQualityMetric[]
+  extensions            Extension[]
+  ringGroups              RingGroup[]
+  extensionProvisioningTokens ExtensionProvisioningToken[]
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  @@index([stripeCustomerId])
+  @@index([stripeSubscriptionId])
+}
+
+model User {
+  id                  String        @id @default(uuid())
+  email               String        @unique
+  passwordHash        String
+  name                String
+  role                UserRole      @default(TENANT_ADMIN)
+  tenantId            String?
+  tenant              Tenant?       @relation(fields: [tenantId], references: [id])
+  assignedNumbers     PhoneNumber[] @relation("AssignedNumbers")
+  telnyxCredentialId  String?
+  telnyxSipUsername   String?
+  telnyxSipPassword   String?
+  softphoneOnlineAt   DateTime?
+  sipRegistered              Boolean?
+  sipRegistrationCheckedAt   DateTime?
+  sipRegistrationResponse    String?
+  sipRegistrationSource      String?
+  pushDeviceToken            String?
+  pushDevicePlatform         String?
+  pushTokenUpdatedAt         DateTime?
+  devices                    UserDevice[]
+  extensions                 Extension[]
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  @@index([tenantId, softphoneOnlineAt])
+  @@index([tenantId, role])
+}
+
+model Extension {
+  id                   String          @id @default(uuid())
+  tenantId             String
+  tenant               Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  extensionNumber      String
+  displayName          String
+  email                String?
+  status               ExtensionStatus @default(ACTIVE)
+  department           String?
+  userId               String?
+  user                 User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  primaryPhoneNumberId String?         @unique
+  primaryPhoneNumber   PhoneNumber?    @relation("PrimaryExtensionNumber", fields: [primaryPhoneNumberId], references: [id], onDelete: SetNull)
+  phoneNumbers         PhoneNumber[]   @relation("ExtensionPhoneNumbers")
+  lastActivityAt       DateTime?
+  voicemailEnabled     Boolean         @default(true)
+  callRecordingEnabled Boolean         @default(true)
+  doNotDisturb         Boolean         @default(false)
+  dndReason            String?
+  dndSchedule          Json?
+  dndScheduledEnabled  Boolean         @default(false)
+  dndInboundAction     DndInboundAction @default(VOICEMAIL)
+  callScreeningEnabled Boolean         @default(false)
+  intercomEnabled      Boolean         @default(false)
+  webrtcEnabled        Boolean         @default(true)
+  sipEnabled           Boolean         @default(true)
+  sipUsername          String?
+  sipPassword          String?
+  telnyxCredentialId   String?
+  telnyxSipUsername    String?
+  telnyxSipPassword    String?
+  sipRegistered        Boolean?
+  sipRegistrationCheckedAt DateTime?
+  sipRegistrationSource    String?
+  multiDeviceEnabled   Boolean         @default(true)
+  forwarding           ExtensionForwarding?
+  security             ExtensionSecurity?
+  voicemailSettings    ExtensionVoicemailSettings?
+  voicemails           Voicemail[]
+  devices              ExtensionDevice[]
+  auditLogs            ExtensionAuditLog[]
+  ringGroupMembers     RingGroupMember[]
+  provisioningTokens   ExtensionProvisioningToken[]
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  @@unique([tenantId, extensionNumber])
+  @@index([tenantId, status])
+  @@index([tenantId, department])
+  @@index([userId])
+  @@index([telnyxSipUsername])
+}
+
+model ExtensionForwarding {
+  id                      String                  @id @default(uuid())
+  extensionId             String                  @unique
+  extension               Extension               @relation(fields: [extensionId], references: [id], onDelete: Cascade)
+  alwaysEnabled           Boolean                 @default(false)
+  alwaysDestinationType   ForwardDestinationType?
+  alwaysDestination       String?
+  busyEnabled             Boolean                 @default(false)
+  busyDestinationType     ForwardDestinationType?
+  busyDestination         String?
+  noAnswerEnabled         Boolean                 @default(false)
+  noAnswerDestinationType ForwardDestinationType?
+  noAnswerDestination     String?
+  scheduleEnabled         Boolean                 @default(false)
+  scheduleDestinationType ForwardDestinationType?
+  scheduleDestination     String?
+  scheduleRules           Json?
+  createdAt               DateTime                @default(now())
+  updatedAt               DateTime                @updatedAt
+}
+
+model ExtensionDevice {
+  id                   String                @id @default(uuid())
+  extensionId          String
+  extension            Extension             @relation(fields: [extensionId], references: [id], onDelete: Cascade)
+  deviceType           ExtensionDeviceType
+  deviceName           String?
+  platform             String?
+  userDeviceId         String?
+  status               ExtensionDeviceStatus @default(OFFLINE)
+  lastRegistrationAt   DateTime?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+
+  @@index([extensionId, deviceType])
+  @@index([extensionId, status])
+}
+
+model ExtensionProvisioningToken {
+  id              String    @id @default(uuid())
+  tenantId        String
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  extensionId     String
+  extension       Extension @relation(fields: [extensionId], references: [id], onDelete: Cascade)
+  tokenHash       String    @unique
+  expiresAt       DateTime
+  usedAt          DateTime?
+  createdByUserId String?
+  createdAt       DateTime  @default(now())
+
+  @@index([extensionId, expiresAt])
+  @@index([tenantId])
+}
+
+model ExtensionSecurity {
+  id                      String           @id @default(uuid())
+  extensionId             String           @unique
+  extension               Extension        @relation(fields: [extensionId], references: [id], onDelete: Cascade)
+  whitelist               Json             @default("{}")
+  blacklist               Json             @default("{}")
+  blockAnonymous          Boolean          @default(false)
+  internationalEnabled    Boolean          @default(true)
+  allowInternalExtensions Boolean          @default(true)
+  spamPatternBlockEnabled Boolean          @default(false)
+  outboundCallerId        String?
+  hideCallerId            Boolean          @default(false)
+  callerIdName            String?
+  callingPermissions      Json             @default("{\"local\":true,\"national\":true,\"international\":true,\"premium\":false,\"emergency\":true}")
+  timeRestrictionsEnabled Boolean          @default(false)
+  businessHours           Json?
+  afterHoursAction        AfterHoursAction @default(BLOCK)
+  holidaySchedule         Json             @default("[]")
+  recordingPolicy         RecordingPolicy  @default(INBOUND_ONLY)
+  createdAt               DateTime         @default(now())
+  updatedAt               DateTime         @updatedAt
+}
+
+model ExtensionAuditLog {
+  id              String    @id @default(uuid())
+  tenantId        String
+  extensionId     String
+  extension       Extension @relation(fields: [extensionId], references: [id], onDelete: Cascade)
+  userId          String?
+  userEmail       String?
+  category        String
+  action          String
+  summary         String?
+  changes         Json?
+  createdAt       DateTime  @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([extensionId, category, createdAt])
+}
+
+model ExtensionVoicemailSettings {
+  id                 String    @id @default(uuid())
+  extensionId        String    @unique
+  extension          Extension @relation(fields: [extensionId], references: [id], onDelete: Cascade)
+  enabled            Boolean   @default(true)
+  greetingUrl        String?
+  emailNotifications Boolean   @default(false)
+  notificationEmail  String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}
+
+model UserDevice {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceId    String
+  platform    String
+  pushToken   String
+  deviceName  String?
+  appVersion  String?
+  lastSeenAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, deviceId])
+  @@index([userId, lastSeenAt])
+  @@index([pushToken])
+}
+
+model Greeting {
+  id                   String   @id @default(uuid())
+  tenantId             String   @unique
+  tenant               Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  message              String   @default("Welcome to {company}. Your call is connected.")
+  voice                String   @default("en-US")
+  afterHoursMessage    String?
+  businessHoursEnabled Boolean  @default(false)
+  businessHours        Json?
+  ivrEnabled                Boolean  @default(false)
+  ivrPrompt                 String?
+  ivrOptions                Json?
+  forwardEnabled            Boolean  @default(false)
+  forwardNumber             String?
+  playGreetingBeforeConnect Boolean  @default(true)
+  ringGroupEnabled          Boolean  @default(false)
+  ringGroupName             String?
+  ringGroupMembers          Json?
+  ringStrategy              String   @default("simultaneous")
+  ringTimeout               Int      @default(25)
+  noAnswerMessage           String?
+  voicemailEnabled          Boolean  @default(true)
+  voicemailPrompt           String?
+  voicemailMaxLength        Int      @default(120)
+  afterHoursVoicemailEnabled Boolean @default(false)
+  callRecordingEnabled       Boolean  @default(true)
+  callRecordingNotice        String?
+  playCallRecordingNotice    Boolean  @default(true)
+  greetingAudioUrl           String?
+  ivrPromptAudioUrl          String?
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+}
+
+model CallRecording {
+  id              String   @id @default(uuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  callSid         String?
+  recordingSid    String?  @unique
+  from            String
+  to              String
+  recordingUrl    String
+  durationSeconds Int?
+  direction       String   @default("inbound")
+  createdAt       DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+}
+
+model Voicemail {
+  id              String     @id @default(uuid())
+  tenantId        String
+  tenant          Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  extensionId     String?
+  extension       Extension? @relation(fields: [extensionId], references: [id], onDelete: SetNull)
+  ringGroupId     String?
+  ringGroup       RingGroup? @relation(fields: [ringGroupId], references: [id], onDelete: SetNull)
+  callSid         String?
+  recordingSid    String?  @unique
+  from            String
+  to              String
+  recordingUrl    String
+  durationSeconds Int?
+  isRead          Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, isRead])
+  @@index([ringGroupId, createdAt])
+  @@index([extensionId, createdAt])
+}
+
+model PhoneNumber {
+  id                       String   @id @default(uuid())
+  number                   String   @unique
+  tenantId                 String
+  tenant                   Tenant   @relation(fields: [tenantId], references: [id])
+  orderId                  String?
+  order                    NumberOrder? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  source                   String?
+  assignedUserId           String?
+  assignedUser             User?    @relation("AssignedNumbers", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  extensionId              String?    @unique
+  extension                Extension? @relation("ExtensionPhoneNumbers", fields: [extensionId], references: [id], onDelete: SetNull)
+  primaryForExtension      Extension? @relation("PrimaryExtensionNumber")
+  label                    String?
+  routingType              String   @default("tenant_default")
+  forwardDestination       String?
+  ringGroupId              String?
+  ringGroup                RingGroup? @relation(fields: [ringGroupId], references: [id], onDelete: SetNull)
+  isActive                 Boolean  @default(true)
+  stripeSubscriptionItemId String?
+  carrierMonthly           Decimal? @db.Decimal(10, 2)
+  platformMonthly          Decimal? @db.Decimal(10, 2)
+  tenantMonthlyTotal       Decimal? @db.Decimal(10, 2)
+  telnyxUpfrontCost        Decimal? @db.Decimal(10, 2)
+  telnyxMonthlyCost        Decimal? @db.Decimal(10, 2)
+  platformSetupFee         Decimal? @db.Decimal(10, 2)
+  platformFirstMonthFee    Decimal? @db.Decimal(10, 2)
+  platformMonthlyFee       Decimal? @db.Decimal(10, 2)
+  customerPriceTotal       Decimal? @db.Decimal(10, 2)
+  customerPriceMonthly     Decimal? @db.Decimal(10, 2)
+  grossProfitUpfront       Decimal? @db.Decimal(10, 2)
+  grossProfitMonthly       Decimal? @db.Decimal(10, 2)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([assignedUserId])
+  @@index([orderId])
+  @@index([ringGroupId])
+}
+
+model RingGroup {
+  id                   String            @id @default(uuid())
+  tenantId             String
+  tenant               Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name                 String
+  extensionNumber      String?
+  ringStrategy         RingStrategy      @default(SIMULTANEOUS)
+  ringTimeoutSeconds   Int               @default(25)
+  roundRobinPointer    Int               @default(0)
+  voicemailEnabled     Boolean           @default(true)
+  voicemailGreetingUrl String?
+  callRecordingEnabled Boolean           @default(true)
+  isActive             Boolean           @default(true)
+  callsOffered         Int               @default(0)
+  callsAnswered        Int               @default(0)
+  callsMissed          Int               @default(0)
+  totalAnswerTimeMs    Int               @default(0)
+  members              RingGroupMember[]
+  phoneNumbers         PhoneNumber[]
+  voicemails           Voicemail[]
+  callLogs             CallLog[]
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  @@unique([tenantId, name])
+  @@unique([tenantId, extensionNumber])
+  @@index([tenantId, isActive])
+}
+
+model RingGroupMember {
+  id             String    @id @default(uuid())
+  ringGroupId    String
+  ringGroup      RingGroup @relation(fields: [ringGroupId], references: [id], onDelete: Cascade)
+  extensionId    String
+  extension      Extension @relation(fields: [extensionId], references: [id], onDelete: Cascade)
+  priority       Int       @default(0)
+  lastAnsweredAt DateTime?
+  lastRungAt     DateTime?
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([ringGroupId, extensionId])
+  @@index([ringGroupId, priority])
+  @@index([extensionId])
+}
+
+model SmsMessage {
+  id              String   @id @default(uuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  telnyxMessageId String?  @unique
+  from            String
+  to              String
+  body            String
+  direction       String   @default("inbound")
+  status          String   @default("received")
+  isRead          Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, isRead])
+}
+
+model CallLog {
+  id              String    @id @default(uuid())
+  callSid         String    @unique
+  from            String
+  to              String
+  direction       String    @default("inbound")
+  status          String
+  callType        String?
+  durationSeconds Int?
+  endedAt         DateTime?
+  tenantId        String?
+  tenant          Tenant?    @relation(fields: [tenantId], references: [id])
+  ringGroupId     String?
+  ringGroup       RingGroup? @relation(fields: [ringGroupId], references: [id], onDelete: SetNull)
+  offeredAt       DateTime?
+  answeredAt      DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, status, createdAt])
+  @@index([ringGroupId, createdAt])
+}
+
+model NumberOrder {
+  id                   String        @id @default(uuid())
+  tenantId             String
+  tenant               Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  status               OrderStatus   @default(PENDING)
+  paymentMethod        PaymentMethod @default(STRIPE)
+  invoiceNumber        String?       @unique
+  invoiceSentAt        DateTime?
+  invoicePaidAt        DateTime?
+  invoiceEmailTo       String?
+  adminNotes           String?
+  paymentReference     String?
+  stripeSessionId      String?       @unique
+  stripeSubscriptionId String?
+  connectionId         String?
+  phoneNumbers         Json
+  carrierUpfront       Decimal       @db.Decimal(10, 2)
+  carrierMonthly       Decimal       @db.Decimal(10, 2)
+  platformFee          Decimal       @db.Decimal(10, 2)
+  totalCharged         Decimal       @db.Decimal(10, 2)
+  currency             String        @default("USD")
+  fulfillmentNote      String?
+  paymentProofUrl      String?
+  paymentProofUploadedAt DateTime?
+  paymentReviewStatus  PaymentReviewStatus @default(NONE)
+  billTenantAutomatically Boolean      @default(false)
+  razorpayOrderId        String?       @unique
+  razorpayPaymentId      String?
+  paymentFailureReason   String?
+  refundId               String?
+  refundedAt             DateTime?
+  refundAmount           Decimal?      @db.Decimal(10, 2)
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  phoneNumberRecords   PhoneNumber[]
+  receivable           TenantReceivable?
+  paymentRefunds       PaymentRefund[]
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([tenantId, status])
+  @@index([paymentReviewStatus])
+  @@index([paymentMethod, status])
+  @@index([razorpayPaymentId])
+}
+
+model PaymentGatewaySettings {
+  id                      String       @id @default("default")
+  bankTransferEnabled     Boolean      @default(true)
+  stripeEnabled           Boolean      @default(false)
+  razorpayEnabled         Boolean      @default(false)
+  stripeMode              GatewayMode  @default(test)
+  razorpayMode            GatewayMode  @default(test)
+  displayOrder            Json         @default("[\"bank\",\"stripe\",\"razorpay\"]")
+  bankAccountName         String?
+  bankName                String?
+  bankAccountNumber       String?
+  bankIfscSwift           String?
+  bankBranch              String?
+  bankPaymentInstructions String?
+  razorpayKeyIdEnc        String?
+  razorpayKeySecretEnc    String?
+  razorpayWebhookSecretEnc String?
+  createdAt               DateTime     @default(now())
+  updatedAt               DateTime     @updatedAt
+}
+
+model ProcessedRazorpayEvent {
+  id        String   @id
+  type      String
+  orderId   String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model PaymentRefund {
+  id               String        @id @default(uuid())
+  orderId          String
+  order            NumberOrder   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  tenantId         String
+  tenant           Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  paymentMethod    PaymentMethod
+  gatewayPaymentId String?
+  gatewayRefundId  String?
+  amount           Decimal       @db.Decimal(10, 2)
+  currency         String        @default("USD")
+  status           String        @default("processed")
+  reason           String?
+  createdAt        DateTime      @default(now())
+
+  @@index([orderId])
+  @@index([tenantId])
+  @@index([paymentMethod])
+}
+
+model ProcessedStripeEvent {
+  id        String   @id
+  type      String
+  orderId   String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model FulfillmentLock {
+  orderId  String   @id
+  lockedAt DateTime @default(now())
+  lockedBy String?
+}
+
+model PlatformSettings {
+  id                     String   @id @default("platform")
+  stripeSecretKeyEnc     String?
+  stripeWebhookSecretEnc String?
+  stripePublishableKey   String?
+  defaultFeeSetup        Decimal  @default(0) @db.Decimal(10, 2)
+  defaultFeeMonthly      Decimal  @default(8) @db.Decimal(10, 2)
+  defaultFeeFirstMonth   Decimal? @db.Decimal(10, 2)
+  bankName               String?
+  bankAccountName        String?
+  bankAccountNumber      String?
+  bankRoutingNumber      String?
+  bankSwiftCode          String?
+  bankPaymentInstructions String?
+  invoiceContactEmail    String?
+  telnyxConnectionId     String?
+  telnyxConnectionName   String?
+  telnyxCredentialConnectionId String?
+  telnyxMessagingProfileId     String?
+  telnyxCallControlApplicationId String?
+  defaultMaxUsers                Int      @default(25)
+  defaultMaxPhoneNumbers         Int      @default(20)
+  defaultMaxConcurrentCalls      Int      @default(5)
+  lcrPrimaryConnectionId         String?
+  lcrFallbackConnectionId        String?
+  lcrNotes                       String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+}
+
+model AdminAuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  userEmail  String?
+  action     String
+  entityType String
+  entityId   String?
+  details    Json?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([entityType, entityId])
+}
+
+model TenantReceivable {
+  id            String           @id @default(uuid())
+  tenantId      String
+  tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orderId       String?          @unique
+  order         NumberOrder?     @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  invoiceNumber String?
+  amount        Decimal          @db.Decimal(10, 2)
+  status        ReceivableStatus @default(PENDING)
+  dueAt         DateTime?
+  paidAt        DateTime?
+  notes         String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([tenantId])
+  @@index([status])
+}
+
+model BillingIntegrityAlert {
+  id         String             @id @default(uuid())
+  type       IntegrityAlertType
+  severity   String             @default("warning")
+  message    String
+  details    Json?
+  resolvedAt DateTime?
+  createdAt  DateTime           @default(now())
+
+  @@index([type, resolvedAt])
+  @@index([createdAt])
+}
+
+model PortRequest {
+  id                     String            @id @default(uuid())
+  tenantId               String
+  tenant                 Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  phoneNumbers           Json
+  currentCarrier         String?
+  billingTelephoneNumber String?
+  status                 PortRequestStatus @default(SUBMITTED)
+  adminNotes             String?
+  requestedByEmail       String?
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+
+  @@index([tenantId])
+  @@index([status])
+}
+
+model CallQualityMetric {
+  id                String   @id @default(uuid())
+  callSessionId     String?
+  callControlId     String?
+  tenantId          String?
+  tenant            Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  direction         String?
+  from              String?
+  to                String?
+  mosInbound        Decimal? @db.Decimal(4, 2)
+  mosOutbound       Decimal? @db.Decimal(4, 2)
+  jitterMaxVariance Decimal? @db.Decimal(10, 2)
+  jitterPacketCount Int?
+  packetCount       Int?
+  skipPacketCount   Int?
+  hangupCause       String?
+  hangupSource      String?
+  eventType         String   @default("call.hangup")
+  occurredAt        DateTime @default(now())
+  createdAt         DateTime @default(now())
+
+  @@index([tenantId, occurredAt])
+  @@index([occurredAt])
+  @@index([callSessionId])
+}

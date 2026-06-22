@@ -1,0 +1,12 @@
+node_modules
+# Keep environment variables out of version control
+.env
+
+/generated/prisma
+
+# Uploads
+uploads/
+
+# Android release signing (never commit)
+mobile/android/key.properties
+mobile/android/keystore/

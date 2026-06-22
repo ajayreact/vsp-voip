@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Super Admin Portal — VSP-VOIP Documentation</title>
+  <link rel="stylesheet" href="doc-styles.css" />
+</head>
+<body>
+  <header class="doc-header doc-header-admin">
+    <div class="wrap">
+      <p class="breadcrumb"><a href="index.html">Documentation</a> / Super Admin Portal</p>
+      <h1>Super Admin Portal</h1>
+      <p>Platform operator console for managing tenants, billing, Telnyx configuration, orders, and system health. Built with Next.js 16 at <code>web/src/app/(app)/admin/</code>.</p>
+    </div>
+  </header>
+
+  <nav class="toc wrap">
+    <h2>Contents</h2>
+    <ol>
+      <li><a href="#overview">Overview &amp; access</a></li>
+      <li><a href="#navigation">Navigation &amp; pages</a></li>
+      <li><a href="#api">API endpoints</a></li>
+      <li><a href="#features">Feature status</a></li>
+      <li><a href="#telnyx">Telnyx configuration</a></li>
+      <li><a href="#workflows">Key workflows</a></li>
+      <li><a href="#env">Environment variables</a></li>
+    </ol>
+  </nav>
+
+  <main class="wrap">
+    <section id="overview">
+      <h2>1. Overview &amp; Access</h2>
+      <div class="card">
+        <p>The Super Admin portal is the <strong>platform operator control plane</strong>. It is separate from tenant-facing features and requires the <code>SUPER_ADMIN</code> role.</p>
+        <table>
+          <tr><th>Item</th><th>Detail</th></tr>
+          <tr><td>URL prefix</td><td><code>/admin</code> (Next.js, port 3001)</td></tr>
+          <tr><td>Login redirect</td><td><code>SUPER_ADMIN</code> users land on <code>/admin</code> after login</td></tr>
+          <tr><td>API prefix</td><td><code>/api/admin/*</code> (Express, port 3000)</td></tr>
+          <tr><td>Auth</td><td>JWT Bearer token + <code>requireRole('SUPER_ADMIN')</code></td></tr>
+          <tr><td>Nav component</td><td><code>web/src/components/admin-nav.tsx</code></td></tr>
+          <tr><td>Route module</td><td><code>routes/admin.js</code></td></tr>
+        </table>
+      </div>
+      <h3>Access modes</h3>
+      <ul>
+        <li><strong>Super admin without tenant</strong> — sidebar shows only admin navigation (full operator view).</li>
+        <li><strong>Super admin with tenant</strong> — tenant nav plus compact admin links at bottom of sidebar (can operate as tenant user too).</li>
+      </ul>
+      <h3>Default seed credentials</h3>
+      <table>
+        <tr><th>Email</th><th>Password</th><th>Env overrides</th></tr>
+        <tr><td><code>superadmin@vsp-voip.com</code></td><td><code>Super@123</code></td><td><code>SEED_SUPER_EMAIL</code>, <code>SEED_SUPER_PASSWORD</code></td></tr>
+      </table>
+    </section>
+
+    <section id="navigation">
+      <h2>2. Navigation &amp; Pages</h2>
+      <p>Navigation is defined in <code>superAdminSections</code> inside <code>admin-nav.tsx</code>.</p>
+
+      <h3>Dashboard</h3>
+      <table>
+        <thead><tr><th>Route</th><th>Page</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>/admin</code></td><td>System vitals</td><td>KPIs: tenant count, active numbers, orders, revenue. Telnyx connectivity status, voice telemetry summary, billing alerts, recent orders.</td></tr>
+          <tr><td><code>/admin/voice-quality</code></td><td>Voice quality</td><td>MOS scores, jitter, call volume charts, per-tenant breakdown from <code>CallQualityMetric</code> table.</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Tenant management</h3>
+      <table>
+        <thead><tr><th>Route</th><th>Page</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>/admin/tenants</code></td><td>Company directory</td><td>List all tenants; create new company with optional admin user.</td></tr>
+          <tr><td><code>/admin/tenants/[id]</code></td><td>Tenant detail</td><td>Users, numbers, billing fees, activate/suspend, add users.</td></tr>
+          <tr><td><code>/admin/tenants/quotas</code></td><td>Resource quotas</td><td>Platform defaults and per-tenant limits: max users, phone numbers, concurrent calls.</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Inventory &amp; assets</h3>
+      <table>
+        <thead><tr><th>Route</th><th>Page</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>/admin/inventory</code></td><td>DID number pool</td><td><span class="badge badge-partial">Partial</span> Tenant number allocation view; no live Telnyx DID pool API.</td></tr>
+          <tr><td><code>/admin/inventory/porting</code></td><td>Number porting</td><td><span class="badge badge-partial">Partial</span> Internal port-request workflow in DB; not connected to Telnyx LNP API.</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Trunking &amp; routing</h3>
+      <table>
+        <thead><tr><th>Route</th><th>Page</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>/admin/trunking/lcr</code></td><td>Least cost routing</td><td><span class="badge badge-partial">Partial</span> LCR config stored in <code>PlatformSettings</code>; not applied to Telnyx routing automatically.</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Tariffs &amp; billing</h3>
+      <table>
+        <thead><tr><th>Route</th><th>Page</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>/admin/revenue</code></td><td>Revenue &amp; tariffs</td><td>Revenue by tenant and month from fulfilled orders.</td></tr>
+          <tr><td><code>/admin/orders</code></td><td>Orders &amp; invoicing</td><td>All number purchase orders (Stripe + manual bank).</td></tr>
+          <tr><td><code>/admin/orders/[id]</code></td><td>Order detail</td><td>Fulfill (triggers Telnyx purchase), cancel, mark invoice sent, download invoice.</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Payments</h3>
+      <table>
+        <thead><tr><th>Route</th><th>Page</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>/admin/payments/stripe</code></td><td>Stripe</td><td>Configure Stripe secret/publishable keys (encrypted in DB).</td></tr>
+          <tr><td><code>/admin/payments/bank</code></td><td>Bank accounts</td><td>Manual bank transfer payment instructions.</td></tr>
+        </tbody>
+      </table>
+
+      <h3>System ops &amp; security</h3>
+      <table>
+        <thead><tr><th>Route</th><th>Page</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>/admin/audit</code></td><td>Forensic audit trail</td><td><code>AdminAuditLog</code> entries for admin actions.</td></tr>
+          <tr><td><code>/admin/security</code></td><td>RBAC &amp; compliance</td><td><span class="badge badge-partial">Partial</span> Read-only security report; no role-editing UI.</td></tr>
+          <tr><td><code>/admin/settings</code></td><td>Platform settings</td><td>Telnyx connection IDs, messaging profile, Call Control app, default platform fees, quotas.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="api">
+      <h2>3. API Endpoints</h2>
+      <p>All endpoints in <code>routes/admin.js</code> require <code>Authorization: Bearer &lt;JWT&gt;</code> and <code>SUPER_ADMIN</code> role.</p>
+
+      <h3>Dashboard &amp; monitoring</h3>
+      <table>
+        <thead><tr><th>Method</th><th>Path</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td>GET</td><td><code>/api/admin/dashboard</code></td><td>Platform KPIs, Telnyx status, telemetry, billing alerts</td></tr>
+          <tr><td>GET</td><td><code>/api/admin/telnyx/status</code></td><td>Telnyx API connectivity check</td></tr>
+          <tr><td>GET</td><td><code>/api/admin/voice-quality</code></td><td>Voice quality report</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Platform settings</h3>
+      <table>
+        <thead><tr><th>Method</th><th>Path</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td>GET</td><td><code>/api/admin/platform-settings</code></td><td>Read platform config (Stripe keys masked)</td></tr>
+          <tr><td>PUT</td><td><code>/api/admin/platform-settings</code></td><td>Update Telnyx IDs, fees, Stripe, bank details</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Tenants</h3>
+      <table>
+        <thead><tr><th>Method</th><th>Path</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td>GET</td><td><code>/api/admin/tenants</code></td><td>List tenants</td></tr>
+          <tr><td>GET</td><td><code>/api/admin/tenants/:id</code></td><td>Tenant detail</td></tr>
+          <tr><td>POST</td><td><code>/api/admin/tenants</code></td><td>Create tenant (+ optional admin user)</td></tr>
+          <tr><td>PUT</td><td><code>/api/admin/tenants/:id</code></td><td>Rename tenant</td></tr>
+          <tr><td>PUT</td><td><code>/api/admin/tenants/:id/billing</code></td><td>Per-tenant platform fees</td></tr>
+          <tr><td>PUT</td><td><code>/api/admin/tenants/:id/status</code></td><td>Activate/suspend</td></tr>
+          <tr><td>PUT</td><td><code>/api/admin/tenants/:id/quotas</code></td><td>Per-tenant quota limits</td></tr>
+          <tr><td>POST</td><td><code>/api/admin/tenants/:id/users</code></td><td>Add user to tenant</td></tr>
+          <tr><td>POST</td><td><code>/api/admin/tenants/cleanup-empty</code></td><td>Remove duplicate empty tenants</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Orders &amp; revenue</h3>
+      <table>
+        <thead><tr><th>Method</th><th>Path</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td>GET</td><td><code>/api/admin/orders</code></td><td>List orders (filter by status/payment)</td></tr>
+          <tr><td>GET</td><td><code>/api/admin/orders/:id</code></td><td>Order + invoice detail</td></tr>
+          <tr><td>PUT</td><td><code>/api/admin/orders/:id</code></td><td>Update payment reference / notes</td></tr>
+          <tr><td>POST</td><td><code>/api/admin/orders/:id/mark-invoice-sent</code></td><td>Mark invoice sent (+ optional email)</td></tr>
+          <tr><td>POST</td><td><code>/api/admin/orders/:id/fulfill</code></td><td>Fulfill order → Telnyx number purchase</td></tr>
+          <tr><td>POST</td><td><code>/api/admin/orders/:id/cancel</code></td><td>Cancel manual order</td></tr>
+          <tr><td>GET</td><td><code>/api/admin/revenue</code></td><td>Revenue summary</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Quotas, porting, LCR, security</h3>
+      <table>
+        <thead><tr><th>Method</th><th>Path</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td>GET</td><td><code>/api/admin/quotas</code></td><td>Quota usage report</td></tr>
+          <tr><td>PUT</td><td><code>/api/admin/quotas/defaults</code></td><td>Platform default quotas</td></tr>
+          <tr><td>GET/POST/PUT</td><td><code>/api/admin/porting</code>, <code>/porting/:id</code></td><td>Port request CRUD (DB only)</td></tr>
+          <tr><td>GET/PUT</td><td><code>/api/admin/trunking/lcr</code></td><td>LCR config (DB only)</td></tr>
+          <tr><td>GET</td><td><code>/api/admin/audit-log</code></td><td>Admin audit log</td></tr>
+          <tr><td>GET</td><td><code>/api/admin/security</code></td><td>RBAC compliance report</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="features">
+      <h2>4. Feature Status</h2>
+      <table>
+        <thead><tr><th>Feature</th><th>Status</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>System vitals dashboard</td><td><span class="badge badge-yes">Implemented</span></td><td>Live KPIs + Telnyx status</td></tr>
+          <tr><td>Voice quality monitoring</td><td><span class="badge badge-yes">Implemented</span></td><td>From Telnyx <code>call.hangup</code> webhooks</td></tr>
+          <tr><td>Tenant CRUD</td><td><span class="badge badge-yes">Implemented</span></td><td>Create, suspend, billing, users</td></tr>
+          <tr><td>Order fulfillment</td><td><span class="badge badge-yes">Implemented</span></td><td>Triggers <code>lib/buyNumber.js</code> Telnyx purchase</td></tr>
+          <tr><td>Stripe / bank config</td><td><span class="badge badge-yes">Implemented</span></td><td>Encrypted secrets in <code>PlatformSettings</code></td></tr>
+          <tr><td>Platform Telnyx settings</td><td><span class="badge badge-yes">Implemented</span></td><td>Connection IDs, messaging profile, Call Control app</td></tr>
+          <tr><td>Audit log</td><td><span class="badge badge-yes">Implemented</span></td><td>Admin actions logged</td></tr>
+          <tr><td>Quota enforcement</td><td><span class="badge badge-no">Not enforced</span></td><td>Quotas reported but not blocking tenant actions</td></tr>
+          <tr><td>DID pool inventory</td><td><span class="badge badge-partial">Partial</span></td><td><code>availableDidPool: null</code> in dashboard</td></tr>
+          <tr><td>Number porting (LNP)</td><td><span class="badge badge-partial">Partial</span></td><td>Internal workflow only</td></tr>
+          <tr><td>LCR routing</td><td><span class="badge badge-partial">Partial</span></td><td>Config stored, not applied to Telnyx</td></tr>
+          <tr><td>RBAC editing</td><td><span class="badge badge-partial">Partial</span></td><td>Read-only security report</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="telnyx">
+      <h2>5. Telnyx Configuration (Super Admin)</h2>
+      <p>Super admins configure Telnyx at <strong>Admin → Platform settings</strong> (<code>/admin/settings</code>). Values are stored in the <code>PlatformSettings</code> singleton and used across the platform.</p>
+      <table>
+        <thead><tr><th>Setting</th><th>Telnyx resource</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td><code>telnyxConnectionId</code></td><td>TeXML Application / SIP Connection</td><td>Inbound PSTN via TeXML webhooks at <code>/webhook</code></td></tr>
+          <tr><td><code>telnyxCredentialConnectionId</code></td><td>Credential Connection</td><td>WebRTC softphone auth; webhook at <code>/webhook/voice</code></td></tr>
+          <tr><td><code>telnyxMessagingProfileId</code></td><td>Messaging Profile</td><td>SMS send/receive; webhook at <code>/webhook/sms</code></td></tr>
+          <tr><td><code>telnyxCallControlApplicationId</code></td><td>Call Control Application</td><td>Inbound Call Control; webhook at <code>/webhook/call-control</code></td></tr>
+        </tbody>
+      </table>
+      <p>On API startup, the server auto-configures Telnyx webhooks when <code>API_PUBLIC_URL</code> is set (see <code>lib/telnyxRecordingSetup.js</code>, <code>lib/telnyxMessagingSetup.js</code>, <code>lib/telnyxCallControlSetup.js</code>).</p>
+    </section>
+
+    <section id="workflows">
+      <h2>6. Key Workflows</h2>
+
+      <h3>6.1 Onboard a new tenant</h3>
+      <ol>
+        <li>Go to <strong>Company directory</strong> → Create tenant (name, contact email).</li>
+        <li>Optionally create a <code>TENANT_ADMIN</code> user with email/password.</li>
+        <li>Set per-tenant billing fees and quotas on tenant detail page.</li>
+        <li>Tenant admin logs in at <code>/login</code> and purchases numbers or admin fulfills a manual order.</li>
+      </ol>
+
+      <h3>6.2 Fulfill a manual bank order</h3>
+      <ol>
+        <li>Tenant places manual bank order from web portal.</li>
+        <li>Super admin opens <strong>Orders</strong> → order detail.</li>
+        <li>Mark payment received, then <strong>Fulfill</strong> → calls Telnyx <code>POST /number_orders</code>.</li>
+        <li>Numbers assigned to tenant with TeXML connection + messaging profile.</li>
+      </ol>
+
+      <h3>6.3 Monitor platform health</h3>
+      <ol>
+        <li><strong>System vitals</strong> — check Telnyx connectivity badge.</li>
+        <li><strong>Voice quality</strong> — review MOS/jitter trends.</li>
+        <li><strong>Audit trail</strong> — review recent admin actions.</li>
+      </ol>
+    </section>
+
+    <section id="env">
+      <h2>7. Environment Variables (Super Admin context)</h2>
+      <table>
+        <thead><tr><th>Variable</th><th>Required</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td><code>TELNYX_API_KEY</code></td><td>Yes</td><td>All Telnyx API calls</td></tr>
+          <tr><td><code>TELNYX_PUBLIC_KEY</code></td><td>Recommended</td><td>Ed25519 webhook signature verification</td></tr>
+          <tr><td><code>API_PUBLIC_URL</code></td><td>Production</td><td>Public URL for Telnyx webhooks (ngrok in dev)</td></tr>
+          <tr><td><code>SETTINGS_ENCRYPTION_KEY</code></td><td>Yes</td><td>Encrypt Stripe secrets in DB</td></tr>
+          <tr><td><code>JWT_SECRET</code></td><td>Yes</td><td>JWT signing</td></tr>
+          <tr><td><code>DATABASE_URL</code></td><td>Yes</td><td>PostgreSQL connection</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <footer class="doc-footer">
+    <a href="index.html">← Back to documentation hub</a> ·
+    <a href="tenant-portal.html">Tenant Portal →</a> ·
+    <a href="telnyx-compatibility.html">Telnyx Compatibility</a>
+  </footer>
+</body>
+</html>

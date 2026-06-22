@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VSP-VOIP — Number Purchase &amp; Billing Documentation</title>
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --card: #ffffff;
+      --border: #e2e8f0;
+      --text: #1e293b;
+      --muted: #64748b;
+      --accent: #6366f1;
+      --accent-soft: #eef2ff;
+      --green: #047857;
+      --green-bg: #ecfdf5;
+      --amber: #b45309;
+      --amber-bg: #fffbeb;
+      --red: #b91c1c;
+      --red-bg: #fef2f2;
+      --blue: #1d4ed8;
+      --blue-bg: #eff6ff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.65;
+    }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+    header.doc-header {
+      background: linear-gradient(135deg, #4f46e5 0%, #6366f1 45%, #7c3aed 100%);
+      color: #fff;
+      padding: 2.5rem 1.5rem;
+    }
+    header.doc-header .wrap { padding-top: 0; padding-bottom: 0; }
+    header.doc-header h1 { margin: 0 0 0.5rem; font-size: 1.75rem; }
+    header.doc-header p { margin: 0; opacity: 0.92; max-width: 780px; }
+    .meta { margin-top: 1rem; font-size: 0.875rem; opacity: 0.85; }
+    nav.toc {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      margin: -2rem auto 2rem;
+      max-width: 1100px;
+      position: relative;
+      z-index: 1;
+      box-shadow: 0 4px 16px rgb(15 23 42 / 0.06);
+    }
+    nav.toc h2 { margin: 0 0 0.75rem; font-size: 1rem; }
+    nav.toc ol { margin: 0; padding-left: 1.25rem; columns: 2; column-gap: 2rem; }
+    nav.toc a { color: var(--accent); text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section { margin-bottom: 2.5rem; }
+    h2 {
+      font-size: 1.35rem;
+      margin: 0 0 1rem;
+      color: #0f172a;
+      border-bottom: 2px solid var(--accent-soft);
+      padding-bottom: 0.5rem;
+    }
+    h3 { font-size: 1.05rem; margin: 1.5rem 0 0.75rem; color: #334155; }
+    h4 { font-size: 0.95rem; margin: 1rem 0 0.5rem; color: #475569; }
+    p { margin: 0 0 1rem; }
+    ul, ol { margin: 0 0 1rem; padding-left: 1.4rem; }
+    li { margin-bottom: 0.35rem; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1rem;
+      box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+    }
+    .note {
+      border-left: 4px solid var(--accent);
+      background: var(--accent-soft);
+      padding: 1rem 1.25rem;
+      border-radius: 0 10px 10px 0;
+      margin: 1rem 0;
+    }
+    .warn {
+      border-left: 4px solid var(--amber);
+      background: var(--amber-bg);
+      padding: 1rem 1.25rem;
+      border-radius: 0 10px 10px 0;
+      margin: 1rem 0;
+    }
+    .success {
+      border-left: 4px solid var(--green);
+      background: var(--green-bg);
+      padding: 1rem 1.25rem;
+      border-radius: 0 10px 10px 0;
+      margin: 1rem 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.925rem;
+      margin: 1rem 0;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.65rem 0.85rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #f8fafc; font-weight: 600; }
+    code {
+      background: #f1f5f9;
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.88em;
+    }
+    pre {
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 1rem 1.25rem;
+      border-radius: 10px;
+      overflow-x: auto;
+      font-size: 0.85rem;
+      line-height: 1.5;
+    }
+    .flow {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+      margin: 1rem 0;
+    }
+    .flow-box {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.6rem 0.9rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+    .flow-arrow { color: var(--muted); font-size: 1.2rem; }
+    .money-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+    .money-card {
+      border-radius: 12px;
+      padding: 1.25rem;
+      border: 1px solid var(--border);
+    }
+    .money-card.tenant { background: var(--blue-bg); border-color: #bfdbfe; }
+    .money-card.platform { background: var(--green-bg); border-color: #a7f3d0; }
+    .money-card.carrier { background: var(--amber-bg); border-color: #fde68a; }
+    .money-card h4 { margin-top: 0; }
+    .badge {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .badge-green { background: var(--green-bg); color: var(--green); }
+    .badge-amber { background: var(--amber-bg); color: var(--amber); }
+    .badge-blue { background: var(--blue-bg); color: var(--blue); }
+    footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.875rem;
+      padding: 2rem 1rem;
+      border-top: 1px solid var(--border);
+    }
+    @media (max-width: 640px) {
+      nav.toc ol { columns: 1; }
+    }
+  </style>
+</head>
+<body>
+  <header class="doc-header">
+    <div class="wrap">
+      <h1>VSP-VOIP — Buying Numbers &amp; Billing</h1>
+      <p>
+        How tenants purchase phone numbers, how the super admin sets prices and collects payment,
+        and how carrier (Telnyx) costs are deducted from the platform owner account.
+      </p>
+      <p class="meta">Document version 1.0 · Portal: http://localhost:3001 · API: http://localhost:3000</p>
+    </div>
+  </header>
+
+  <nav class="toc wrap">
+    <h2>Contents</h2>
+    <ol>
+      <li><a href="#overview">Business model overview</a></li>
+      <li><a href="#pricing">How pricing is calculated</a></li>
+      <li><a href="#tenant-flow">Tenant: buy numbers step by step</a></li>
+      <li><a href="#super-admin-pricing">Super admin: set what to charge</a></li>
+      <li><a href="#payment-methods">Payment methods (Stripe vs bank)</a></li>
+      <li><a href="#fulfillment">Order fulfillment</a></li>
+      <li><a href="#money-flow">Where money goes (full money flow)</a></li>
+      <li><a href="#telnyx-deduction">Telnyx deduction (super admin carrier cost)</a></li>
+      <li><a href="#example">Worked example</a></li>
+      <li><a href="#order-status">Order statuses</a></li>
+      <li><a href="#admin-screens">Admin screens reference</a></li>
+    </ol>
+  </nav>
+
+  <main class="wrap">
+
+    <section id="overview">
+      <h2>1. Business model overview</h2>
+      <div class="card">
+        <p>
+          VSP-VOIP operates as a <strong>white-label phone reseller platform</strong>. You (super admin) connect
+          your own <strong>Telnyx</strong> carrier account. Tenants (your customers) buy numbers through the portal.
+          They pay <strong>you</strong>; you pay <strong>Telnyx</strong>.
+        </p>
+        <div class="money-grid">
+          <div class="money-card tenant">
+            <h4>Tenant pays</h4>
+            <p>Carrier cost (from Telnyx search) <strong>+</strong> your VSP-VOIP platform markup (setup + monthly fees you configure).</p>
+          </div>
+          <div class="money-card platform">
+            <h4>Super admin receives</h4>
+            <p>Full order amount via <strong>Stripe</strong> (card) or <strong>bank transfer</strong> to your configured bank account.</p>
+          </div>
+          <div class="money-card carrier">
+            <h4>Telnyx deducts</h4>
+            <p>When numbers are fulfilled, Telnyx charges <strong>your Telnyx prepaid balance</strong> for the wholesale number cost.</p>
+          </div>
+        </div>
+        <p><strong>Your profit (margin)</strong> ≈ what the tenant paid − what Telnyx charged you − payment processing fees (Stripe).</p>
+      </div>
+    </section>
+
+    <section id="pricing">
+      <h2>2. How pricing is calculated</h2>
+      <p>Each number in the cart has two cost components:</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Component</th>
+            <th>Source</th>
+            <th>Who sets it</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Carrier upfront</strong></td>
+            <td>Telnyx number search API (<code>upfront_cost</code>)</td>
+            <td>Telnyx (wholesale)</td>
+          </tr>
+          <tr>
+            <td><strong>Carrier monthly</strong></td>
+            <td>Telnyx number search API (<code>monthly_cost</code>)</td>
+            <td>Telnyx (wholesale)</td>
+          </tr>
+          <tr>
+            <td><strong>Platform setup fee</strong></td>
+            <td>Per-number one-time markup</td>
+            <td>Super admin (default or per-tenant)</td>
+          </tr>
+          <tr>
+            <td><strong>Platform first month fee</strong></td>
+            <td>Per-number fee charged on first invoice</td>
+            <td>Super admin (defaults to recurring if blank)</td>
+          </tr>
+          <tr>
+            <td><strong>Platform recurring monthly</strong></td>
+            <td>Per-number monthly markup</td>
+            <td>Super admin (default or per-tenant)</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Formulas (per checkout)</h3>
+      <pre>Due today (first payment) =
+  SUM(carrier upfront)
++ SUM(carrier monthly)          ← first month carrier rent included in "due today"
++ SUM(platform setup fee)
++ SUM(platform first month fee)
+
+Recurring monthly (after first month) =
+  SUM(carrier monthly)
++ SUM(platform recurring monthly)</pre>
+
+      <div class="note">
+        The tenant portal shows <strong>"Your price"</strong> on Buy Numbers and Cart — not raw Telnyx wholesale
+        prices. This is the reseller price (carrier + your markup combined).
+      </div>
+    </section>
+
+    <section id="tenant-flow">
+      <h2>3. Tenant: buy numbers step by step</h2>
+
+      <h3>Prerequisites</h3>
+      <ul>
+        <li>Super admin created the tenant and a <strong>tenant admin</strong> login.</li>
+        <li>At least one payment method is configured (bank details and/or Stripe).</li>
+        <li>API and web servers are running; Telnyx API key is set in <code>.env</code>.</li>
+      </ul>
+
+      <h3>Steps</h3>
+      <table>
+        <thead>
+          <tr><th>Step</th><th>Screen</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1</td>
+            <td><code>/login</code></td>
+            <td>Tenant admin signs in (not super admin).</td>
+          </tr>
+          <tr>
+            <td>2</td>
+            <td><strong>Buy Numbers</strong> <code>/numbers</code></td>
+            <td>Search by country, area code, city, etc. Results come from Telnyx inventory.</td>
+          </tr>
+          <tr>
+            <td>3</td>
+            <td>Search results</td>
+            <td>Click <strong>Add to cart</strong> on desired numbers. Price shown is tenant-facing total.</td>
+          </tr>
+          <tr>
+            <td>4</td>
+            <td><strong>My Cart</strong> <code>/cart</code></td>
+            <td>Review numbers, select voice connection (Call Control / TeXML app), choose payment method.</td>
+          </tr>
+          <tr>
+            <td>5a</td>
+            <td>Bank transfer</td>
+            <td>Click <strong>Submit order</strong> → order status <span class="badge badge-amber">PENDING</span>. Invoice reference shown.</td>
+          </tr>
+          <tr>
+            <td>5b</td>
+            <td>Stripe card</td>
+            <td>Click <strong>Pay with card</strong> → redirect to Stripe Checkout → pay → auto-fulfill via webhook.</td>
+          </tr>
+          <tr>
+            <td>6</td>
+            <td><strong>My Numbers</strong> <code>/my-numbers</code></td>
+            <td>After super admin fulfills (bank) or Stripe succeeds, numbers appear here.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="flow">
+        <span class="flow-box">Search numbers</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-box">Add to cart</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-box">Checkout</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-box">Pay (Stripe / Bank)</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-box">Fulfill</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-box">Numbers live</span>
+      </div>
+    </section>
+
+    <section id="super-admin-pricing">
+      <h2>4. Super admin: set what to charge</h2>
+
+      <h3>Platform-wide default markup</h3>
+      <p>Path: <strong>Admin → Platform settings</strong> (<code>/admin/settings</code>)</p>
+      <table>
+        <thead>
+          <tr><th>Setting</th><th>Env fallback</th><th>Meaning</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Default setup fee</td>
+            <td><code>BILLING_MARKUP_UPFRONT</code> (default 0)</td>
+            <td>One-time per number added to first invoice</td>
+          </tr>
+          <tr>
+            <td>Default monthly fee</td>
+            <td><code>BILLING_MARKUP_MONTHLY</code> (default 8)</td>
+            <td>Recurring per-number markup every month</td>
+          </tr>
+          <tr>
+            <td>Default first month fee</td>
+            <td>Same as monthly if not set</td>
+            <td>Extra platform fee on first payment only</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Per-tenant custom pricing</h3>
+      <p>Path: <strong>Admin → Company directory → Manage tenant</strong> (<code>/admin/tenants/[id]</code>)</p>
+      <p>Override setup, first month, and recurring fees for a specific company. New checkouts use these rates instead of platform defaults.</p>
+
+      <div class="success">
+        <strong>Tip:</strong> Create the tenant with billing rates at setup time, or adjust before the tenant places their first order.
+      </div>
+    </section>
+
+    <section id="payment-methods">
+      <h2>5. Payment methods</h2>
+
+      <h3>Bank transfer (manual) — recommended for testing</h3>
+      <p>Configure at: <strong>Admin → Payments → Bank accounts</strong> (<code>/admin/payments/bank</code>)</p>
+      <ol>
+        <li>Enter bank name, account number, routing number, and payment instructions.</li>
+        <li>Tenant submits order → receives invoice text with amount due and your bank details.</li>
+        <li>Tenant sends wire/ACH to <strong>your bank account</strong>.</li>
+        <li>Super admin confirms payment and clicks <strong>Payment received — buy &amp; assign numbers</strong>.</li>
+      </ol>
+      <p><strong>Money destination:</strong> Your bank account (super admin). Telnyx is not paid by the tenant directly.</p>
+
+      <h3>Stripe (card) — automated</h3>
+      <p>Configure at: <strong>Admin → Payments → Stripe</strong> (<code>/admin/payments/stripe</code>)</p>
+      <ol>
+        <li>Add Stripe secret key, publishable key, and webhook secret.</li>
+        <li>Set webhook URL to <code>{API_PUBLIC_URL}/api/billing/webhook</code> (ngrok in dev).</li>
+        <li>Tenant pays via Stripe Checkout → funds go to <strong>your Stripe account</strong>.</li>
+        <li>Stripe webhook <code>checkout.session.completed</code> triggers automatic number purchase on Telnyx.</li>
+      </ol>
+      <p>Stripe creates a <strong>subscription</strong> per number for recurring monthly billing (carrier + platform monthly).</p>
+
+      <div class="warn">
+        If neither Stripe nor bank details are configured, checkout shows
+        <em>"No payment method available — contact your administrator."</em>
+      </div>
+    </section>
+
+    <section id="fulfillment">
+      <h2>6. Order fulfillment</h2>
+      <p>Fulfillment is when VSP-VOIP actually buys the number on Telnyx and assigns it to the tenant.</p>
+
+      <table>
+        <thead>
+          <tr><th>Payment type</th><th>Who triggers fulfill</th><th>What happens</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Bank transfer</td>
+            <td>Super admin manually</td>
+            <td>Admin → Orders → open order → <strong>Payment received — buy &amp; assign numbers</strong></td>
+          </tr>
+          <tr>
+            <td>Stripe</td>
+            <td>Automatic (webhook)</td>
+            <td>On successful checkout, API calls Telnyx and assigns numbers</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Technical steps during fulfillment</h3>
+      <ol>
+        <li>Order status updated to <code>PAID</code> (bank) or already paid (Stripe).</li>
+        <li>For each phone number: API calls Telnyx <code>POST /v2/number_orders</code>.</li>
+        <li>Number is linked to Call Control app or TeXML connection + messaging profile.</li>
+        <li>Record saved in database <code>PhoneNumber</code> table for the tenant.</li>
+        <li>Order status → <code>FULFILLED</code> (or <code>PARTIAL</code> if some numbers failed).</li>
+      </ol>
+    </section>
+
+    <section id="money-flow">
+      <h2>7. Where money goes (full money flow)</h2>
+
+      <div class="card">
+        <h3>Diagram: two wallets</h3>
+        <pre>
+  TENANT                         SUPER ADMIN (YOU)                    TELNYX (CARRIER)
+  ──────                         ─────────────────                    ──────────────────
+
+  Pays invoice     ──────────►   Stripe account  OR  Bank account
+  (your price)                   (full order amount)
+
+                                 When order fulfilled:
+                                 API uses TELNYX_API_KEY  ────────►  Telnyx prepaid balance
+                                                                    (wholesale number cost deducted)
+
+                                 Your margin = tenant payment − Telnyx cost − Stripe fees
+        </pre>
+      </div>
+
+      <h3>Important rules</h3>
+      <ul>
+        <li><strong>Tenants never pay Telnyx directly.</strong> All tenant payments go to you.</li>
+        <li><strong>You must fund your Telnyx account</strong> separately (Telnyx Mission Control → Billing). Low balance = fulfillment fails.</li>
+        <li><strong>Carrier costs are deducted at fulfillment time</strong>, not when the tenant places the order.</li>
+        <li>Bank orders: you receive money first, then you trigger Telnyx purchase when ready.</li>
+        <li>Stripe orders: tenant pays first; Telnyx is charged immediately on webhook success.</li>
+      </ul>
+    </section>
+
+    <section id="telnyx-deduction">
+      <h2>8. Telnyx deduction (super admin carrier cost)</h2>
+
+      <div class="card">
+        <h4>When is Telnyx charged?</h4>
+        <p>
+          When <code>buyAndAssignNumber</code> runs (during fulfill), the platform sends:
+        </p>
+        <pre>POST https://api.telnyx.com/v2/number_orders
+Authorization: Bearer {TELNYX_API_KEY}
+Body: { "phone_numbers": [{ "phone_number": "+1XXXXXXXXXX" }] }</pre>
+        <p>
+          Telnyx bills this against the account tied to <code>TELNYX_API_KEY</code> in your
+          <code>.env</code> file — that is <strong>your</strong> carrier account, not the tenant's.
+        </p>
+      </div>
+
+      <h3>What Telnyx deducts</h3>
+      <table>
+        <thead>
+          <tr><th>Charge type</th><th>When</th><th>Approx. amount</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Number upfront / setup</td>
+            <td>At purchase</td>
+            <td>From Telnyx search <code>upfront_cost</code> (often ~$1 for US local)</td>
+          </tr>
+          <tr>
+            <td>First month number rent</td>
+            <td>At purchase</td>
+            <td>From Telnyx search <code>monthly_cost</code> (often ~$1/mo US local)</td>
+          </tr>
+          <tr>
+            <td>Ongoing monthly rent</td>
+            <td>Each billing cycle on Telnyx</td>
+            <td>Wholesale monthly per number</td>
+          </tr>
+          <tr>
+            <td>Usage (calls, SMS)</td>
+            <td>Per minute / per message</td>
+            <td>Per Telnyx rate deck (separate from number purchase)</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="warn">
+        <strong>Keep Telnyx balance funded.</strong> Check Telnyx Mission Control → Billing. If fulfillment fails with
+        "insufficient funds" or similar, add credit to your Telnyx account and retry fulfill from Admin → Orders.
+      </div>
+
+      <h3>Platform fees vs Telnyx fees</h3>
+      <p>
+        The <strong>platform setup / monthly fees</strong> ($0 setup + $8/mo default) are <em>your revenue</em>.
+        They are <strong>not</strong> sent to Telnyx. Telnyx only receives wholesale carrier pricing.
+      </p>
+    </section>
+
+    <section id="example">
+      <h2>9. Worked example</h2>
+      <p>One US local number with typical Telnyx wholesale ~$1 upfront + ~$1/mo, platform fees $0 setup + $8 first month + $8/mo recurring:</p>
+
+      <table>
+        <thead>
+          <tr><th>Line item</th><th>Tenant pays you</th><th>Telnyx charges you</th><th>Your margin</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Carrier upfront</td>
+            <td>$1.00</td>
+            <td>$1.00</td>
+            <td>$0</td>
+          </tr>
+          <tr>
+            <td>Carrier first month</td>
+            <td>$1.00</td>
+            <td>$1.00</td>
+            <td>$0</td>
+          </tr>
+          <tr>
+            <td>Platform setup</td>
+            <td>$0.00</td>
+            <td>—</td>
+            <td>$0</td>
+          </tr>
+          <tr>
+            <td>Platform first month</td>
+            <td>$8.00</td>
+            <td>—</td>
+            <td>$8.00</td>
+          </tr>
+          <tr>
+            <td><strong>Due today (total)</strong></td>
+            <td><strong>$10.00</strong></td>
+            <td><strong>~$2.00</strong></td>
+            <td><strong>~$8.00</strong></td>
+          </tr>
+          <tr>
+            <td><strong>Recurring monthly</strong></td>
+            <td><strong>$9.00</strong> ($1 + $8)</td>
+            <td><strong>~$1.00</strong></td>
+            <td><strong>~$8.00/mo</strong></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="note">
+        Exact Telnyx prices vary by number type and region. The portal reads live prices from Telnyx search at checkout time.
+      </div>
+    </section>
+
+    <section id="order-status">
+      <h2>10. Order statuses</h2>
+      <table>
+        <thead>
+          <tr><th>Status</th><th>Meaning</th><th>Super admin action</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="badge badge-amber">PENDING</span></td>
+            <td>Bank order placed; awaiting payment</td>
+            <td>Send invoice, wait for wire, then fulfill</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-blue">PAID</span></td>
+            <td>Payment confirmed (brief state during fulfill)</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-green">FULFILLED</span></td>
+            <td>Numbers purchased on Telnyx and assigned</td>
+            <td>None — complete</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-amber">PARTIAL</span></td>
+            <td>Some numbers succeeded, some failed</td>
+            <td>Check API logs; retry or refund tenant</td>
+          </tr>
+          <tr>
+            <td>FAILED</td>
+            <td>All Telnyx purchases failed</td>
+            <td>Check Telnyx balance &amp; API key</td>
+          </tr>
+          <tr>
+            <td>CANCELLED</td>
+            <td>Order cancelled before fulfill</td>
+            <td>Tenant must reorder</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="admin-screens">
+      <h2>11. Admin screens reference</h2>
+      <table>
+        <thead>
+          <tr><th>Task</th><th>URL</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Set default markup</td><td><code>/admin/settings</code></td></tr>
+          <tr><td>Set tenant-specific pricing</td><td><code>/admin/tenants/[id]</code></td></tr>
+          <tr><td>Configure Stripe</td><td><code>/admin/payments/stripe</code></td></tr>
+          <tr><td>Configure bank transfer</td><td><code>/admin/payments/bank</code></td></tr>
+          <tr><td>View &amp; fulfill orders</td><td><code>/admin/orders</code></td></tr>
+          <tr><td>Revenue report</td><td><code>/admin/revenue</code></td></tr>
+          <tr><td>Audit trail</td><td><code>/admin/audit</code></td></tr>
+          <tr><td>Telnyx connection IDs</td><td><code>/admin/settings</code> (Telnyx section)</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Environment variables (super admin / platform)</h3>
+      <table>
+        <thead>
+          <tr><th>Variable</th><th>Purpose</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>TELNYX_API_KEY</code></td><td>Carrier account — charged when numbers are purchased</td></tr>
+          <tr><td><code>BILLING_MARKUP_UPFRONT</code></td><td>Default platform setup fee per number</td></tr>
+          <tr><td><code>BILLING_MARKUP_MONTHLY</code></td><td>Default platform monthly fee per number</td></tr>
+          <tr><td><code>STRIPE_SECRET_KEY</code></td><td>Stripe payments to super admin account</td></tr>
+          <tr><td><code>API_PUBLIC_URL</code></td><td>Stripe &amp; Telnyx webhooks (ngrok in dev)</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+  </main>
+
+  <footer>
+    VSP-VOIP Platform Documentation · Number Purchase &amp; Billing · Open in browser: <code>docs/number-purchase-and-billing.html</code>
+  </footer>
+</body>
+</html>

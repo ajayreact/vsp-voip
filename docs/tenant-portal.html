@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tenant Web Portal — VSP-VOIP Documentation</title>
+  <link rel="stylesheet" href="doc-styles.css" />
+</head>
+<body>
+  <header class="doc-header doc-header-tenant">
+    <div class="wrap">
+      <p class="breadcrumb"><a href="index.html">Documentation</a> / Tenant Web Portal</p>
+      <h1>Tenant Web Portal</h1>
+      <p>Company-facing Next.js application for phone numbers, WebRTC softphone, SMS, call routing, voicemail, recordings, and billing. Routes at <code>web/src/app/(app)/</code>.</p>
+    </div>
+  </header>
+
+  <nav class="toc wrap">
+    <h2>Contents</h2>
+    <ol>
+      <li><a href="#overview">Overview &amp; roles</a></li>
+      <li><a href="#navigation">Navigation &amp; pages</a></li>
+      <li><a href="#api">API endpoints</a></li>
+      <li><a href="#call-routing">Call routing &amp; inbound</a></li>
+      <li><a href="#softphone">WebRTC softphone</a></li>
+      <li><a href="#sms">SMS</a></li>
+      <li><a href="#billing">Numbers &amp; billing</a></li>
+      <li><a href="#workflows">User workflows</a></li>
+    </ol>
+  </nav>
+
+  <main class="wrap">
+    <section id="overview">
+      <h2>1. Overview &amp; Roles</h2>
+      <div class="card">
+        <p>The tenant portal is the <strong>primary business phone interface</strong> for each company on the platform. Users authenticate with email/password and receive a JWT stored in the browser.</p>
+        <table>
+          <tr><th>Item</th><th>Detail</th></tr>
+          <tr><td>URL</td><td><code>http://localhost:3001</code> (dev)</td></tr>
+          <tr><td>API</td><td><code>http://localhost:3000/api/*</code></td></tr>
+          <tr><td>Nav</td><td><code>web/src/components/sidebar.tsx</code></td></tr>
+          <tr><td>API module</td><td><code>routes/portal.js</code></td></tr>
+        </table>
+      </div>
+      <h3>Role permissions</h3>
+      <table>
+        <thead><tr><th>Feature</th><th>TENANT_ADMIN</th><th>TENANT_USER</th></tr></thead>
+        <tbody>
+          <tr><td>Dashboard, calls, SMS, voicemail, recordings</td><td>✓</td><td>✓</td></tr>
+          <tr><td>Softphone (WebRTC)</td><td>✓</td><td>✓</td></tr>
+          <tr><td>Buy numbers / cart / checkout</td><td>✓</td><td>—</td></tr>
+          <tr><td>Call routing / greeting config</td><td>✓</td><td>—</td></tr>
+          <tr><td>My Numbers (assign users, routing)</td><td>✓</td><td>Limited</td></tr>
+          <tr><td>Team management</td><td>✓</td><td>—</td></tr>
+          <tr><td>Billing / subscription / payment methods</td><td>✓</td><td>—</td></tr>
+          <tr><td>Company profile (timezone, email)</td><td>✓</td><td>—</td></tr>
+        </tbody>
+      </table>
+      <h3>Default seed tenant</h3>
+      <table>
+        <tr><th>Tenant</th><th>Admin email</th><th>Password</th></tr>
+        <tr><td>Asuitech Solutions Inc</td><td><code>admin@asuitech.com</code></td><td><code>Admin@123</code></td></tr>
+      </table>
+    </section>
+
+    <section id="navigation">
+      <h2>2. Navigation &amp; Pages</h2>
+      <table>
+        <thead><tr><th>Route</th><th>Label</th><th>Description</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td><code>/login</code></td><td>Login</td><td>Email/password authentication</td><td><span class="badge badge-yes">Live</span></td></tr>
+          <tr><td><code>/dashboard</code></td><td>Dashboard</td><td>Stats, unread voicemail/SMS badges, recent calls and orders</td><td><span class="badge badge-yes">Live</span></td></tr>
+          <tr><td><code>/my-numbers</code></td><td>My Numbers</td><td>Owned DIDs: label, assign user, routing type, active toggle</td><td><span class="badge badge-yes">Live</span></td></tr>
+          <tr><td><code>/softphone</code></td><td>Softphone</td><td>Browser WebRTC dialer via <code>@telnyx/webrtc</code></td><td><span class="badge badge-yes">Live</span></td></tr>
+          <tr><td><code>/sms</code></td><td>SMS</td><td>Conversation inbox, thread view, send/reply</td><td><span class="badge badge-yes">Live</span></td></tr>
+          <tr><td><code>/numbers</code></td><td>Buy Numbers</td><td>Search Telnyx inventory by area code, add to cart</td><td><span class="badge badge-yes">Live</span></td></tr>
+          <tr><td><code>/cart</code></td><td>Cart</td><td>Checkout via Stripe or manual bank order</td><td><span class="badge badge-yes">Live</span></td></tr>
+          <tr><td><code>/greeting</code></td><td>Call routing</td><td>Greeting, business hours, IVR, ring group, voicemail, recording settings</td><td><span class="badge badge-yes">Live</span></td></tr>
+          <tr><td><code>/voicemail</code></td><td>Voicemail</td><td>Inbox, mark read, delete, play audio</td><td><span class="badge badge-yes">Live</span></td></tr>
+          <tr><td><code>/recordings</code></td><td>Recordings</td><td>Call recordings synced from Telnyx, stream playback</td><td><span class="badge badge-yes">Live</span></td></tr>
+          <tr><td><code>/calls</code></td><td>Call History</td><td>Inbound/outbound call logs with duration and recording links</td><td><span class="badge badge-yes">Live</span></td></tr>
+          <tr><td><code>/settings</code></td><td>Settings</td><td>Billing overview, orders list</td><td><span class="badge badge-yes">Live</span></td></tr>
+          <tr><td><code>/settings/subscription</code></td><td>Subscription</td><td>Stripe subscription summary + customer portal link</td><td><span class="badge badge-yes">Live</span></td></tr>
+          <tr><td><code>/settings/payment-methods</code></td><td>Payment methods</td><td>Stripe payment method management</td><td><span class="badge badge-yes">Live</span></td></tr>
+          <tr><td><code>/settings/profile</code></td><td>Company profile</td><td>Contact email, timezone</td><td><span class="badge badge-yes">Live</span></td></tr>
+          <tr><td><code>/settings/team</code></td><td>Team</td><td>Add/manage tenant users</td><td><span class="badge badge-yes">Live</span></td></tr>
+          <tr><td><code>/settings/orders/[id]</code></td><td>Order detail</td><td>Order status, invoice download</td><td><span class="badge badge-yes">Live</span></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="api">
+      <h2>3. API Endpoints</h2>
+      <p>Authenticated endpoints in <code>routes/portal.js</code> unless noted. Prefix: <code>/api</code>.</p>
+
+      <h3>Authentication</h3>
+      <table>
+        <tr><td>POST <code>/auth/login</code></td><td>Email + password → JWT + user profile</td></tr>
+        <tr><td>GET <code>/auth/me</code></td><td>Current user (requires Bearer token)</td></tr>
+      </table>
+
+      <h3>Dashboard &amp; calls</h3>
+      <table>
+        <tr><td>GET <code>/dashboard/stats</code></td><td>Counts, unread VM/SMS, recent activity</td></tr>
+        <tr><td>GET <code>/calls</code></td><td>Call logs with optional recording URLs</td></tr>
+      </table>
+
+      <h3>Call routing &amp; greeting</h3>
+      <table>
+        <tr><td>GET/PUT <code>/tenants/:tenantId/greeting</code></td><td>Simple greeting message</td></tr>
+        <tr><td>GET/PUT <code>/tenants/:tenantId/call-routing</code></td><td>Full routing: hours, IVR, ring group, voicemail, recording</td></tr>
+        <tr><td>POST <code>/tenant/greeting/audio</code></td><td>Upload greeting/IVR audio (base64, max 8MB)</td></tr>
+      </table>
+
+      <h3>Voicemail &amp; recordings</h3>
+      <table>
+        <tr><td>GET <code>/tenant/voicemails</code></td><td>List voicemails</td></tr>
+        <tr><td>PATCH <code>/tenant/voicemails/:id/read</code></td><td>Mark read</td></tr>
+        <tr><td>DELETE <code>/tenant/voicemails/:id</code></td><td>Delete</td></tr>
+        <tr><td>GET <code>/tenant/recordings/setup</code></td><td>Recording setup status</td></tr>
+        <tr><td>POST <code>/tenant/recordings/sync</code></td><td>Sync recordings from Telnyx API</td></tr>
+        <tr><td>GET <code>/tenant/recordings</code></td><td>List (auto-syncs on load)</td></tr>
+        <tr><td>GET <code>/tenant/recordings/:id/stream</code></td><td>Stream recording audio</td></tr>
+        <tr><td>DELETE <code>/tenant/recordings/:id</code></td><td>Delete recording</td></tr>
+      </table>
+
+      <h3>Softphone (WebRTC)</h3>
+      <table>
+        <tr><td>GET <code>/softphone/config</code></td><td>Caller ID numbers, inbound routing readiness</td></tr>
+        <tr><td>POST <code>/softphone/token</code></td><td>Telnyx telephony credential login token</td></tr>
+        <tr><td>POST <code>/softphone/presence</code></td><td>Online heartbeat (5-min window for ring groups)</td></tr>
+        <tr><td>POST <code>/softphone/push-token</code></td><td>Register FCM/APNs device token</td></tr>
+        <tr><td>POST <code>/softphone/call-log</code></td><td>Client-side outbound/inbound call log</td></tr>
+        <tr><td>POST <code>/softphone/record-start</code></td><td>Start outbound Call Control recording</td></tr>
+      </table>
+
+      <h3>SMS</h3>
+      <table>
+        <tr><td>GET <code>/sms/config</code></td><td>Messaging profile + webhook reachability</td></tr>
+        <tr><td>GET <code>/sms/conversations</code></td><td>Conversation list grouped by peer + line</td></tr>
+        <tr><td>GET <code>/sms/messages?peer=&amp;line=</code></td><td>Thread messages</td></tr>
+        <tr><td>PATCH <code>/sms/conversations/read</code></td><td>Mark conversation read</td></tr>
+        <tr><td>POST <code>/sms/send</code></td><td>Send SMS via Telnyx <code>POST /messages</code></td></tr>
+        <tr><td>DELETE <code>/sms/messages/:id</code></td><td>Delete message</td></tr>
+      </table>
+
+      <h3>Numbers &amp; billing</h3>
+      <table>
+        <tr><td>GET <code>/numbers/mine</code></td><td>Tenant numbers + assignable users</td></tr>
+        <tr><td>PUT <code>/numbers/:id</code></td><td>Label, assign user, routing type, active</td></tr>
+        <tr><td>GET <code>/numbers/connections</code></td><td>TeXML connection list</td></tr>
+        <tr><td>POST <code>/numbers/buy</code></td><td>Direct purchase (admin bypass)</td></tr>
+        <tr><td>POST <code>/numbers/checkout</code></td><td>Stripe checkout for numbers</td></tr>
+        <tr><td>GET <code>/billing/config</code></td><td>Pricing configuration</td></tr>
+        <tr><td>GET <code>/billing/quote</code></td><td>Cart quote with fees</td></tr>
+        <tr><td>POST <code>/billing/checkout-session</code></td><td>Create Stripe session</td></tr>
+        <tr><td>POST <code>/billing/manual-order</code></td><td>Bank transfer order</td></tr>
+        <tr><td>GET <code>/billing/orders</code></td><td>Order history</td></tr>
+        <tr><td>POST <code>/billing/billing-portal</code></td><td>Stripe customer portal URL</td></tr>
+      </table>
+
+      <h3>Public (no auth)</h3>
+      <table>
+        <tr><td>GET <code>/api/numbers/area-codes</code></td><td>US area code list</td></tr>
+        <tr><td>GET <code>/api/numbers/search</code></td><td>Telnyx available number search</td></tr>
+        <tr><td>POST <code>/api/numbers/assign</code></td><td>Link existing Telnyx number to tenant</td></tr>
+      </table>
+    </section>
+
+    <section id="call-routing">
+      <h2>4. Call Routing &amp; Inbound Architecture</h2>
+      <p>VSP-VOIP uses <strong>two parallel inbound paths</strong> on Telnyx. Configuration is on the <strong>Call routing</strong> page (<code>/greeting</code>).</p>
+
+      <div class="arch">PSTN Caller
+    │
+    ▼
+Telnyx Phone Number (assigned to tenant)
+    │
+    ├── Call Control App ──► POST /webhook/call-control
+    │       └── lib/inboundCallControl.js
+    │           • Business hours check
+    │           • IVR (gather_using_speak)
+    │           • Ring group → PSTN + WebRTC (dial to sip:user@sip.telnyx.com)
+    │           • Voicemail (record)
+    │           • Call recording
+    │
+    └── TeXML Connection ──► POST /webhook
+            └── lib/callRouting.js + lib/texml.js
+                • Greeting (Say/Play)
+                • IVR (Gather)
+                • Forward/Dial
+                • Voicemail
+                • Recording notice</div>
+
+      <h3>Routing configuration (Greeting model)</h3>
+      <table>
+        <thead><tr><th>Setting</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>Greeting message / audio</td><td>Played on answer (TTS or uploaded MP3/WAV)</td></tr>
+          <tr><td>Business hours</td><td>Timezone + weekly schedule; after-hours message</td></tr>
+          <tr><td>IVR menu</td><td>DTMF options → forward, voicemail, ring group, etc.</td></tr>
+          <tr><td>Ring group</td><td>Members: PSTN numbers or app users (WebRTC SIP)</td></tr>
+          <tr><td>Ring strategy</td><td>Simultaneous or sequential; timeout seconds</td></tr>
+          <tr><td>Voicemail</td><td>Enable, prompt, max length, email notification</td></tr>
+          <tr><td>Call recording</td><td>Inbound recording notice + storage</td></tr>
+          <tr><td>Per-number routing</td><td>Override on <code>/my-numbers</code> (forward, IVR, etc.)</td></tr>
+        </tbody>
+      </table>
+      <p><strong>Important:</strong> Inbound WebRTC ring groups require the <strong>Call Control</strong> path. TeXML alone cannot dial WebRTC clients.</p>
+    </section>
+
+    <section id="softphone">
+      <h2>5. WebRTC Softphone (Web)</h2>
+      <p>Page: <code>/softphone</code> · SDK: <code>@telnyx/webrtc</code></p>
+      <ol>
+        <li>User opens softphone → frontend calls <code>GET /api/softphone/config</code>.</li>
+        <li>Backend creates/retrieves per-user Telnyx telephony credential → <code>POST /api/softphone/token</code>.</li>
+        <li>Browser SDK connects with login token (24h expiry).</li>
+        <li>Presence heartbeat every ~60s keeps user "online" for ring groups.</li>
+        <li>Outbound: dial E.164, optional recording via <code>POST /api/softphone/record-start</code>.</li>
+        <li>Hangup logs call via <code>POST /api/softphone/call-log</code>.</li>
+      </ol>
+      <p>Credentials stored on <code>User</code>: <code>telnyxCredentialId</code>, <code>telnyxSipUsername</code>, <code>softphoneOnlineAt</code>.</p>
+    </section>
+
+    <section id="sms">
+      <h2>6. SMS</h2>
+      <p>Two-way SMS via Telnyx Messaging API. Requires messaging profile assigned to tenant numbers.</p>
+      <ul>
+        <li><strong>Outbound:</strong> <code>POST /api/sms/send</code> → Telnyx <code>POST /v2/messages</code></li>
+        <li><strong>Inbound:</strong> Telnyx webhook <code>POST /webhook/sms</code> → saved to <code>SmsMessage</code></li>
+        <li><strong>Delivery status:</strong> Updated via same webhook (<code>message.finalized</code> events)</li>
+        <li><strong>Webhook requirement:</strong> <code>API_PUBLIC_URL</code> must be a public HTTPS URL (not localhost)</li>
+      </ul>
+    </section>
+
+    <section id="billing">
+      <h2>7. Numbers &amp; Billing</h2>
+      <h3>Number purchase flow</h3>
+      <ol>
+        <li>Search numbers at <code>/numbers</code> (Telnyx <code>GET /available_phone_numbers</code>).</li>
+        <li>Add to cart → checkout with Stripe or manual bank transfer.</li>
+        <li>Stripe: webhook completes order → auto-fulfill via Telnyx <code>POST /number_orders</code>.</li>
+        <li>Manual: super admin fulfills from admin orders page.</li>
+        <li>Purchased numbers assigned TeXML connection + messaging profile automatically.</li>
+      </ol>
+      <h3>Fee structure</h3>
+      <p>Per-tenant fees from <code>Tenant</code> model: <code>platformFeeSetup</code>, <code>platformFeeMonthly</code>, <code>platformFeeFirstMonth</code>. Telnyx carrier costs are separate.</p>
+      <p>See also: <a href="number-purchase-and-billing.html">Number Purchase &amp; Billing Documentation</a></p>
+    </section>
+
+    <section id="workflows">
+      <h2>8. Common User Workflows</h2>
+
+      <h3>8.1 Tenant admin: set up call routing</h3>
+      <ol>
+        <li>Go to <strong>Call routing</strong> → configure greeting and business hours.</li>
+        <li>Add ring group members (team users with softphone + optional PSTN numbers).</li>
+        <li>Enable voicemail and recording as needed.</li>
+        <li>Assign numbers to users on <strong>My Numbers</strong>.</li>
+        <li>Test inbound call to verify ring group reaches online softphone users.</li>
+      </ol>
+
+      <h3>8.2 Tenant user: make an outbound call</h3>
+      <ol>
+        <li>Open <strong>Softphone</strong> → wait for "Connected" status.</li>
+        <li>Select caller ID from tenant numbers.</li>
+        <li>Dial destination → talk → hang up.</li>
+        <li>View call in <strong>Call History</strong>.</li>
+      </ol>
+
+      <h3>8.3 Tenant admin: send SMS</h3>
+      <ol>
+        <li>Open <strong>SMS</strong> → select or start conversation.</li>
+        <li>Choose sending line (tenant DID) → type message → send.</li>
+        <li>Inbound replies appear via Telnyx webhook (requires public API URL).</li>
+      </ol>
+    </section>
+  </main>
+
+  <footer class="doc-footer">
+    <a href="index.html">← Documentation hub</a> ·
+    <a href="super-admin-portal.html">← Super Admin</a> ·
+    <a href="mobile-app.html">Mobile App →</a>
+  </footer>
+</body>
+</html>

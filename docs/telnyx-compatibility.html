@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Telnyx Compatibility Report — VSP-VOIP</title>
+  <link rel="stylesheet" href="doc-styles.css" />
+  <style>
+    .score-box { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin: 1.5rem 0; }
+    .score { text-align: center; padding: 1.25rem; border-radius: 12px; border: 1px solid var(--border); background: var(--card); }
+    .score .num { font-size: 2rem; font-weight: 700; }
+    .score .label { font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .compat-yes { color: var(--green); }
+    .compat-partial { color: var(--amber); }
+    .compat-no { color: var(--red); }
+    .compat-na { color: var(--muted); }
+    a.doc-link { color: var(--accent); font-size: 0.85rem; }
+    .verdict { background: #f0fdf4; border: 1px solid #86efac; border-radius: 12px; padding: 1.25rem 1.5rem; margin: 1.5rem 0; }
+    .verdict.warn { background: #fffbeb; border-color: #fcd34d; }
+    .finding { border-left: 4px solid var(--accent); padding-left: 1rem; margin: 1rem 0; }
+    .finding.warn { border-color: var(--amber); }
+    .finding.err { border-color: var(--red); }
+  </style>
+</head>
+<body>
+  <header class="doc-header doc-header-telnyx">
+    <div class="wrap">
+      <p class="breadcrumb"><a href="index.html">Documentation</a> / Telnyx Compatibility</p>
+      <h1>Telnyx Compatibility Report</h1>
+      <p>Audit of VSP-VOIP Telnyx integration against official developer documentation. Reference index: <a href="https://developers.telnyx.com/llms.txt" style="color:#00e3aa">developers.telnyx.com/llms.txt</a></p>
+      <p style="opacity:0.8;font-size:0.9rem;margin-top:0.75rem;">Audited: June 2026 · Codebase: Express API + Next.js + Flutter mobile</p>
+    </div>
+  </header>
+
+  <nav class="toc wrap">
+    <h2>Contents</h2>
+    <ol>
+      <li><a href="#summary">Executive summary</a></li>
+      <li><a href="#auth">Authentication &amp; API fundamentals</a></li>
+      <li><a href="#numbers">Phone numbers</a></li>
+      <li><a href="#voice-api">Voice API &amp; Call Control</a></li>
+      <li><a href="#texml">TeXML</a></li>
+      <li><a href="#webrtc">WebRTC</a></li>
+      <li><a href="#messaging">SMS &amp; messaging</a></li>
+      <li><a href="#recordings">Recordings</a></li>
+      <li><a href="#webhooks">Webhooks &amp; security</a></li>
+      <li><a href="#not-used">Telnyx features not used</a></li>
+      <li><a href="#gaps">Gaps &amp; recommendations</a></li>
+    </ol>
+  </nav>
+
+  <main class="wrap">
+    <section id="summary">
+      <h2>1. Executive Summary</h2>
+
+      <div class="verdict warn">
+        <strong>Overall verdict: Largely compatible with documented Telnyx patterns, with intentional scope limits and a few operational gaps.</strong>
+        <p style="margin:0.75rem 0 0">VSP-VOIP correctly uses Telnyx REST API v2 (<code>https://api.telnyx.com/v2</code>), Bearer authentication, Ed25519 webhook verification, Call Control commands, TeXML responses, Telephony Credentials for WebRTC, Messaging API, and Recordings API — all aligned with Telnyx documentation. Gaps are mainly <em>missing product features</em> (LNP porting API, 10DLC, MMS) and <em>operational hardening</em> (quota enforcement, dual inbound path complexity), not incorrect API usage.</p>
+      </div>
+
+      <div class="score-box">
+        <div class="score"><div class="num compat-yes">11</div><div class="label">Fully compatible</div></div>
+        <div class="score"><div class="num compat-partial">6</div><div class="label">Partial / gaps</div></div>
+        <div class="score"><div class="num compat-no">2</div><div class="label">Incompatible / risk</div></div>
+        <div class="score"><div class="num compat-na">15+</div><div class="label">Not used (OK)</div></div>
+      </div>
+
+      <h3>What VSP-VOIP uses from Telnyx</h3>
+      <table>
+        <thead><tr><th>Telnyx product</th><th>VSP-VOIP usage</th><th>Doc section</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>REST API v2 + Bearer auth</td>
+            <td>All axios calls to <code>api.telnyx.com/v2</code></td>
+            <td><a class="doc-link" href="https://developers.telnyx.com/docs/development/apis-fundamentals">APIs fundamentals</a></td>
+            <td><span class="badge badge-yes">Compatible</span></td>
+          </tr>
+          <tr>
+            <td>Phone number search &amp; order</td>
+            <td><code>GET /available_phone_numbers</code>, <code>POST /number_orders</code></td>
+            <td><a class="doc-link" href="https://developers.telnyx.com/docs/numbers/global-phone-numbers">Global Phone Numbers</a></td>
+            <td><span class="badge badge-yes">Compatible</span></td>
+          </tr>
+          <tr>
+            <td>Call Control API</td>
+            <td>answer, speak, gather_using_speak, dial, hangup, record_start</td>
+            <td><a class="doc-link" href="https://developers.telnyx.com/docs/voice/programmable-voice/voice-api-fundamentals">Voice API</a></td>
+            <td><span class="badge badge-yes">Compatible</span></td>
+          </tr>
+          <tr>
+            <td>Call Control Applications</td>
+            <td>Inbound app webhook at <code>/webhook/call-control</code></td>
+            <td><a class="doc-link" href="https://developers.telnyx.com/api-reference/call-control-applications/create-a-call-control-application">Call Control Applications API</a></td>
+            <td><span class="badge badge-yes">Compatible</span></td>
+          </tr>
+          <tr>
+            <td>TeXML</td>
+            <td>Inbound PSTN via <code>/webhook</code> XML responses</td>
+            <td><a class="doc-link" href="https://developers.telnyx.com/docs/voice/texml">TeXML docs</a></td>
+            <td><span class="badge badge-yes">Compatible</span></td>
+          </tr>
+          <tr>
+            <td>Credential Connections + Telephony Credentials</td>
+            <td>Per-user credentials, login tokens for WebRTC</td>
+            <td><a class="doc-link" href="https://developers.telnyx.com/docs/voice/webrtc/auth/telephony-credentials">Telephony Credentials</a></td>
+            <td><span class="badge badge-yes">Compatible</span></td>
+          </tr>
+          <tr>
+            <td>WebRTC SDKs (JS + Flutter)</td>
+            <td><code>@telnyx/webrtc</code> (web), <code>telnyx_webrtc</code> (mobile)</td>
+            <td><a class="doc-link" href="https://developers.telnyx.com/docs/voice/webrtc/fundamentals">WebRTC fundamentals</a></td>
+            <td><span class="badge badge-yes">Compatible</span></td>
+          </tr>
+          <tr>
+            <td>Push notifications (WebRTC)</td>
+            <td>FCM + CallKit, <code>setPushMetaData</code>, push token registration</td>
+            <td><a class="doc-link" href="https://developers.telnyx.com/docs/voice/webrtc/push-notifications/flutter">Flutter push docs</a></td>
+            <td><span class="badge badge-yes">Compatible</span></td>
+          </tr>
+          <tr>
+            <td>Messaging API (SMS)</td>
+            <td><code>POST /messages</code>, delivery webhooks</td>
+            <td><a class="doc-link" href="https://developers.telnyx.com/docs/messaging/messages/send-message">SMS &amp; MMS</a></td>
+            <td><span class="badge badge-partial">SMS only</span></td>
+          </tr>
+          <tr>
+            <td>Messaging Profiles</td>
+            <td>Webhook auto-config, number assignment</td>
+            <td><a class="doc-link" href="https://developers.telnyx.com/docs/messaging/messages/messaging-profiles">Messaging profiles</a></td>
+            <td><span class="badge badge-yes">Compatible</span></td>
+          </tr>
+          <tr>
+            <td>Call recordings</td>
+            <td>Outbound profile + record_start + sync API</td>
+            <td><a class="doc-link" href="https://developers.telnyx.com/docs/voice/programmable-voice/storing-call-recordings">Storing recordings</a></td>
+            <td><span class="badge badge-yes">Compatible</span></td>
+          </tr>
+          <tr>
+            <td>Webhook Ed25519 verification</td>
+            <td><code>telnyx</code> SDK <code>TelnyxWebhook</code> in <code>lib/telnyxVerify.js</code></td>
+            <td><a class="doc-link" href="https://developers.telnyx.com/docs/voice/programmable-voice/receiving-webhooks">Receiving webhooks</a></td>
+            <td><span class="badge badge-partial">Optional skip</span></td>
+          </tr>
+          <tr>
+            <td>Number porting (LNP)</td>
+            <td>Internal DB workflow only</td>
+            <td><a class="doc-link" href="https://developers.telnyx.com/docs/numbers/porting">Porting docs</a></td>
+            <td><span class="badge badge-no">Not integrated</span></td>
+          </tr>
+          <tr>
+            <td>10DLC / A2P compliance</td>
+            <td>Not implemented</td>
+            <td><a class="doc-link" href="https://developers.telnyx.com/docs/messaging/10dlc">10DLC</a></td>
+            <td><span class="badge badge-no">Required for US SMS</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="auth">
+      <h2>2. Authentication &amp; API Fundamentals</h2>
+      <table>
+        <thead><tr><th>Telnyx requirement</th><th>VSP-VOIP implementation</th><th>Compatible?</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Bearer <code>Authorization: Bearer &lt;API_KEY&gt;</code> on all requests</td>
+            <td><code>lib/telnyxCallControl.js</code>, <code>lib/sms.js</code>, <code>lib/buyNumber.js</code> all use Bearer header</td>
+            <td><span class="badge badge-yes">Yes</span></td>
+          </tr>
+          <tr>
+            <td>Base URL <code>https://api.telnyx.com/v2</code></td>
+            <td>Consistent across all Telnyx HTTP clients</td>
+            <td><span class="badge badge-yes">Yes</span></td>
+          </tr>
+          <tr>
+            <td>JSON request/response</td>
+            <td><code>Content-Type: application/json</code>, parses <code>data</code> envelope</td>
+            <td><span class="badge badge-yes">Yes</span></td>
+          </tr>
+          <tr>
+            <td>API key stored securely</td>
+            <td><code>TELNYX_API_KEY</code> env var only (not in DB, not client-side)</td>
+            <td><span class="badge badge-yes">Yes</span></td>
+          </tr>
+          <tr>
+            <td>Server-side SDK usage</td>
+            <td><code>telnyx</code> npm package used only for webhook verification; API calls via axios</td>
+            <td><span class="badge badge-yes">Yes</span> (valid pattern per Telnyx docs)</td>
+          </tr>
+          <tr>
+            <td>Rate limit handling</td>
+            <td>No explicit retry/backoff on 429 responses</td>
+            <td><span class="badge badge-partial">Gap</span></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="finding warn">
+        <strong>Recommendation:</strong> Add exponential backoff for Telnyx 429/5xx responses in <code>telnyxApiRequest()</code>, per <a class="doc-link" href="https://developers.telnyx.com/docs/development/apis-fundamentals">API rate limits guidance</a>.
+      </div>
+    </section>
+
+    <section id="numbers">
+      <h2>3. Phone Numbers</h2>
+      <table>
+        <thead><tr><th>Capability</th><th>Implementation</th><th>Telnyx doc alignment</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Search available numbers</td>
+            <td><code>GET /available_phone_numbers</code> with filters (area code, locality)</td>
+            <td>Matches <a class="doc-link" href="https://developers.telnyx.com/api-reference/phone-numbers/list-available-phone-numbers">List available phone numbers</a></td>
+            <td><span class="badge badge-yes">Compatible</span></td>
+          </tr>
+          <tr>
+            <td>Purchase numbers</td>
+            <td><code>POST /number_orders</code> via <code>lib/buyNumber.js</code></td>
+            <td>Matches number order API</td>
+            <td><span class="badge badge-yes">Compatible</span></td>
+          </tr>
+          <tr>
+            <td>Assign connection to number</td>
+            <td>Sets TeXML connection + Call Control app + messaging profile on purchase</td>
+            <td>Matches phone number update patterns</td>
+            <td><span class="badge badge-yes">Compatible</span></td>
+          </tr>
+          <tr>
+            <td>Regulatory requirements</td>
+            <td>No document upload or requirement check UI</td>
+            <td><a class="doc-link" href="https://developers.telnyx.com/docs/numbers/regulatory-documents">Regulatory docs</a> required for some countries</td>
+            <td><span class="badge badge-partial">US-focused only</span></td>
+          </tr>
+          <tr>
+            <td>Number porting (LNP)</td>
+            <td><code>PortRequest</code> model — internal workflow, no Telnyx porting API</td>
+            <td><a class="doc-link" href="https://developers.telnyx.com/docs/numbers/porting">Porting API</a></td>
+            <td><span class="badge badge-no">Not integrated</span></td>
+          </tr>
+          <tr>
+            <td>Identity / STIR-SHAKEN</td>
+            <td>Not configured</td>
+            <td><a class="doc-link" href="https://developers.telnyx.com/docs/numbers/identity">Identity docs</a></td>
+            <td><span class="badge badge-partial">Not used</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="voice-api">
+      <h2>4. Voice API &amp; Call Control</h2>
+      <p>Inbound routing via <code>lib/inboundCallControl.js</code> — state machine driven by Call Control webhooks.</p>
+
+      <table>
+        <thead><tr><th>Call Control command</th><th>Used in VSP-VOIP</th><th>Telnyx doc</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td><code>answer</code></td><td>✓ <code>answerCall()</code></td><td>Standard command</td><td><span class="badge badge-yes">Compatible</span></td></tr>
+          <tr><td><code>speak</code></td><td>✓ Greeting, prompts</td><td>TTS with <code>voice: female</code>, <code>language: en-US</code></td><td><span class="badge badge-yes">Compatible</span></td></tr>
+          <tr><td><code>gather_using_speak</code></td><td>✓ IVR DTMF collection</td><td>Valid digits, timeout params match docs</td><td><span class="badge badge-yes">Compatible</span></td></tr>
+          <tr><td><code>dial</code></td><td>✓ Ring group (PSTN + SIP/WebRTC)</td><td><code>formatWebRtcDialTo()</code> → <code>sip:user@sip.telnyx.com</code></td><td><span class="badge badge-yes">Compatible</span></td></tr>
+          <tr><td><code>hangup</code></td><td>✓ No-answer, after-hours</td><td>Standard</td><td><span class="badge badge-yes">Compatible</span></td></tr>
+          <tr><td><code>record_start</code></td><td>✓ Inbound + outbound recording</td><td><a class="doc-link" href="https://developers.telnyx.com/docs/voice/programmable-voice/storing-call-recordings">Recording docs</a></td><td><span class="badge badge-yes">Compatible</span></td></tr>
+          <tr><td><code>client_state</code></td><td>✓ Base64 JSON session state</td><td>Documented pattern for webhook correlation</td><td><span class="badge badge-yes">Compatible</span></td></tr>
+          <tr><td><code>bridge</code>, <code>transfer</code>, <code>conference</code></td><td>✗ Not used</td><td>Available in Voice API</td><td><span class="badge badge-partial">Not needed</span></td></tr>
+          <tr><td><code>ai_assistant_start</code></td><td>✗ Not used</td><td><a class="doc-link" href="https://developers.telnyx.com/docs/voice/programmable-voice/ai-assistant-start">AI assistant</a></td><td><span class="badge badge-partial">Not used</span></td></tr>
+          <tr><td><code>media_streaming</code></td><td>✗ Not used</td><td>Real-time media streaming</td><td><span class="badge badge-partial">Not used</span></td></tr>
+        </tbody>
+      </table>
+
+      <div class="finding warn">
+        <strong>Dual inbound path complexity:</strong> Numbers may be assigned to both TeXML connection (<code>/webhook</code>) and Call Control app (<code>/webhook/call-control</code>). Telnyx routes based on number assignment. WebRTC ring groups require Call Control; TeXML cannot dial WebRTC clients. Ensure production numbers use Call Control as primary inbound path.
+      </div>
+
+      <h3>Voice telemetry</h3>
+      <p><code>lib/voiceTelemetry.js</code> captures MOS, jitter, packet loss from <code>call.hangup</code> events and polls SIP registration status — aligned with Telnyx webhook payload fields and <a class="doc-link" href="https://developers.telnyx.com/api-reference/credential-connections/check-registration-status">credential connection registration check</a>.</p>
+    </section>
+
+    <section id="texml">
+      <h2>5. TeXML</h2>
+      <p>Implementation: <code>lib/texml.js</code>, <code>lib/callRouting.js</code> — generates valid TeXML responses.</p>
+      <table>
+        <thead><tr><th>TeXML verb</th><th>Used</th><th>Compatible?</th></tr></thead>
+        <tbody>
+          <tr><td><code>&lt;Response&gt;</code></td><td>✓ Root element</td><td><span class="badge badge-yes">Yes</span></td></tr>
+          <tr><td><code>&lt;Say&gt;</code></td><td>✓ TTS greetings, prompts</td><td><span class="badge badge-yes">Yes</span></td></tr>
+          <tr><td><code>&lt;Play&gt;</code></td><td>✓ Uploaded audio URLs</td><td><span class="badge badge-yes">Yes</span></td></tr>
+          <tr><td><code>&lt;Gather&gt;</code></td><td>✓ IVR DTMF</td><td><span class="badge badge-yes">Yes</span></td></tr>
+          <tr><td><code>&lt;Dial&gt;</code></td><td>✓ Forward to PSTN</td><td><span class="badge badge-yes">Yes</span></td></tr>
+          <tr><td><code>&lt;Record&gt;</code></td><td>✓ Voicemail</td><td><span class="badge badge-yes">Yes</span></td></tr>
+          <tr><td><code>&lt;Hangup&gt;</code></td><td>✓ After-hours</td><td><span class="badge badge-yes">Yes</span></td></tr>
+          <tr><td><code>&lt;Pause&gt;</code></td><td>✓ Timing</td><td><span class="badge badge-yes">Yes</span></td></tr>
+          <tr><td>XML escaping</td><td>✓ <code>escapeXml()</code> on user content</td><td><span class="badge badge-yes">Yes</span></td></tr>
+          <tr><td>Webhook format</td><td>Form-encoded POST/GET at <code>/webhook</code></td><td>Per <a class="doc-link" href="https://developers.telnyx.com/docs/voice/texml">TeXML webhook docs</a></td><td><span class="badge badge-yes">Yes</span></td></tr>
+        </tbody>
+      </table>
+      <div class="finding">
+        <strong>Note:</strong> TeXML and Call Control coexist by design. For WebRTC inbound, Call Control is required. TeXML remains useful for simple PSTN-forward scenarios without app clients.
+      </div>
+    </section>
+
+    <section id="webrtc">
+      <h2>6. WebRTC</h2>
+      <table>
+        <thead><tr><th>Telnyx WebRTC requirement</th><th>Web portal</th><th>Mobile app</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Credential Connection configured</td>
+            <td>✓ Platform settings / env</td>
+            <td>✓ Same backend</td>
+            <td><span class="badge badge-yes">Compatible</span></td>
+          </tr>
+          <tr>
+            <td>Telephony Credentials per user</td>
+            <td>✓ <code>lib/softphone.js</code></td>
+            <td>✓ Same API</td>
+            <td><span class="badge badge-yes">Compatible</span></td>
+          </tr>
+          <tr>
+            <td>Login token (not raw API key to client)</td>
+            <td>✓ <code>POST /telephony_credentials/:id/token</code></td>
+            <td>✓ Same</td>
+            <td><span class="badge badge-yes">Compatible</span></td>
+          </tr>
+          <tr>
+            <td>Official SDK</td>
+            <td><code>@telnyx/webrtc</code></td>
+            <td><code>telnyx_webrtc</code> ^4.2.0</td>
+            <td><span class="badge badge-yes">Compatible</span></td>
+          </tr>
+          <tr>
+            <td>Outbound calling</td>
+            <td>✓ Dial pad</td>
+            <td>✓ Dial pad</td>
+            <td><span class="badge badge-yes">Compatible</span></td>
+          </tr>
+          <tr>
+            <td>Inbound via push</td>
+            <td>Browser tab only (no push)</td>
+            <td>✓ FCM + CallKit + PushKit</td>
+            <td><span class="badge badge-partial">Web limited</span></td>
+          </tr>
+          <tr>
+            <td>Push credential portal setup</td>
+            <td>N/A</td>
+            <td>Documented in <code>mobile/docs/inbound-calling-setup.md</code></td>
+            <td><span class="badge badge-yes">Compatible</span></td>
+          </tr>
+          <tr>
+            <td><code>setPushMetaData</code></td>
+            <td>N/A</td>
+            <td>✓ Implemented</td>
+            <td><span class="badge badge-yes">Compatible</span></td>
+          </tr>
+          <tr>
+            <td>JWT auth (alternative)</td>
+            <td>✗ Uses telephony credentials</td>
+            <td>✗ Same</td>
+            <td><span class="badge badge-yes">Valid choice</span> (credentials recommended for per-user)</td>
+          </tr>
+          <tr>
+            <td>Outbound Voice Profile for recording</td>
+            <td>✓ Auto-setup on startup</td>
+            <td>✓ Same</td>
+            <td><span class="badge badge-yes">Compatible</span></td>
+          </tr>
+          <tr>
+            <td>ICE/TURN / firewall docs</td>
+            <td>Not documented for deployers</td>
+            <td>Same</td>
+            <td><span class="badge badge-partial">Ops gap</span></td>
+          </tr>
+        </tbody>
+      </table>
+      <p>WebRTC auth follows <a class="doc-link" href="https://developers.telnyx.com/docs/voice/webrtc/auth/telephony-credentials">Telephony Credentials</a> — the recommended pattern for multi-user apps where each user gets their own SIP identity.</p>
+    </section>
+
+    <section id="messaging">
+      <h2>7. SMS &amp; Messaging</h2>
+      <table>
+        <thead><tr><th>Requirement</th><th>Implementation</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Messaging Profile with webhook</td>
+            <td><code>lib/telnyxMessagingSetup.js</code> auto-sets <code>/webhook/sms</code></td>
+            <td><span class="badge badge-yes">Compatible</span></td>
+          </tr>
+          <tr>
+            <td><code>POST /messages</code> send</td>
+            <td><code>lib/sms.js</code> with <code>from</code>, <code>to</code>, <code>text</code></td>
+            <td><span class="badge badge-yes">Compatible</span></td>
+          </tr>
+          <tr>
+            <td>Inbound webhook (<code>message.received</code>)</td>
+            <td><code>POST /webhook/sms</code> handler</td>
+            <td><span class="badge badge-yes">Compatible</span></td>
+          </tr>
+          <tr>
+            <td>Delivery status (<code>message.finalized</code>)</td>
+            <td>Updates <code>SmsMessage.status</code></td>
+            <td><span class="badge badge-yes">Compatible</span></td>
+          </tr>
+          <tr>
+            <td>Numbers assigned to messaging profile</td>
+            <td>On purchase via <code>lib/buyNumber.js</code></td>
+            <td><span class="badge badge-yes">Compatible</span></td>
+          </tr>
+          <tr>
+            <td>US 10DLC registration</td>
+            <td>Not implemented</td>
+            <td><span class="badge badge-no">Required for production US SMS</span></td>
+          </tr>
+          <tr>
+            <td>MMS support</td>
+            <td>SMS text only</td>
+            <td><span class="badge badge-partial">Not implemented</span></td>
+          </tr>
+          <tr>
+            <td>RCS / WhatsApp</td>
+            <td>Not used</td>
+            <td><span class="badge badge-partial">Not used</span></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="finding err">
+        <strong>Production blocker for US SMS:</strong> Telnyx requires <a class="doc-link" href="https://developers.telnyx.com/docs/messaging/10dlc">10DLC brand/campaign registration</a> for US A2P messaging. VSP-VOIP has no 10DLC workflow — SMS may be blocked or filtered for US 10DLC numbers until registered in Telnyx Portal.
+      </div>
+    </section>
+
+    <section id="recordings">
+      <h2>8. Recordings</h2>
+      <table>
+        <thead><tr><th>Feature</th><th>Implementation</th><th>Telnyx alignment</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Outbound recording via Outbound Voice Profile</td>
+            <td><code>lib/telnyxRecordingSetup.js</code></td>
+            <td>Documented setup pattern</td>
+            <td><span class="badge badge-yes">Compatible</span></td>
+          </tr>
+          <tr>
+            <td>Inbound <code>record_start</code></td>
+            <td>Call Control + TeXML paths</td>
+            <td>Standard commands</td>
+            <td><span class="badge badge-yes">Compatible</span></td>
+          </tr>
+          <tr>
+            <td>Recording webhooks</td>
+            <td><code>/webhook/call-recording</code>, <code>/webhook/voice</code></td>
+            <td>Handles saved events</td>
+            <td><span class="badge badge-yes">Compatible</span></td>
+          </tr>
+          <tr>
+            <td>List/sync recordings API</td>
+            <td><code>lib/recordingSync.js</code> → <code>GET /recordings</code></td>
+            <td>Recordings API</td>
+            <td><span class="badge badge-yes">Compatible</span></td>
+          </tr>
+          <tr>
+            <td>Download/stream</td>
+            <td>Download action + proxy stream endpoint</td>
+            <td>Recordings API download</td>
+            <td><span class="badge badge-yes">Compatible</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="webhooks">
+      <h2>9. Webhooks &amp; Security</h2>
+      <table>
+        <thead><tr><th>Webhook endpoint</th><th>Format</th><th>Verification</th><th>Telnyx doc match</th></tr></thead>
+        <tbody>
+          <tr><td><code>/webhook</code></td><td>TeXML form</td><td>Ed25519 (if key set)</td><td><span class="badge badge-yes">Yes</span></td></tr>
+          <tr><td><code>/webhook/status</code></td><td>TeXML form</td><td>Ed25519</td><td><span class="badge badge-yes">Yes</span></td></tr>
+          <tr><td><code>/webhook/voicemail</code></td><td>TeXML form</td><td>Ed25519</td><td><span class="badge badge-yes">Yes</span></td></tr>
+          <tr><td><code>/webhook/call-recording</code></td><td>JSON/form</td><td>Ed25519</td><td><span class="badge badge-yes">Yes</span></td></tr>
+          <tr><td><code>/webhook/sms</code></td><td>JSON</td><td>Ed25519</td><td><span class="badge badge-yes">Yes</span></td></tr>
+          <tr><td><code>/webhook/call-control</code></td><td>JSON</td><td>Ed25519</td><td><span class="badge badge-yes">Yes</span></td></tr>
+          <tr><td><code>/webhook/voice</code></td><td>JSON</td><td>Ed25519</td><td><span class="badge badge-yes">Yes</span></td></tr>
+        </tbody>
+      </table>
+
+      <h3>Verification behavior</h3>
+      <ul>
+        <li><strong>Compatible:</strong> Uses official <code>telnyx</code> SDK <code>TelnyxWebhook</code> with <code>telnyx-signature-ed25519</code> and <code>telnyx-timestamp</code> headers.</li>
+        <li><strong>Gap:</strong> If <code>TELNYX_PUBLIC_KEY</code> is unset, verification is <em>skipped</em> (warns in logs). Telnyx docs require verification in production.</li>
+        <li><strong>Compatible:</strong> Returns 200 quickly on webhook handlers (async processing).</li>
+        <li><strong>Compatible:</strong> Auto-configures webhook URLs on startup when <code>API_PUBLIC_URL</code> is set.</li>
+      </ul>
+      <div class="finding err">
+        <strong>Production requirement:</strong> Always set <code>TELNYX_PUBLIC_KEY</code> in production. Telnyx docs state: "Webhooks are Ed25519-signed — verify signatures before trusting payloads."
+      </div>
+    </section>
+
+    <section id="not-used">
+      <h2>10. Telnyx Features Not Used (OK for current scope)</h2>
+      <p>These Telnyx products are documented but intentionally not integrated — not a compatibility failure:</p>
+      <table>
+        <thead><tr><th>Telnyx product</th><th>Doc section</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>AI Inference / Assistants</td><td><a class="doc-link" href="https://developers.telnyx.com/docs/inference/getting-started">AI</a></td><td>No AI voice agents</td></tr>
+          <tr><td>SIP Trunking (enterprise)</td><td><a class="doc-link" href="https://developers.telnyx.com/docs/voice/sip-trunking/get-started">SIP Trunking</a></td><td>Uses CPaaS APIs instead</td></tr>
+          <tr><td>Video API</td><td>Other APIs → Video</td><td>Voice only</td></tr>
+          <tr><td>Fax</td><td>Other APIs → Fax</td><td>Not in scope</td></tr>
+          <tr><td>IoT SIM / Wireless</td><td><a class="doc-link" href="https://developers.telnyx.com/docs/iot-sim/get-started">IoT SIM</a></td><td>Not in scope</td></tr>
+          <tr><td>Cloud Storage</td><td><a class="doc-link" href="https://developers.telnyx.com/docs/cloud-storage/quick-start">Edge Storage</a></td><td>Uses Telnyx recording URLs</td></tr>
+          <tr><td>Conversation Relay / Media Streaming</td><td>Voice API AI</td><td>Traditional IVR only</td></tr>
+          <tr><td>Conferencing API</td><td>Voice tutorials</td><td>Ring groups instead</td></tr>
+          <tr><td>Call Queue API</td><td>Voice features</td><td>Not implemented</td></tr>
+          <tr><td>Answering Machine Detection</td><td>Voice features</td><td>Not implemented</td></tr>
+          <tr><td>Trusted Calling / STIR-SHAKEN</td><td>Calling</td><td>Not configured</td></tr>
+          <tr><td>RCS / WhatsApp messaging</td><td>Messaging</td><td>SMS only</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="gaps">
+      <h2>11. Gaps &amp; Recommendations</h2>
+
+      <h3>Must-fix for production</h3>
+      <table>
+        <thead><tr><th>Priority</th><th>Gap</th><th>Telnyx doc reference</th><th>Action</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="badge badge-no">Critical</span></td>
+            <td>10DLC not registered for US SMS</td>
+            <td><a class="doc-link" href="https://developers.telnyx.com/docs/messaging/10dlc">10DLC compliance</a></td>
+            <td>Register brand/campaign in Telnyx Portal before US SMS production</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-no">Critical</span></td>
+            <td>Webhook verification skipped without <code>TELNYX_PUBLIC_KEY</code></td>
+            <td><a class="doc-link" href="https://developers.telnyx.com/docs/voice/programmable-voice/receiving-webhooks">Receiving webhooks</a></td>
+            <td>Require public key in production; fail closed on missing signatures</td>
+          </tr>
+          <tr>
+            <td><span class="badge badge-partial">High</span></td>
+            <td><code>API_PUBLIC_URL</code> required for SMS/voice webhooks</td>
+            <td>Webhook configuration docs</td>
+            <td>Use HTTPS public URL (not localhost) in all environments except local TeXML testing</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Should-improve</h3>
+      <table>
+        <thead><tr><th>Gap</th><th>Impact</th><th>Recommendation</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Number porting — no Telnyx LNP API</td>
+            <td>Admin porting page is internal only</td>
+            <td>Integrate <a class="doc-link" href="https://developers.telnyx.com/docs/numbers/porting">Porting API</a> or mark UI as "manual process"</td>
+          </tr>
+          <tr>
+            <td>Dual TeXML + Call Control inbound</td>
+            <td>Confusion if numbers misconfigured</td>
+            <td>Standardize on Call Control for all numbers with WebRTC users</td>
+          </tr>
+          <tr>
+            <td>No API rate-limit retry</td>
+            <td>Order fulfillment may fail under load</td>
+            <td>Add retry with backoff in <code>telnyxApiRequest()</code></td>
+          </tr>
+          <tr>
+            <td>Quota limits not enforced</td>
+            <td>Tenants can exceed configured limits</td>
+            <td>Check quotas in number purchase and user creation</td>
+          </tr>
+          <tr>
+            <td>LCR config not applied to Telnyx</td>
+            <td>Admin LCR page is cosmetic</td>
+            <td>Wire to Telnyx outbound voice profile or remove UI</td>
+          </tr>
+          <tr>
+            <td>Web softphone — no push for inbound</td>
+            <td>Browser must be open for inbound WebRTC</td>
+            <td>Expected limitation; document for tenants</td>
+          </tr>
+          <tr>
+            <td>No regulatory document flow</td>
+            <td>International number purchase may fail</td>
+            <td>Add requirement check per <a class="doc-link" href="https://developers.telnyx.com/docs/numbers/regulatory-documents">regulatory docs</a></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Compatibility checklist summary</h3>
+      <table>
+        <thead><tr><th>Area</th><th>Verdict</th></tr></thead>
+        <tbody>
+          <tr><td>API authentication &amp; base URL</td><td class="compat-yes">✓ Fully compatible</td></tr>
+          <tr><td>Phone number search &amp; purchase</td><td class="compat-yes">✓ Fully compatible</td></tr>
+          <tr><td>Call Control inbound routing</td><td class="compat-yes">✓ Fully compatible</td></tr>
+          <tr><td>TeXML inbound routing</td><td class="compat-yes">✓ Fully compatible</td></tr>
+          <tr><td>WebRTC (credentials + tokens)</td><td class="compat-yes">✓ Fully compatible</td></tr>
+          <tr><td>WebRTC push (mobile)</td><td class="compat-yes">✓ Fully compatible</td></tr>
+          <tr><td>SMS send/receive</td><td class="compat-partial">⚠ Compatible API usage; 10DLC gap for US production</td></tr>
+          <tr><td>Call recordings</td><td class="compat-yes">✓ Fully compatible</td></tr>
+          <tr><td>Webhook security</td><td class="compat-partial">⚠ Correct when configured; skipped if key missing</td></tr>
+          <tr><td>Number porting</td><td class="compat-no">✗ Not integrated with Telnyx LNP API</td></tr>
+          <tr><td>10DLC compliance</td><td class="compat-no">✗ Not implemented</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <footer class="doc-footer">
+    <a href="index.html">← Documentation hub</a> ·
+    <a href="super-admin-portal.html">Super Admin</a> ·
+    <a href="tenant-portal.html">Tenant Portal</a> ·
+    <a href="mobile-app.html">Mobile App</a>
+    </footer>
+</body>
+</html>

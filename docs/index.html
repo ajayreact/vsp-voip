@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VSP-VOIP Platform Documentation</title>
+  <style>
+    :root {
+      --bg: #f4f6f8; --card: #fff; --border: #e2e8f0; --text: #1e293b;
+      --muted: #64748b; --accent: #6366f1; --accent-soft: #eef2ff;
+      --green: #047857; --green-bg: #ecfdf5; --amber: #b45309; --amber-bg: #fffbeb;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "Segoe UI", system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+    header { background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #fff; padding: 3rem 1.5rem; }
+    header .wrap { padding-top: 0; padding-bottom: 0; }
+    header h1 { margin: 0 0 0.5rem; font-size: 2rem; }
+    header p { margin: 0; opacity: 0.92; max-width: 760px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem; margin: 2rem 0; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 1.5rem; box-shadow: 0 2px 8px rgb(15 23 42 / 0.05); }
+    .card h2 { margin: 0 0 0.5rem; font-size: 1.15rem; color: #0f172a; }
+    .card p { margin: 0 0 1rem; color: var(--muted); font-size: 0.95rem; }
+    .card a.btn { display: inline-block; background: var(--accent); color: #fff; text-decoration: none; padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.875rem; font-weight: 600; }
+    .card a.btn:hover { background: #4f46e5; }
+    .arch { background: #0f172a; color: #e2e8f0; padding: 1.25rem; border-radius: 12px; font-family: Consolas, monospace; font-size: 0.8rem; overflow-x: auto; white-space: pre; line-height: 1.45; }
+    h2.section { font-size: 1.35rem; margin: 2.5rem 0 1rem; border-bottom: 2px solid var(--accent-soft); padding-bottom: 0.5rem; }
+    ul { margin: 0 0 1rem; padding-left: 1.25rem; }
+    li { margin-bottom: 0.35rem; }
+    .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
+    .badge-green { background: var(--green-bg); color: var(--green); }
+    .badge-amber { background: var(--amber-bg); color: var(--amber); }
+    table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 12px; overflow: hidden; border: 1px solid var(--border); margin: 1rem 0; }
+    th, td { padding: 0.65rem 1rem; text-align: left; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+    th { background: #f8fafc; font-weight: 600; }
+    .muted { color: var(--muted); font-size: 0.875rem; }
+    footer { text-align: center; padding: 2rem; color: var(--muted); font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>VSP-VOIP Platform Documentation</h1>
+      <p>Multi-tenant cloud phone platform — Express API, Next.js web portal, Flutter mobile app, powered by Telnyx CPaaS and Stripe billing.</p>
+      <p class="muted" style="color:rgba(255,255,255,0.75);margin-top:1rem;">Generated June 2026 · Monorepo: <code style="background:rgba(0,0,0,0.2);padding:2px 6px;border-radius:4px;">e:\vsp-voip</code></p>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <h2 class="section">What is VSP-VOIP?</h2>
+    <p>VSP-VOIP is a <strong>RingCentral-style multi-tenant business phone platform</strong>. A single platform operator (Super Admin) provisions companies (Tenants), each with phone numbers, users, call routing, SMS, voicemail, recordings, and WebRTC softphones. Tenants use a <strong>Next.js web portal</strong> and a <strong>Flutter mobile app</strong>; both talk to the same <strong>Express REST API</strong> on port 3000. Voice and messaging are delivered through <strong>Telnyx</strong>; number purchases and subscriptions use <strong>Stripe</strong>.</p>
+
+    <div class="arch">┌─────────────────────────────────────────────────────────────────────────────┐
+│  Super Admin Portal          Tenant Web Portal           Flutter Mobile App   │
+│  Next.js /admin/*            Next.js /dashboard, etc.    iOS + Android        │
+│  (port 3001)                 (port 3001)                 (API_BASE_URL)       │
+└──────────────┬──────────────────────────┬──────────────────────────┬────────────┘
+               │ REST + JWT Bearer        │ REST + JWT               │ REST + JWT
+               ▼                          ▼                          ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  VSP-VOIP API — Express 5 (port 3000)                                       │
+│  routes/portal.js · routes/admin.js · webhooks · Stripe billing             │
+└──────────────┬──────────────────────────┬───────────────────────────────────┘
+               │ Prisma ORM               │ Telnyx REST + Webhooks
+               ▼                          ▼
+┌──────────────────────────┐   ┌──────────────────────────────────────────────┐
+│  PostgreSQL              │   │  Telnyx CPaaS                                │
+│  Tenants, Users, Numbers │   │  Numbers · TeXML · Call Control · WebRTC     │
+│  Calls, SMS, Voicemail   │   │  Messaging · Recordings · Push               │
+└──────────────────────────┘   └──────────────────────────────────────────────┘</div>
+
+    <h2 class="section">Documentation by Application</h2>
+    <div class="grid">
+      <div class="card">
+        <h2>Super Admin Portal</h2>
+        <p>Platform operator console: tenant lifecycle, orders, revenue, Telnyx settings, audit trail, voice quality, quotas.</p>
+        <a class="btn" href="super-admin-portal.html">Read documentation →</a>
+      </div>
+      <div class="card">
+        <h2>Tenant Web Portal</h2>
+        <p>Company admin and user experience: numbers, softphone, SMS, call routing, voicemail, recordings, billing.</p>
+        <a class="btn" href="tenant-portal.html">Read documentation →</a>
+      </div>
+      <div class="card">
+        <h2>Mobile App (Flutter)</h2>
+        <p>Tenant mobile client: dashboard, WebRTC softphone with inbound push, SMS, call history, recordings, profile.</p>
+        <a class="btn" href="mobile-app.html">Read documentation →</a>
+      </div>
+      <div class="card">
+        <h2>Telnyx Compatibility Report</h2>
+        <p>Feature-by-feature audit against official Telnyx developer documentation — what aligns, gaps, and recommendations.</p>
+        <a class="btn" href="telnyx-compatibility.html">View compatibility →</a>
+      </div>
+    </div>
+
+    <h2 class="section">User Roles</h2>
+    <table>
+      <thead><tr><th>Role</th><th>Scope</th><th>Primary UI</th><th>Capabilities</th></tr></thead>
+      <tbody>
+        <tr><td><code>SUPER_ADMIN</code></td><td>Entire platform</td><td><code>/admin/*</code></td><td>All tenants, billing config, Telnyx IDs, orders, audit, revenue</td></tr>
+        <tr><td><code>TENANT_ADMIN</code></td><td>One company</td><td>Web + Mobile</td><td>Team, numbers, routing, billing, all tenant features</td></tr>
+        <tr><td><code>TENANT_USER</code></td><td>One company</td><td>Web + Mobile</td><td>Softphone, calls, SMS, voicemail, recordings (no admin settings)</td></tr>
+      </tbody>
+    </table>
+
+    <h2 class="section">Technology Stack</h2>
+    <table>
+      <thead><tr><th>Layer</th><th>Technology</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>API</td><td>Express 5, Node.js, Prisma 7, PostgreSQL</td><td>Port 3000</td></tr>
+        <tr><td>Web</td><td>Next.js 16, React, Tailwind, @telnyx/webrtc</td><td>Port 3001</td></tr>
+        <tr><td>Mobile</td><td>Flutter 3.x, Riverpod, GoRouter, telnyx_webrtc</td><td>Same API as web</td></tr>
+        <tr><td>Voice/SMS</td><td>Telnyx CPaaS</td><td>TeXML + Call Control + WebRTC + Messaging</td></tr>
+        <tr><td>Billing</td><td>Stripe Checkout + Customer Portal</td><td>Manual bank orders supported</td></tr>
+        <tr><td>Auth</td><td>Custom JWT (HS256, 7-day TTL), bcrypt passwords</td><td>Bearer token</td></tr>
+      </tbody>
+    </table>
+
+    <h2 class="section">Quick Start</h2>
+    <ul>
+      <li><strong>API:</strong> <code>npm run dev:api</code> (port 3000)</li>
+      <li><strong>Web:</strong> <code>npm run dev:web</code> (port 3001)</li>
+      <li><strong>Seed:</strong> <code>npm run seed</code> — creates demo tenant + super admin</li>
+      <li><strong>Mobile:</strong> <code>cd mobile && flutter run --dart-define=API_BASE_URL=http://10.0.2.2:3000</code></li>
+    </ul>
+
+    <h2 class="section">Other Documentation</h2>
+    <ul>
+      <li><a href="vsp-voip-platform-plan.html">Platform Plan (architecture roadmap)</a></li>
+      <li><a href="super-admin-dashboard.html">Super Admin Dashboard (legacy technical doc)</a></li>
+      <li><a href="number-purchase-and-billing.html">Number Purchase &amp; Billing</a></li>
+      <li><a href="../mobile/docs/inbound-calling-setup.md">Mobile inbound calling setup (Markdown)</a></li>
+    </ul>
+  </div>
+
+  <footer>VSP-VOIP · Cloud Phone Platform · Documentation Hub</footer>
+</body>
+</html>

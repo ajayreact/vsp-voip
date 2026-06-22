@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VSP-VOIP Platform Audit &amp; Architecture Report</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --accent: #4f46e5;
+      --accent-light: #eef2ff;
+      --success: #059669;
+      --warning: #d97706;
+      --danger: #dc2626;
+      --radius: 10px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      font-size: 15px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      min-height: 100vh;
+    }
+
+    nav {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      background: #0f172a;
+      color: #cbd5e1;
+      padding: 1.5rem 1rem;
+      border-right: 1px solid #1e293b;
+    }
+
+    nav h2 {
+      color: #fff;
+      font-size: 0.95rem;
+      margin: 0 0 1rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid #334155;
+    }
+
+    nav a {
+      display: block;
+      color: #94a3b8;
+      text-decoration: none;
+      font-size: 0.82rem;
+      padding: 0.35rem 0.5rem;
+      border-radius: 6px;
+      margin-bottom: 2px;
+    }
+
+    nav a:hover { background: #1e293b; color: #fff; }
+
+    main {
+      max-width: 980px;
+      padding: 2.5rem 3rem 4rem;
+    }
+
+    header.doc-header {
+      background: linear-gradient(135deg, #312e81, #4f46e5);
+      color: #fff;
+      padding: 2.5rem 3rem;
+      margin: -2.5rem -3rem 2.5rem;
+      border-radius: 0 0 var(--radius) var(--radius);
+    }
+
+    header.doc-header h1 {
+      margin: 0 0 0.5rem;
+      font-size: 1.85rem;
+      font-weight: 700;
+    }
+
+    header.doc-header .meta {
+      opacity: 0.9;
+      font-size: 0.9rem;
+    }
+
+    h2 {
+      font-size: 1.45rem;
+      margin: 2.5rem 0 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid var(--accent);
+      color: #1e1b4b;
+    }
+
+    h3 {
+      font-size: 1.1rem;
+      margin: 1.5rem 0 0.75rem;
+      color: #334155;
+    }
+
+    p { margin: 0.75rem 0; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.5rem;
+      margin: 1rem 0;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 1rem;
+      margin: 1.25rem 0;
+    }
+
+    .metric {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+      text-align: center;
+    }
+
+    .metric .value {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .metric .label {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 0.25rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+      font-size: 0.88rem;
+      background: var(--surface);
+      border-radius: var(--radius);
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    th, td {
+      padding: 0.65rem 0.85rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+
+    th {
+      background: #f1f5f9;
+      font-weight: 600;
+      color: #334155;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #fafafa; }
+
+    .badge {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .badge-ok { background: #d1fae5; color: #065f46; }
+    .badge-partial { background: #fef3c7; color: #92400e; }
+    .badge-missing { background: #fee2e2; color: #991b1b; }
+    .badge-critical { background: #fecaca; color: #7f1d1d; }
+    .badge-high { background: #fed7aa; color: #9a3412; }
+    .badge-medium { background: #fef08a; color: #854d0e; }
+    .badge-low { background: #e0e7ff; color: #3730a3; }
+
+    .mermaid {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+      margin: 1rem 0;
+      overflow-x: auto;
+    }
+
+    ul, ol { margin: 0.5rem 0; padding-left: 1.5rem; }
+    li { margin: 0.35rem 0; }
+
+    .score-bar {
+      height: 8px;
+      background: #e2e8f0;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 0.35rem;
+    }
+
+    .score-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #4f46e5, #818cf8);
+      border-radius: 4px;
+    }
+
+    .ceo-box {
+      background: linear-gradient(135deg, #eef2ff, #f0fdf4);
+      border: 1px solid #c7d2fe;
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      margin: 1rem 0;
+    }
+
+    .ceo-box h3 { margin-top: 0; color: #312e81; }
+
+    footer {
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    code {
+      background: #f1f5f9;
+      padding: 0.1rem 0.35rem;
+      border-radius: 4px;
+      font-size: 0.85em;
+    }
+
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+      nav { position: relative; height: auto; max-height: 220px; }
+      main { padding: 1.5rem; }
+      header.doc-header { margin: -1.5rem -1.5rem 1.5rem; padding: 1.5rem; }
+    }
+
+    @media print {
+      nav { display: none; }
+      .layout { grid-template-columns: 1fr; }
+      main { max-width: 100%; }
+      header.doc-header { break-after: avoid; }
+      h2 { break-before: page; }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <nav>
+      <h2>VSP-VOIP Audit</h2>
+      <a href="#executive">1. Executive Summary</a>
+      <a href="#stack">2. Technology Stack</a>
+      <a href="#architecture">3. System Architecture</a>
+      <a href="#multitenant">4. Multi-Tenant Analysis</a>
+      <a href="#super-admin">5. Super Admin Features</a>
+      <a href="#tenant-portal">6. Tenant Portal Features</a>
+      <a href="#voice">7. Voice System Analysis</a>
+      <a href="#mobile">8. Mobile Application</a>
+      <a href="#database">9. Database Audit</a>
+      <a href="#security">10. Security Audit</a>
+      <a href="#api">11. API Audit</a>
+      <a href="#scalability">12. Scalability Assessment</a>
+      <a href="#ringcentral">13. RingCentral Gap</a>
+      <a href="#production">14. Production Readiness</a>
+      <a href="#saas">15. Commercial SaaS Readiness</a>
+      <a href="#debt">16. Technical Debt</a>
+      <a href="#launch">17. Launch Readiness</a>
+      <a href="#roadmap">18. Development Roadmap</a>
+      <a href="#ceo">19. CEO Summary</a>
+    </nav>
+
+    <main>
+      <header class="doc-header">
+        <h1>VSP-VOIP Platform Audit &amp; Architecture Report</h1>
+        <div class="meta">
+          <strong>Document Type:</strong> Software Architecture Assessment &nbsp;|&nbsp;
+          <strong>Audit Date:</strong> June 21, 2026 &nbsp;|&nbsp;
+          <strong>Scope:</strong> Full codebase — backend, web, mobile, database, integrations
+        </div>
+      </header>
+
+      <section id="executive">
+        <h2>1. Executive Summary</h2>
+        <p>VSP-VOIP is a <strong>functional UCaaS MVP</strong> built as a monolithic Node.js/Express backend with a Next.js tenant + super-admin portal, a Flutter mobile app, and Telnyx as the sole voice/SMS carrier. The platform delivers real voice calling (inbound/outbound WebRTC), SMS, voicemail, call recording, IVR/ring groups, number purchasing, and dual billing (Stripe + manual bank transfer).</p>
+        <p>It is <strong>not yet production-ready at scale</strong> — infrastructure, automated testing, security hardening, and enterprise UCaaS features are largely absent.</p>
+
+        <div class="metrics">
+          <div class="metric"><div class="value">62%</div><div class="label">Project Maturity</div></div>
+          <div class="metric"><div class="value">38%</div><div class="label">Production Readiness</div></div>
+          <div class="metric"><div class="value">48%</div><div class="label">SaaS Readiness</div></div>
+          <div class="metric"><div class="value">58%</div><div class="label">Multi-Tenant Readiness</div></div>
+          <div class="metric"><div class="value">35%</div><div class="label">vs RingCentral Completion</div></div>
+        </div>
+
+        <h3>What Exists Today</h3>
+        <ul>
+          <li><strong>13 database tables</strong>, 22 migrations, ~78 API endpoints</li>
+          <li><strong>34 web routes</strong> (tenant portal + super admin)</li>
+          <li><strong>10 mobile screens</strong> (Flutter, Phases 1–3 complete)</li>
+          <li><strong>40+ backend service modules</strong> in <code>lib/</code></li>
+          <li><strong>Telnyx integration:</strong> TeXML + Call Control + WebRTC + SMS + recording webhooks</li>
+        </ul>
+      </section>
+
+      <section id="stack">
+        <h2>2. Technology Stack</h2>
+        <table>
+          <thead><tr><th>Layer</th><th>Technology</th><th>Evidence</th></tr></thead>
+          <tbody>
+            <tr><td>Backend framework</td><td>Node.js + Express 5.2 (CommonJS)</td><td><code>package.json</code>, <code>server.js</code></td></tr>
+            <tr><td>Frontend framework</td><td>Next.js 16.2 + React 19 + TypeScript 5</td><td><code>web/package.json</code></td></tr>
+            <tr><td>Mobile framework</td><td>Flutter (Dart SDK ≥3.2), v0.3.0+1</td><td><code>mobile/pubspec.yaml</code></td></tr>
+            <tr><td>Database</td><td>PostgreSQL</td><td><code>prisma/schema.prisma</code></td></tr>
+            <tr><td>ORM</td><td>Prisma 7.8 with @prisma/adapter-pg</td><td><code>db.js</code></td></tr>
+            <tr><td>Authentication</td><td>Custom JWT (HS256, 7-day TTL) + bcryptjs</td><td><code>lib/auth.js</code></td></tr>
+            <tr><td>WebSocket / real-time</td><td>None — Telnyx webhooks + client polling</td><td><code>server.js</code></td></tr>
+            <tr><td>Voice provider</td><td>Telnyx (REST, TeXML, Call Control, WebRTC)</td><td><code>lib/telnyx*.js</code></td></tr>
+            <tr><td>Payments</td><td>Stripe + manual bank transfer</td><td><code>lib/billing.js</code></td></tr>
+            <tr><td>Email</td><td>Nodemailer (SMTP)</td><td><code>lib/mailer.js</code></td></tr>
+            <tr><td>Storage</td><td>Local filesystem for greetings; Telnyx-hosted recordings</td><td><code>server.js</code></td></tr>
+          </tbody>
+        </table>
+        <p><strong>Not found:</strong> Docker, Kubernetes, Terraform, CI/CD, Redis, message queues, object storage (S3), CDN, or observability stack.</p>
+      </section>
+
+      <section id="architecture">
+        <h2>3. System Architecture</h2>
+        <h3>High-Level Architecture</h3>
+        <div class="mermaid">
+flowchart TB
+    subgraph Clients
+        WEB[Next.js Web Portal Port 3001]
+        MOB[Flutter Mobile App]
+        PSTN[PSTN Callers]
+    end
+    subgraph Backend["Express Monolith Port 3000"]
+        API["/api Portal Routes"]
+        ADMIN["/api/admin Super Admin"]
+        WH["/webhook/* Telnyx Callbacks"]
+        LIB["lib/* 40+ Service Modules"]
+    end
+    subgraph Data
+        PG[(PostgreSQL)]
+        FS[Local File Storage]
+        MEM[In-Memory State]
+    end
+    subgraph External
+        TEL[Telnyx API]
+        STR[Stripe]
+        SMTP[SMTP Email]
+    end
+    WEB -->|REST + JWT| API
+    MOB -->|REST + JWT| API
+    PSTN --> TEL
+    TEL -->|Webhooks| WH
+    API --> LIB
+    ADMIN --> LIB
+    WH --> LIB
+    LIB --> PG
+    LIB --> FS
+    LIB --> MEM
+    LIB --> TEL
+    LIB --> STR
+    LIB --> SMTP
+        </div>
+
+        <h3>Backend Module Groups</h3>
+        <table>
+          <thead><tr><th>Module Group</th><th>Key Files</th><th>Responsibility</th></tr></thead>
+          <tbody>
+            <tr><td>Auth &amp; RBAC</td><td><code>lib/auth.js</code></td><td>JWT, bcrypt, middleware</td></tr>
+            <tr><td>Tenant</td><td><code>tenantCache.js</code>, <code>tenantGuard.js</code></td><td>Lookup, suspension, cache</td></tr>
+            <tr><td>Voice — Inbound</td><td><code>inboundCallControl.js</code>, <code>callRouting.js</code></td><td>IVR, ring groups, voicemail</td></tr>
+            <tr><td>Voice — Outbound</td><td><code>softphone.js</code>, <code>outboundRecording.js</code></td><td>WebRTC tokens, recording</td></tr>
+            <tr><td>Telnyx</td><td><code>telnyxCallControl.js</code>, <code>telnyx*Setup.js</code></td><td>API wrapper, webhook setup</td></tr>
+            <tr><td>SMS</td><td><code>sms.js</code></td><td>Send/receive, conversations</td></tr>
+            <tr><td>Billing</td><td><code>billing.js</code>, <code>invoice.js</code></td><td>Stripe, manual orders</td></tr>
+            <tr><td>Admin</td><td><code>adminModules.js</code>, <code>auditLog.js</code></td><td>Quotas, porting, LCR, security</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Telnyx Inbound Call Flow</h3>
+        <div class="mermaid">
+sequenceDiagram
+    participant Caller as PSTN Caller
+    participant Telnyx
+    participant WH as /webhook/call-control
+    participant ICC as inboundCallControl.js
+    participant DB as PostgreSQL
+    participant Agent as WebRTC Softphone
+    Caller->>Telnyx: Inbound call to DID
+    Telnyx->>WH: call.initiated
+    WH->>ICC: handleInboundCallControlEvent()
+    ICC->>DB: Lookup tenant by DID
+    alt Business hours open
+        ICC->>Telnyx: answer + speak greeting
+        ICC->>Telnyx: dial WebRTC/PSTN members
+    else After hours
+        ICC->>Telnyx: closed message / voicemail
+    end
+    Telnyx->>Agent: WebRTC ring
+    Agent->>Telnyx: Answer via SDK
+        </div>
+
+        <h3>Real-Time Communication</h3>
+        <table>
+          <thead><tr><th>Mechanism</th><th>Implementation</th></tr></thead>
+          <tbody>
+            <tr><td>Inbound call signaling</td><td>Telnyx webhooks → Call Control API</td></tr>
+            <tr><td>Outbound calls</td><td>Client-side Telnyx WebRTC SDK with login tokens</td></tr>
+            <tr><td>Presence</td><td>POST /api/softphone/presence every 2 min</td></tr>
+            <tr><td>Mobile inbound</td><td>FCM + CallKit + flutter_callkit_incoming</td></tr>
+            <tr><td>Live updates</td><td>None — no WebSocket/SSE; REST polling only</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="multitenant">
+        <h2>4. Multi-Tenant Analysis</h2>
+        <p><strong>Yes — shared database, shared schema, row-level isolation via <code>tenantId</code>.</strong> Classic SaaS multi-tenant model.</p>
+
+        <h3>Isolation Implementation</h3>
+        <table>
+          <thead><tr><th>Aspect</th><th>Implementation</th></tr></thead>
+          <tbody>
+            <tr><td>Data model</td><td><code>tenantId</code> FK on 10 of 13 tables</td></tr>
+            <tr><td>Auth context</td><td>JWT payload includes <code>tenantId</code> and <code>role</code></td></tr>
+            <tr><td>Query scoping</td><td>Portal routes filter by <code>req.user.tenantId</code></td></tr>
+            <tr><td>Inbound calls</td><td>DID → tenant via <code>PhoneNumber.tenantId</code> + tenantCache</td></tr>
+            <tr><td>Suspension</td><td><code>Tenant.isActive</code> + <code>assertTenantActive()</code></td></tr>
+            <tr><td>Quotas</td><td>maxUsers, maxPhoneNumbers, maxConcurrentCalls per tenant</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Strengths</h3>
+        <ul>
+          <li>Consistent <code>tenantId</code> on operational data</li>
+          <li>Tenant suspension and quota enforcement</li>
+          <li>Per-tenant billing fees and Stripe customer IDs</li>
+          <li>Per-tenant greeting/routing configuration (1:1 Greeting model)</li>
+        </ul>
+
+        <h3>Weaknesses</h3>
+        <table>
+          <thead><tr><th>Issue</th><th>Severity</th><th>Detail</th></tr></thead>
+          <tbody>
+            <tr><td>No PostgreSQL RLS</td><td><span class="badge badge-high">High</span></td><td>Isolation is application-only</td></tr>
+            <tr><td>Unauthenticated number APIs</td><td><span class="badge badge-critical">Critical</span></td><td>GET /api/numbers/search, POST /api/numbers/assign</td></tr>
+            <tr><td>In-memory tenant cache</td><td><span class="badge badge-medium">Medium</span></td><td>Not shared across instances</td></tr>
+            <tr><td>Shared Telnyx connections</td><td><span class="badge badge-medium">Medium</span></td><td>Platform-level connection IDs for all tenants</td></tr>
+            <tr><td>No tenant-scoped audit log</td><td><span class="badge badge-medium">Medium</span></td><td>Only platform AdminAuditLog</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="super-admin">
+        <h2>5. Super Admin Features</h2>
+        <table>
+          <thead><tr><th>Feature</th><th>Status</th><th>Completion</th><th>Missing Functionality</th></tr></thead>
+          <tbody>
+            <tr><td>Dashboard</td><td><span class="badge badge-ok">Implemented</span></td><td>90%</td><td>Real-time alerts, SLA dashboards</td></tr>
+            <tr><td>Tenant Management</td><td><span class="badge badge-ok">Implemented</span></td><td>85%</td><td>Bulk import, impersonation, custom domains</td></tr>
+            <tr><td>User Management</td><td><span class="badge badge-partial">Partial</span></td><td>60%</td><td>Cross-tenant search, password reset, MFA</td></tr>
+            <tr><td>Role Management</td><td><span class="badge badge-partial">Partial</span></td><td>30%</td><td>Only 3 fixed roles; no custom permissions</td></tr>
+            <tr><td>Phone Numbers</td><td><span class="badge badge-partial">Partial</span></td><td>55%</td><td>Read-only inventory view</td></tr>
+            <tr><td>Billing</td><td><span class="badge badge-ok">Implemented</span></td><td>75%</td><td>Usage billing, refunds, tax</td></tr>
+            <tr><td>Subscriptions</td><td><span class="badge badge-ok">Implemented</span></td><td>70%</td><td>Plan tiers, proration UI</td></tr>
+            <tr><td>Reporting</td><td><span class="badge badge-partial">Partial</span></td><td>50%</td><td>Revenue + voice quality only</td></tr>
+            <tr><td>System Settings</td><td><span class="badge badge-ok">Implemented</span></td><td>80%</td><td>Telnyx, Stripe, bank, LCR configured</td></tr>
+            <tr><td>Audit Logs</td><td><span class="badge badge-ok">Implemented</span></td><td>75%</td><td>Tenant-level audit, export, retention</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="tenant-portal">
+        <h2>6. Tenant Portal Features</h2>
+        <table>
+          <thead><tr><th>Feature</th><th>Status</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr><td>Dashboard</td><td><span class="badge badge-ok">Implemented</span></td><td>KPIs, recent calls, orders</td></tr>
+            <tr><td>Users</td><td><span class="badge badge-ok">Implemented</span></td><td>Team create; no edit/delete/invite</td></tr>
+            <tr><td>Extensions</td><td><span class="badge badge-missing">Not implemented</span></td><td>No PBX extension numbering</td></tr>
+            <tr><td>Phone Numbers</td><td><span class="badge badge-ok">Implemented</span></td><td>Buy, assign, per-number routing</td></tr>
+            <tr><td>Ring Groups</td><td><span class="badge badge-ok">Implemented</span></td><td>Via Call Routing page (JSON on Greeting)</td></tr>
+            <tr><td>Departments</td><td><span class="badge badge-missing">Not implemented</span></td><td>No department entity</td></tr>
+            <tr><td>Call Queues</td><td><span class="badge badge-missing">Not implemented</span></td><td>Ring groups only</td></tr>
+            <tr><td>Auto Attendants</td><td><span class="badge badge-partial">Partial</span></td><td>Basic IVR via DTMF options</td></tr>
+            <tr><td>Business Hours</td><td><span class="badge badge-ok">Implemented</span></td><td>JSON schedule on Greeting</td></tr>
+            <tr><td>Voicemail</td><td><span class="badge badge-ok">Implemented</span></td><td>Web inbox; mobile count only</td></tr>
+            <tr><td>Recordings</td><td><span class="badge badge-ok">Implemented</span></td><td>List, stream, sync from Telnyx</td></tr>
+            <tr><td>SMS</td><td><span class="badge badge-ok">Implemented</span></td><td>Web send/receive; mobile read-only</td></tr>
+            <tr><td>Reports</td><td><span class="badge badge-partial">Partial</span></td><td>Call history only</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="voice">
+        <h2>7. Voice System Analysis</h2>
+        <table>
+          <thead><tr><th>Feature</th><th>Status</th><th>Implementation Details</th></tr></thead>
+          <tbody>
+            <tr><td>Inbound calling</td><td><span class="badge badge-ok">Working</span></td><td>Call Control: answer → greeting → IVR/ring group/voicemail</td></tr>
+            <tr><td>Outbound calling</td><td><span class="badge badge-ok">Working</span></td><td>WebRTC via Telnyx credential connection</td></tr>
+            <tr><td>WebRTC</td><td><span class="badge badge-ok">Working</span></td><td>@telnyx/webrtc (web), telnyx_webrtc (mobile)</td></tr>
+            <tr><td>SIP</td><td><span class="badge badge-partial">Partial</span></td><td>Telnyx SIP credentials on User; no BYOC per tenant</td></tr>
+            <tr><td>Telnyx Call Control</td><td><span class="badge badge-ok">Working</span></td><td>answer, speak, gather, dial, record, hangup</td></tr>
+            <tr><td>Call Routing</td><td><span class="badge badge-ok">Working</span></td><td>Per-DID routing + tenant default greeting</td></tr>
+            <tr><td>Call Transfer</td><td><span class="badge badge-missing">Missing</span></td><td>No blind/warm transfer</td></tr>
+            <tr><td>Call Hold</td><td><span class="badge badge-missing">Missing</span></td><td>Web: none; Mobile: detects state only</td></tr>
+            <tr><td>Conference Calls</td><td><span class="badge badge-missing">Missing</span></td><td>No multi-party bridge</td></tr>
+            <tr><td>Voicemail</td><td><span class="badge badge-ok">Working</span></td><td>Call Control record → webhook → Voicemail table</td></tr>
+            <tr><td>Call Recording</td><td><span class="badge badge-ok">Working</span></td><td>Inbound + outbound; optional notice TTS</td></tr>
+            <tr><td>Caller ID</td><td><span class="badge badge-ok">Working</span></td><td>Outbound selector from tenant DIDs</td></tr>
+            <tr><td>Extensions</td><td><span class="badge badge-missing">Missing</span></td><td>No PBX-style extension dialing</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="mobile">
+        <h2>8. Mobile Application Analysis</h2>
+        <p><strong>Framework:</strong> Flutter with Riverpod, go_router, Material 3 — v0.3.0+1 (Phases 1–3 complete)</p>
+
+        <h3>Existing Screens</h3>
+        <table>
+          <thead><tr><th>Screen</th><th>Route</th><th>Functionality</th></tr></thead>
+          <tbody>
+            <tr><td>Login</td><td>/login</td><td>Email/password JWT auth</td></tr>
+            <tr><td>Dashboard</td><td>/dashboard</td><td>Stats, recent calls, quick actions</td></tr>
+            <tr><td>Softphone</td><td>/softphone</td><td>Dial pad, mute, speaker, inbound answer/decline</td></tr>
+            <tr><td>Call History</td><td>/calls</td><td>Paginated log, tap-to-redial</td></tr>
+            <tr><td>SMS Inbox / Thread</td><td>/sms, /sms/thread</td><td>Read-only conversations</td></tr>
+            <tr><td>Recordings</td><td>/recordings</td><td>List + in-app playback</td></tr>
+            <tr><td>Profile</td><td>/profile</td><td>Read-only user/tenant info</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Missing vs Web Portal</h3>
+        <ul>
+          <li>Voicemail screen (high priority)</li>
+          <li>Send SMS / mark read (high priority)</li>
+          <li>Contacts/address book (high — missing everywhere)</li>
+          <li>Greeting/routing config, number management, team admin (medium)</li>
+          <li>SMS push notifications (Phase 4 planned)</li>
+        </ul>
+
+        <h3>UI Quality &amp; RingCentral Parity</h3>
+        <table>
+          <thead><tr><th>Aspect</th><th>Rating</th></tr></thead>
+          <tbody>
+            <tr><td>Visual design</td><td>7/10 — Clean Material 3</td></tr>
+            <tr><td>Navigation</td><td>8/10 — Bottom nav shell</td></tr>
+            <tr><td>Softphone UX</td><td>7/10 — No transfer, hold, DTMF during call</td></tr>
+            <tr><td>RingCentral parity</td><td>~25–30%</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="database">
+        <h2>9. Database Audit</h2>
+        <h3>Entity Relationship Diagram</h3>
+        <div class="mermaid">
+erDiagram
+    Tenant ||--o{ User : has
+    Tenant ||--o| Greeting : has
+    Tenant ||--o{ PhoneNumber : owns
+    Tenant ||--o{ CallLog : logs
+    Tenant ||--o{ Voicemail : stores
+    Tenant ||--o{ CallRecording : stores
+    Tenant ||--o{ SmsMessage : messages
+    Tenant ||--o{ NumberOrder : orders
+    Tenant ||--o{ PortRequest : ports
+    Tenant ||--o{ CallQualityMetric : metrics
+    User ||--o{ PhoneNumber : assigned
+        </div>
+
+        <h3>Schema Overview (13 Tables)</h3>
+        <table>
+          <thead><tr><th>Table</th><th>Purpose</th><th>Tenant Scoped</th></tr></thead>
+          <tbody>
+            <tr><td>Tenant</td><td>Organization root</td><td>N/A</td></tr>
+            <tr><td>User</td><td>Auth + softphone credentials</td><td>Yes</td></tr>
+            <tr><td>Greeting</td><td>IVR/routing/voicemail config</td><td>Yes (1:1)</td></tr>
+            <tr><td>PhoneNumber</td><td>DID inventory</td><td>Yes</td></tr>
+            <tr><td>CallLog</td><td>CDR history</td><td>Yes</td></tr>
+            <tr><td>Voicemail</td><td>Voicemail messages</td><td>Yes</td></tr>
+            <tr><td>CallRecording</td><td>Call recordings</td><td>Yes</td></tr>
+            <tr><td>SmsMessage</td><td>SMS inbox/outbox</td><td>Yes</td></tr>
+            <tr><td>NumberOrder</td><td>Purchase orders</td><td>Yes</td></tr>
+            <tr><td>PortRequest</td><td>LNP requests</td><td>Yes</td></tr>
+            <tr><td>CallQualityMetric</td><td>MOS/jitter telemetry</td><td>Yes</td></tr>
+            <tr><td>PlatformSettings</td><td>Singleton platform config</td><td>Global</td></tr>
+            <tr><td>AdminAuditLog</td><td>Admin actions</td><td>Global</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Missing Tables (UCaaS Gap)</h3>
+        <ul>
+          <li>Contacts / Directory, Extensions, CallQueue (normalized), ConferenceRoom</li>
+          <li>Device, RefreshToken/Session, Plan/SKU, Invoice/PaymentLedger</li>
+          <li>E911Address, TenantAuditLog, CallTranscription, WebhookDeliveryLog</li>
+        </ul>
+
+        <h3>Performance Risks</h3>
+        <ul>
+          <li>JSON routing config on Greeting — not queryable at scale</li>
+          <li>No partitioning on CallLog / CallQualityMetric</li>
+          <li>CallLog.tenantId nullable — orphan CDRs possible</li>
+          <li>No archival strategy for recordings/voicemails</li>
+        </ul>
+      </section>
+
+      <section id="security">
+        <h2>10. Security Audit</h2>
+        <table>
+          <thead><tr><th>Area</th><th>Finding</th><th>Risk</th></tr></thead>
+          <tbody>
+            <tr><td>JWT secret</td><td>Defaults to dev value if unset</td><td><span class="badge badge-critical">Critical</span></td></tr>
+            <tr><td>Unauth endpoints</td><td>/api/numbers/search, /api/numbers/assign</td><td><span class="badge badge-critical">Critical</span></td></tr>
+            <tr><td>Token lifecycle</td><td>7-day TTL, no refresh, no revocation</td><td><span class="badge badge-high">High</span></td></tr>
+            <tr><td>Webhook verification</td><td>Skipped if TELNYX_PUBLIC_KEY unset</td><td><span class="badge badge-high">High</span></td></tr>
+            <tr><td>Rate limiting</td><td>Not implemented</td><td><span class="badge badge-high">High</span></td></tr>
+            <tr><td>Demo credentials</td><td>Pre-filled on login page</td><td><span class="badge badge-high">High</span></td></tr>
+            <tr><td>Custom JWT</td><td>Not standard library</td><td><span class="badge badge-medium">Medium</span></td></tr>
+            <tr><td>Client-side auth</td><td>JWT in localStorage (web)</td><td><span class="badge badge-medium">Medium</span></td></tr>
+            <tr><td>Stripe webhook</td><td>Signature verification implemented</td><td><span class="badge badge-low">Low</span></td></tr>
+            <tr><td>SQL injection</td><td>Prisma parameterized queries</td><td><span class="badge badge-low">Low</span></td></tr>
+          </tbody>
+        </table>
+        <p><strong>Risk summary:</strong> 2 Critical · 4 High · 8 Medium · 3 Low</p>
+      </section>
+
+      <section id="api">
+        <h2>11. API Audit</h2>
+        <h3>Endpoint Summary (~78 total)</h3>
+        <ul>
+          <li><strong>Public / Webhooks:</strong> Stripe webhook, 7 Telnyx webhooks, 3 unauthenticated number APIs</li>
+          <li><strong>Portal (/api/*):</strong> ~48 routes — auth, tenant, softphone, greeting, voicemail, recordings, SMS, calls, numbers, billing</li>
+          <li><strong>Admin (/api/admin/*):</strong> ~30 routes — dashboard, tenants, orders, revenue, audit, security, quotas, porting, LCR</li>
+        </ul>
+
+        <h3>Issues</h3>
+        <table>
+          <thead><tr><th>Issue</th><th>Type</th></tr></thead>
+          <tbody>
+            <tr><td>Duplicate number search (server.js vs portal)</td><td>Technical debt</td></tr>
+            <tr><td>TeXML + Call Control dual paths</td><td>Architecture complexity</td></tr>
+            <tr><td>No API versioning (/api/v1)</td><td>Future breaking change risk</td></tr>
+            <tr><td>Monolithic api.ts (1,280 lines)</td><td>Frontend maintainability</td></tr>
+            <tr><td>No OpenAPI/Swagger spec</td><td>Documentation gap</td></tr>
+            <tr><td>Missing: extensions, transfer, conference, contacts APIs</td><td>Feature gap</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="scalability">
+        <h2>12. Scalability Assessment</h2>
+        <table>
+          <thead><tr><th>Scale Target</th><th>Feasibility</th><th>Bottlenecks</th></tr></thead>
+          <tbody>
+            <tr><td>100 tenants</td><td><span class="badge badge-ok">Likely OK</span></td><td>Single Express instance sufficient</td></tr>
+            <tr><td>1,000 tenants</td><td><span class="badge badge-partial">Risky</span></td><td>In-memory sessions, tenant cache</td></tr>
+            <tr><td>10,000 tenants</td><td><span class="badge badge-missing">Not ready</span></td><td>Monolith, no webhook queue, table growth</td></tr>
+            <tr><td>100,000 users</td><td><span class="badge badge-missing">Not ready</span></td><td>Per-user WebRTC credentials, SIP polling</td></tr>
+          </tbody>
+        </table>
+        <h3>Primary Bottlenecks</h3>
+        <ol>
+          <li>Single-process Express with in-memory state</li>
+          <li>Synchronous Telnyx webhook processing — no retry queue</li>
+          <li>PostgreSQL — no read replicas or partitioning</li>
+          <li>Voice telemetry polling hits Telnyx API on interval</li>
+          <li>Local file storage for greetings — not shared across instances</li>
+        </ol>
+      </section>
+
+      <section id="ringcentral">
+        <h2>13. RingCentral Feature Gap Analysis</h2>
+        <table>
+          <thead><tr><th>Category</th><th>Implemented</th><th>Partial</th><th>Missing</th><th>Completion</th></tr></thead>
+          <tbody>
+            <tr><td>Core telephony</td><td>Inbound/outbound, caller ID, call log</td><td>Hold, transfer</td><td>Conference, park, pickup</td><td>45%</td></tr>
+            <tr><td>PBX features</td><td>Ring groups, basic IVR, forward</td><td>Auto attendant</td><td>Extensions, departments, queues</td><td>25%</td></tr>
+            <tr><td>Messaging</td><td>SMS send/receive</td><td>—</td><td>MMS, team chat, fax</td><td>20%</td></tr>
+            <tr><td>Voicemail</td><td>Record, inbox, playback</td><td>—</td><td>Transcription, VM-to-email</td><td>60%</td></tr>
+            <tr><td>Recording</td><td>Inbound/outbound, playback</td><td>—</td><td>Retention policies, compliance</td><td>55%</td></tr>
+            <tr><td>Admin portal</td><td>Tenants, billing, orders, porting</td><td>Inventory</td><td>Analytics, SSO</td><td>50%</td></tr>
+            <tr><td>Mobile app</td><td>Softphone, calls, SMS read</td><td>Inbound push</td><td>VM, SMS send, contacts, video</td><td>25%</td></tr>
+            <tr><td>Integrations</td><td>Telnyx, Stripe</td><td>—</td><td>CRM, Microsoft/Google, API marketplace</td><td>10%</td></tr>
+            <tr><td>Contact center</td><td>—</td><td>—</td><td>Queues, agents, wrap-up, analytics</td><td>0%</td></tr>
+            <tr><td>Meetings/Video</td><td>—</td><td>—</td><td>Video conferencing</td><td>0%</td></tr>
+            <tr><td>Compliance</td><td>Recording notice</td><td>—</td><td>E911, HIPAA, SOC2</td><td>5%</td></tr>
+          </tbody>
+        </table>
+        <p><strong>Overall RingCentral parity: ~30–35%</strong></p>
+      </section>
+
+      <section id="production">
+        <h2>14. Production Readiness Report</h2>
+        <table>
+          <thead><tr><th>Area</th><th>Score</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td>Infrastructure readiness</td><td>15%</td><td>No Docker, K8s, or IaC</td></tr>
+            <tr><td>Deployment readiness</td><td>25%</td><td>Manual npm run dev:api + dev:web</td></tr>
+            <tr><td>Monitoring readiness</td><td>5%</td><td>Console logging only</td></tr>
+            <tr><td>Backup readiness</td><td>0%</td><td>No documented DB backup</td></tr>
+            <tr><td>Disaster recovery</td><td>5%</td><td>Single DB, in-memory state</td></tr>
+            <tr><td>Security hardening</td><td>35%</td><td>Critical gaps remain</td></tr>
+            <tr><td>Testing readiness</td><td>10%</td><td>No automated test suite</td></tr>
+            <tr><td>Documentation</td><td>40%</td><td>Mobile README only</td></tr>
+          </tbody>
+        </table>
+        <div class="card">
+          <strong>Overall Production Readiness Score: 22 / 100</strong>
+          <div class="score-bar"><div class="score-bar-fill" style="width:22%"></div></div>
+        </div>
+      </section>
+
+      <section id="saas">
+        <h2>15. Commercial SaaS Readiness</h2>
+        <table>
+          <thead><tr><th>Capability</th><th>Status</th><th>Score</th></tr></thead>
+          <tbody>
+            <tr><td>Subscription management</td><td>Stripe per-number subscriptions</td><td>65%</td></tr>
+            <tr><td>Tenant billing</td><td>Per-tenant platform fees, Stripe customer</td><td>60%</td></tr>
+            <tr><td>Usage billing</td><td>Not implemented</td><td>10%</td></tr>
+            <tr><td>Plan management</td><td>No plan tiers/SKUs</td><td>25%</td></tr>
+            <tr><td>Trial accounts</td><td>Not implemented</td><td>0%</td></tr>
+            <tr><td>Account lifecycle</td><td>Create/suspend only; no self-signup</td><td>40%</td></tr>
+            <tr><td>Invoicing</td><td>Manual bank + Stripe</td><td>55%</td></tr>
+          </tbody>
+        </table>
+        <div class="card">
+          <strong>Commercial SaaS Readiness Score: 38 / 100</strong>
+          <div class="score-bar"><div class="score-bar-fill" style="width:38%"></div></div>
+          <p style="margin-top:0.75rem;margin-bottom:0">Can sell to early adopters manually (admin creates tenant), but not a self-service SaaS product yet.</p>
+        </div>
+      </section>
+
+      <section id="debt">
+        <h2>16. Technical Debt Report</h2>
+        <table>
+          <thead><tr><th>Issue</th><th>Severity</th><th>Location</th></tr></thead>
+          <tbody>
+            <tr><td>Unauthenticated number assign/search APIs</td><td><span class="badge badge-critical">Critical</span></td><td>server.js:159, 596</td></tr>
+            <tr><td>Custom JWT implementation</td><td><span class="badge badge-high">High</span></td><td>lib/auth.js</td></tr>
+            <tr><td>In-memory Call Control sessions</td><td><span class="badge badge-high">High</span></td><td>lib/callControlSession.js</td></tr>
+            <tr><td>Dual TeXML + Call Control routing</td><td><span class="badge badge-high">High</span></td><td>callRouting.js, inboundCallControl.js</td></tr>
+            <tr><td>Monolithic 1,280-line API client</td><td><span class="badge badge-medium">Medium</span></td><td>web/src/lib/api.ts</td></tr>
+            <tr><td>No automated tests</td><td><span class="badge badge-medium">Medium</span></td><td>package.json</td></tr>
+            <tr><td>JSON blobs for IVR/ring groups</td><td><span class="badge badge-medium">Medium</span></td><td>Greeting model</td></tr>
+            <tr><td>Client-side only auth guards</td><td><span class="badge badge-medium">Medium</span></td><td>web layout.tsx</td></tr>
+            <tr><td>Demo credentials in login UI</td><td><span class="badge badge-medium">Medium</span></td><td>login/page.tsx</td></tr>
+            <tr><td>No API versioning</td><td><span class="badge badge-low">Low</span></td><td>All routes</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="launch">
+        <h2>17. Launch Readiness Score</h2>
+        <div class="card">
+          <strong>Current Score: 42 / 100</strong>
+          <div class="score-bar"><div class="score-bar-fill" style="width:42%"></div></div>
+        </div>
+
+        <h3>Blocks Launch (Must Fix)</h3>
+        <ol>
+          <li>Critical security vulnerabilities (unauth APIs, default JWT secret)</li>
+          <li>Production deployment pipeline (Docker, env management, HTTPS)</li>
+          <li>Database backup and monitoring</li>
+          <li>Remove demo credentials; enforce webhook signature verification</li>
+          <li>Redis or equivalent for multi-instance Call Control sessions</li>
+        </ol>
+
+        <h3>Can Wait Until Later</h3>
+        <ul>
+          <li>Call transfer, conference, call queues</li>
+          <li>Extensions and departments</li>
+          <li>Usage-based billing and trial accounts</li>
+          <li>Contact center features, video meetings</li>
+          <li>E911 compliance (required before enterprise, not MVP pilot)</li>
+          <li>SMS push on mobile (Phase 4)</li>
+        </ul>
+      </section>
+
+      <section id="roadmap">
+        <h2>18. Development Roadmap</h2>
+
+        <h3>Phase 1 — Production Pilot (8–12 weeks)</h3>
+        <p><strong>Goal:</strong> Onboard 5–20 paying SMB tenants safely</p>
+        <table>
+          <thead><tr><th>Priority</th><th>Deliverable</th><th>Business Impact</th></tr></thead>
+          <tbody>
+            <tr><td>P0</td><td>Security hardening (auth APIs, JWT, rate limits, HTTPS)</td><td>Prevents data breach</td></tr>
+            <tr><td>P0</td><td>Docker + CI/CD + staging environment</td><td>Enables reliable deploys</td></tr>
+            <tr><td>P0</td><td>PostgreSQL backup + basic monitoring</td><td>Operational stability</td></tr>
+            <tr><td>P0</td><td>Redis for Call Control sessions + tenant cache</td><td>Enables 2+ API instances</td></tr>
+            <tr><td>P1</td><td>Password reset, remove demo creds</td><td>User trust</td></tr>
+            <tr><td>P1</td><td>Voicemail + send SMS on mobile</td><td>Mobile parity</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Phase 2 — SMB Commercial Launch (12–16 weeks)</h3>
+        <p><strong>Goal:</strong> Self-service SaaS for 100+ tenants</p>
+        <ul>
+          <li>Plan tiers + trial accounts</li>
+          <li>Call transfer + hold (web + mobile)</li>
+          <li>Contacts/directory</li>
+          <li>Tenant audit log + GDPR export</li>
+          <li>WebSocket/SSE for live SMS/call updates</li>
+          <li>Normalized call queues, E911 address management</li>
+        </ul>
+
+        <h3>Phase 3 — Scale &amp; Enterprise (16–24 weeks)</h3>
+        <ul>
+          <li>Horizontal scaling, SSO/SAML, conference calling</li>
+          <li>Extension numbering + departments</li>
+          <li>Usage billing + CDR analytics</li>
+          <li>CRM integrations, call transcription, SOC2 prep</li>
+        </ul>
+
+        <h3>Phase 4 — RingCentral-Class Platform (24+ weeks)</h3>
+        <ul>
+          <li>Full contact center (ACD, agent states, wrap-up)</li>
+          <li>Video meetings, fax, team messaging</li>
+          <li>API marketplace, multi-region deployment</li>
+        </ul>
+      </section>
+
+      <section id="ceo">
+        <h2>19. CEO Summary</h2>
+
+        <div class="ceo-box">
+          <h3>1. What has already been built?</h3>
+          <p>VSP-VOIP is a working multi-tenant UCaaS MVP with a full web portal (tenant + super admin), Flutter mobile app with outbound/inbound WebRTC calling, Telnyx-powered voice (IVR, ring groups, voicemail, recording), SMS, phone number purchasing with Stripe/bank billing, and platform admin for tenants, orders, revenue, and voice quality. Equivalent to ~6–9 months of focused development.</p>
+        </div>
+
+        <div class="ceo-box">
+          <h3>2. What is production ready?</h3>
+          <p><strong>Functionally ready for controlled pilot:</strong> core voice, SMS, number provisioning, tenant onboarding by super admin, basic call routing and voicemail. <strong>Not operationally production ready</strong> without security fixes, deployment automation, and monitoring.</p>
+        </div>
+
+        <div class="ceo-box">
+          <h3>3. What is missing?</h3>
+          <p>Enterprise telephony (transfer, conference, queues, extensions), self-service signup/trials/plan tiers, production infrastructure, security hardening, automated testing, E911, SSO, contact center, video, integrations, and mobile gaps (voicemail screen, SMS compose).</p>
+        </div>
+
+        <div class="ceo-box">
+          <h3>4. Can we onboard paying customers today?</h3>
+          <p><strong>Yes — for a manual pilot only.</strong> Super admin can create tenants, assign numbers, and collect payment. Suitable for 5–20 friendly customers with hands-on support. Not recommended for public self-service or enterprise without Phase 1 work.</p>
+        </div>
+
+        <div class="ceo-box">
+          <h3>5. Can this scale to 10,000 tenants?</h3>
+          <p><strong>Not in current architecture.</strong> With Phase 1–3 investments, 1,000 tenants is achievable; 10,000 requires Phase 3–4 architecture (horizontal scaling, webhook queues, DB optimization).</p>
+        </div>
+
+        <div class="ceo-box">
+          <h3>6. Estimated timelines</h3>
+          <table>
+            <thead><tr><th>Milestone</th><th>Timeline</th></tr></thead>
+            <tbody>
+              <tr><td>Pilot launch (5–20 customers)</td><td>8–12 weeks</td></tr>
+              <tr><td>Commercial SMB launch (100+ tenants)</td><td>5–7 months</td></tr>
+              <tr><td>Enterprise launch (SSO, E911, compliance)</td><td>12–18 months</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="ceo-box">
+          <h3>7. Bottom line</h3>
+          <p>VSP-VOIP has a <strong>solid telephony foundation</strong> comparable to an early-stage RingCentral competitor for SMB voice + SMS (~30–35% feature parity). The gap to commercial and enterprise readiness is primarily in operations, security, scale architecture, and advanced UCaaS features — not in the core voice stack.</p>
+        </div>
+      </section>
+
+      <footer>
+        <p>Report generated from codebase analysis of <code>e:\vsp-voip</code>. Evidence: <code>server.js</code>, <code>lib/</code>, <code>routes/</code>, <code>prisma/schema.prisma</code>, <code>web/src/</code>, <code>mobile/lib/</code>.</p>
+        <p>Audit date: June 21, 2026</p>
+      </footer>
+    </main>
+  </div>
+
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'neutral',
+      securityLevel: 'loose',
+      flowchart: { curve: 'basis' }
+    });
+  </script>
+</body>
+</html>

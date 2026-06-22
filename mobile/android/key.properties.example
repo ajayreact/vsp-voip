@@ -1,0 +1,6 @@
+# Copy to mobile/android/key.properties and fill in before release builds.
+# Do not commit key.properties to version control.
+storePassword=your-keystore-password
+keyPassword=your-key-password
+keyAlias=vsp-voip
+storeFile=../keystore/vsp-voip-release.jks

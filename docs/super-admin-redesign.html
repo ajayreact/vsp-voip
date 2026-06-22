@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VSP-VOIP Super Admin Portal — Product Audit &amp; Redesign</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --accent: #4f46e5;
+      --accent-light: #eef2ff;
+      --success: #059669;
+      --warning: #d97706;
+      --danger: #dc2626;
+      --radius: 10px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      font-size: 15px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      min-height: 100vh;
+    }
+
+    nav {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      background: #0f172a;
+      color: #cbd5e1;
+      padding: 1.5rem 1rem;
+      border-right: 1px solid #1e293b;
+    }
+
+    nav h2 {
+      color: #fff;
+      font-size: 0.95rem;
+      margin: 0 0 1rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid #334155;
+    }
+
+    nav a {
+      display: block;
+      color: #94a3b8;
+      text-decoration: none;
+      font-size: 0.82rem;
+      padding: 0.35rem 0.5rem;
+      border-radius: 6px;
+      margin-bottom: 2px;
+    }
+
+    nav a:hover { background: #1e293b; color: #fff; }
+
+    main {
+      max-width: 980px;
+      padding: 2.5rem 3rem 4rem;
+    }
+
+    header.doc-header {
+      background: linear-gradient(135deg, #1e1b4b, #4f46e5);
+      color: #fff;
+      padding: 2.5rem 3rem;
+      margin: -2.5rem -3rem 2.5rem;
+      border-radius: 0 0 var(--radius) var(--radius);
+    }
+
+    header.doc-header h1 {
+      margin: 0 0 0.5rem;
+      font-size: 1.75rem;
+      font-weight: 700;
+    }
+
+    header.doc-header .meta {
+      opacity: 0.9;
+      font-size: 0.9rem;
+    }
+
+    h2 {
+      font-size: 1.45rem;
+      margin: 2.5rem 0 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid var(--accent);
+      color: #1e1b4b;
+    }
+
+    h3 {
+      font-size: 1.1rem;
+      margin: 1.5rem 0 0.75rem;
+      color: #334155;
+    }
+
+    h4 {
+      font-size: 0.95rem;
+      margin: 1.25rem 0 0.5rem;
+      color: #475569;
+    }
+
+    p { margin: 0.75rem 0; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.5rem;
+      margin: 1rem 0;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+
+    .card-accent {
+      background: var(--accent-light);
+      border-color: #c7d2fe;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+      font-size: 0.88rem;
+      background: var(--surface);
+      border-radius: var(--radius);
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    th, td {
+      padding: 0.65rem 0.85rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+
+    th {
+      background: #f1f5f9;
+      font-weight: 600;
+      color: #334155;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #fafafa; }
+
+    .badge {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .badge-keep { background: #d1fae5; color: #065f46; }
+    .badge-merge { background: #dbeafe; color: #1e40af; }
+    .badge-remove { background: #fee2e2; color: #991b1b; }
+    .badge-future { background: #f3e8ff; color: #6b21a8; }
+    .badge-partial { background: #fef3c7; color: #92400e; }
+    .badge-ok { background: #d1fae5; color: #065f46; }
+    .badge-missing { background: #fee2e2; color: #991b1b; }
+    .badge-phase1 { background: #dbeafe; color: #1e40af; }
+    .badge-phase2 { background: #f3e8ff; color: #6b21a8; }
+    .badge-phase3 { background: #fce7f3; color: #9d174d; }
+
+    .wireframe {
+      background: #1e293b;
+      color: #e2e8f0;
+      font-family: "Cascadia Code", "Consolas", monospace;
+      font-size: 0.72rem;
+      line-height: 1.35;
+      padding: 1.25rem;
+      border-radius: var(--radius);
+      overflow-x: auto;
+      white-space: pre;
+      margin: 1rem 0;
+      border: 1px solid #334155;
+    }
+
+    .mermaid {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+      margin: 1rem 0;
+      overflow-x: auto;
+    }
+
+    .nav-tree {
+      background: #0f172a;
+      color: #e2e8f0;
+      font-family: "Cascadia Code", "Consolas", monospace;
+      font-size: 0.82rem;
+      line-height: 1.6;
+      padding: 1.25rem 1.5rem;
+      border-radius: var(--radius);
+      margin: 1rem 0;
+    }
+
+    .nav-tree .section { color: #818cf8; font-weight: 600; }
+    .nav-tree .route { color: #94a3b8; }
+    .nav-tree .phase { color: #fbbf24; font-size: 0.75rem; }
+
+    ul, ol { margin: 0.5rem 0; padding-left: 1.5rem; }
+    li { margin: 0.35rem 0; }
+
+    .compare-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+
+    .compare-grid .card { margin: 0; }
+
+    .compare-grid h4 { margin-top: 0; }
+
+    footer {
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    code {
+      background: #f1f5f9;
+      padding: 0.1rem 0.35rem;
+      border-radius: 4px;
+      font-size: 0.85em;
+    }
+
+    .priority-list {
+      counter-reset: priority;
+      list-style: none;
+      padding: 0;
+    }
+
+    .priority-list li {
+      counter-increment: priority;
+      padding: 0.75rem 1rem 0.75rem 3rem;
+      margin: 0.5rem 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      position: relative;
+    }
+
+    .priority-list li::before {
+      content: counter(priority);
+      position: absolute;
+      left: 1rem;
+      top: 0.75rem;
+      width: 1.5rem;
+      height: 1.5rem;
+      background: var(--accent);
+      color: #fff;
+      border-radius: 50%;
+      font-size: 0.75rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+      nav { position: relative; height: auto; max-height: 240px; }
+      main { padding: 1.5rem; }
+      header.doc-header { margin: -1.5rem -1.5rem 1.5rem; padding: 1.5rem; }
+      .compare-grid { grid-template-columns: 1fr; }
+    }
+
+    @media print {
+      nav { display: none; }
+      .layout { grid-template-columns: 1fr; }
+      main { max-width: 100%; }
+      h2 { break-before: page; }
+      .wireframe { background: #f1f5f9; color: #0f172a; border: 1px solid #cbd5e1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <nav>
+      <h2>Super Admin Redesign</h2>
+      <a href="#summary">Executive Summary</a>
+      <a href="#current-audit">1. Current Menu Audit</a>
+      <a href="#duplicates">2. Duplicate Pages</a>
+      <a href="#remove">3. Pages To Remove</a>
+      <a href="#matrix">4. Keep / Merge / Remove</a>
+      <a href="#menu">5. Final Menu Structure</a>
+      <a href="#dashboard">6. Executive Dashboard</a>
+      <a href="#active-calls">7. Active Calls</a>
+      <a href="#inventory">8. Number Inventory</a>
+      <a href="#billing">9. Billing Module</a>
+      <a href="#usage">10. Usage Monitoring</a>
+      <a href="#support">11. Support Module</a>
+      <a href="#monitoring">12. System Monitoring</a>
+      <a href="#database">13. Database Changes</a>
+      <a href="#api">14. API Changes</a>
+      <a href="#ux">15. UI/UX Improvements</a>
+      <a href="#scale">16. Scalability</a>
+      <a href="#phases">17. Implementation Plan</a>
+      <a href="#migration">18. Route Migration</a>
+      <a href="#priorities">19. Top Priorities</a>
+    </nav>
+
+    <main>
+      <header class="doc-header">
+        <h1>VSP-VOIP Super Admin Portal — Product Audit &amp; Redesign</h1>
+        <div class="meta">
+          <strong>Role:</strong> Senior SaaS Product Architect &amp; UX Designer &nbsp;|&nbsp;
+          <strong>Scope:</strong> Super Admin portal only &nbsp;|&nbsp;
+          <strong>Goal:</strong> Enterprise-grade admin for 10,000+ tenants &nbsp;|&nbsp;
+          <strong>Status:</strong> Recommendations — no code yet
+        </div>
+      </header>
+
+      <section id="summary">
+        <h2>Executive Summary</h2>
+        <p>The current Super Admin portal is <strong>functionally rich but structurally fragmented</strong>. It has 16 routes across 7 sidebar sections, with overlapping KPIs, split settings forms, a misleading inventory page, and <strong>two different navigation patterns</strong> depending on whether the super admin has a tenant context.</p>
+
+        <div class="card card-accent">
+          <p><strong>Redesign outcome:</strong> Consolidate 16 pages → ~12 primary destinations organized by business function. Separate <strong>Executive Dashboard</strong> from <strong>Live Operations</strong>. Introduce net-new modules (Active Calls, Usage Monitoring, Support Tickets, Subscription Plans) requiring backend investment.</p>
+        </div>
+
+        <div class="compare-grid">
+          <div class="card">
+            <h4>Current State</h4>
+            <ul>
+              <li>7 sidebar sections, 14 nav items</li>
+              <li>Settings split across 4 pages</li>
+              <li>Engineering + executive KPIs mixed</li>
+              <li>No real-time active calls view</li>
+              <li>Fake "inventory" page</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h4>Target State</h4>
+            <ul>
+              <li>7 top-level business areas</li>
+              <li>Unified Settings hub (tabbed)</li>
+              <li>Executive-first dashboard</li>
+              <li>Live Operations drill-down</li>
+              <li>Real telecom number inventory</li>
+            </ul>
+          </div>
+        </div>
+
+        <p><strong>Design references:</strong> RingCentral Admin Portal, Dialpad Office Admin, OpenPhone Workspace Admin, Aircall Dashboard, Zoom Phone Management, GoTo Admin Center.</p>
+      </section>
+
+      <section id="current-audit">
+        <h2>1. Current Menu Audit</h2>
+        <p>Source: <code>web/src/components/admin-nav.tsx</code> — 7 sections, 14 nav items (+ 2 detail routes)</p>
+
+        <table>
+          <thead>
+            <tr><th>Section</th><th>Nav Item</th><th>Route</th><th>Purpose</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Dashboard</td><td>System vitals</td><td><code>/admin</code></td><td>Platform KPIs, orders, billing alerts</td></tr>
+            <tr><td>Dashboard</td><td>Voice quality</td><td><code>/admin/voice-quality</code></td><td>MOS, jitter, call volume charts</td></tr>
+            <tr><td>Tenant management</td><td>Company directory</td><td><code>/admin/tenants</code></td><td>List/create/suspend tenants</td></tr>
+            <tr><td>Tenant management</td><td>Resource quotas</td><td><code>/admin/tenants/quotas</code></td><td>Platform + per-tenant limits</td></tr>
+            <tr><td>Inventory &amp; assets</td><td>DID number pool</td><td><code>/admin/inventory</code></td><td>Tenant number allocation table</td></tr>
+            <tr><td>Inventory &amp; assets</td><td>Number porting</td><td><code>/admin/inventory/porting</code></td><td>LNP requests</td></tr>
+            <tr><td>Trunking &amp; routing</td><td>Least cost routing</td><td><code>/admin/trunking/lcr</code></td><td>Primary/fallback Telnyx connections</td></tr>
+            <tr><td>Tariffs &amp; billing</td><td>Revenue &amp; tariffs</td><td><code>/admin/revenue</code></td><td>Revenue by tenant/month</td></tr>
+            <tr><td>Tariffs &amp; billing</td><td>Orders &amp; invoicing</td><td><code>/admin/orders</code></td><td>Order list + fulfill/cancel</td></tr>
+            <tr><td>Payments</td><td>Stripe</td><td><code>/admin/payments/stripe</code></td><td>Stripe keys/webhooks</td></tr>
+            <tr><td>Payments</td><td>Bank accounts</td><td><code>/admin/payments/bank</code></td><td>Bank transfer details</td></tr>
+            <tr><td>System ops &amp; security</td><td>Forensic audit trail</td><td><code>/admin/audit</code></td><td>Admin action log</td></tr>
+            <tr><td>System ops &amp; security</td><td>RBAC &amp; compliance</td><td><code>/admin/security</code></td><td>Role counts, user list, compliance</td></tr>
+            <tr><td>System ops &amp; security</td><td>Platform settings</td><td><code>/admin/settings</code></td><td>Telnyx + default markup fees</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Hidden / Detail Routes</h3>
+        <ul>
+          <li><code>/admin/tenants/[id]</code> — tenant detail (billing, users, numbers)</li>
+          <li><code>/admin/orders/[id]</code> — order detail</li>
+        </ul>
+
+        <h3>Secondary Nav Issue</h3>
+        <p>Super admins <em>with</em> a tenant see 7 shortcut links in <code>sidebar.tsx</code> (Overview, Orders, Revenue, Audit, Payments, Settings, Tenants) — partially duplicating AdminNav.</p>
+
+        <h3>UX Issues Identified</h3>
+        <table>
+          <thead><tr><th>Issue</th><th>Impact</th></tr></thead>
+          <tbody>
+            <tr><td>Dual navigation systems</td><td>Confusion, inconsistent IA</td></tr>
+            <tr><td>Settings split 4 ways</td><td>High click cost to configure platform</td></tr>
+            <tr><td>Misleading inventory page</td><td>Admin expects wholesale inventory, gets tenant table</td></tr>
+            <tr><td>No real-time active calls</td><td>Cannot monitor or intervene on live calls</td></tr>
+            <tr><td>Revenue vs orders overlap</td><td>Duplicate reporting from NumberOrder</td></tr>
+            <tr><td>Voice quality vs dashboard overlap</td><td>Redundant nav item</td></tr>
+            <tr><td>SIP KPI links to Stripe page</td><td>Broken mental model (bug)</td></tr>
+            <tr><td>"Tariffs" without plan SKUs</td><td>Misleading label</td></tr>
+            <tr><td>Number purchase tenant-only</td><td>Admin cannot bulk-provision</td></tr>
+            <tr><td><code>admin-placeholder.tsx</code> unused</td><td>Dead code signal</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="duplicates">
+        <h2>2. Duplicate Pages Found</h2>
+        <table>
+          <thead><tr><th>Duplicate Pair</th><th>Overlap</th><th>Recommendation</th></tr></thead>
+          <tbody>
+            <tr><td><code>/admin</code> ↔ <code>/admin/voice-quality</code></td><td>MOS, call volume</td><td><span class="badge badge-merge">Merge</span> — summary on dashboard; quality → Live Ops</td></tr>
+            <tr><td><code>/admin/revenue</code> ↔ <code>/admin/orders</code></td><td>Same NumberOrder source</td><td><span class="badge badge-merge">Merge</span> — Billing module tabs</td></tr>
+            <tr><td><code>/admin/inventory</code> ↔ <code>/admin/tenants</code></td><td>Tenant numberCount aggregation</td><td><span class="badge badge-remove">Remove</span> — replace with real Number Inventory</td></tr>
+            <tr><td><code>/admin/security</code> ↔ tenant detail users</td><td>User lists, roles</td><td><span class="badge badge-merge">Merge</span> — Settings + Support</td></tr>
+            <tr><td>Settings / Payments / LCR</td><td>All platform config</td><td><span class="badge badge-merge">Merge</span> — unified Settings tabs</td></tr>
+            <tr><td>Quotas ↔ tenant detail</td><td>Per-tenant limits</td><td><span class="badge badge-merge">Merge</span> — Usage Monitoring + tenant tab</td></tr>
+            <tr><td>Sidebar shortcuts ↔ AdminNav</td><td>7 vs 14 links</td><td><span class="badge badge-remove">Remove</span> shortcuts</td></tr>
+            <tr><td>Tenant <code>/numbers</code> ↔ admin</td><td>Telnyx buy flow tenant-only</td><td><span class="badge badge-merge">Merge</span> — admin Number Inventory</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="remove">
+        <h2>3. Pages To Remove / Consolidate</h2>
+
+        <h3>Remove (as standalone pages)</h3>
+        <table>
+          <thead><tr><th>Page</th><th>Reason</th><th>Replacement</th></tr></thead>
+          <tbody>
+            <tr><td><code>/admin/inventory</code></td><td>Not real inventory</td><td><code>/admin/numbers</code></td></tr>
+            <tr><td><code>/admin/payments/stripe</code></td><td>Settings fragment</td><td><code>/admin/settings/billing</code></td></tr>
+            <tr><td><code>/admin/payments/bank</code></td><td>Settings fragment</td><td><code>/admin/settings/billing</code></td></tr>
+            <tr><td><code>/admin/trunking/lcr</code></td><td>Carrier fragment</td><td><code>/admin/settings/carrier</code></td></tr>
+            <tr><td><code>/admin/revenue</code></td><td>Billing subset</td><td><code>/admin/billing/revenue</code></td></tr>
+            <tr><td><code>/admin/voice-quality</code></td><td>Dashboard duplicate</td><td><code>/admin/monitoring/quality</code></td></tr>
+            <tr><td>Sidebar admin shortcuts</td><td>Duplicate nav</td><td>Single admin shell</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Keep (enhance in place)</h3>
+        <table>
+          <thead><tr><th>Page</th><th>Enhancements</th></tr></thead>
+          <tbody>
+            <tr><td><code>/admin/tenants</code></td><td>Filters, bulk actions, plan column</td></tr>
+            <tr><td><code>/admin/tenants/[id]</code></td><td>Tabbed: Overview, Users, Numbers, Billing, Usage, Quotas, Activity</td></tr>
+            <tr><td><code>/admin/orders/[id]</code></td><td>Link from unified billing</td></tr>
+            <tr><td><code>/admin/inventory/porting</code></td><td>Move to <code>/admin/numbers/porting</code></td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="matrix">
+        <h2>4. Keep / Merge / Remove / Future</h2>
+        <table>
+          <thead><tr><th>Item</th><th>Action</th></tr></thead>
+          <tbody>
+            <tr><td>Executive dashboard KPIs</td><td><span class="badge badge-keep">Keep</span> — redesign layout</td></tr>
+            <tr><td>Live operations</td><td><span class="badge badge-merge">Merge</span> from dashboard + voice-quality</td></tr>
+            <tr><td>Tenant directory &amp; create</td><td><span class="badge badge-keep">Keep</span></td></tr>
+            <tr><td>Tenant detail</td><td><span class="badge badge-keep">Keep</span> — tabbed redesign</td></tr>
+            <tr><td>Resource quotas</td><td><span class="badge badge-merge">Merge</span> → Usage Monitoring</td></tr>
+            <tr><td>Number porting</td><td><span class="badge badge-keep">Keep</span> — under Numbers</td></tr>
+            <tr><td>Orders &amp; revenue</td><td><span class="badge badge-merge">Merge</span> → Billing</td></tr>
+            <tr><td>Stripe / bank / LCR / settings</td><td><span class="badge badge-merge">Merge</span> → Settings tabs</td></tr>
+            <tr><td>Audit log</td><td><span class="badge badge-keep">Keep</span> — under Support</td></tr>
+            <tr><td>RBAC &amp; compliance</td><td><span class="badge badge-merge">Merge</span> → Settings &gt; Security</td></tr>
+            <tr><td>Current DID pool page</td><td><span class="badge badge-remove">Remove</span></td></tr>
+            <tr><td>Subscription plans</td><td><span class="badge badge-future">Future</span></td></tr>
+            <tr><td>Active calls (real-time)</td><td><span class="badge badge-future">Future</span></td></tr>
+            <tr><td>Admin number purchase</td><td><span class="badge badge-future">Future</span></td></tr>
+            <tr><td>Usage billing</td><td><span class="badge badge-future">Future</span></td></tr>
+            <tr><td>Support tickets</td><td><span class="badge badge-future">Future</span></td></tr>
+            <tr><td>API logs / error tracking</td><td><span class="badge badge-future">Future</span></td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="menu">
+        <h2>5. Final Menu Structure</h2>
+        <p><strong>Principle:</strong> 7 top-level items. Max 2 levels deep. Primary actions as buttons, not nav items.</p>
+
+        <div class="nav-tree">
+<span class="section">VSP-VOIP SUPER ADMIN</span>
+├── <span class="section">DASHBOARD</span>
+│   ├── Executive Dashboard          <span class="route">/admin</span>
+│   └── Live Operations              <span class="route">/admin/operations</span>
+│
+├── <span class="section">TENANTS</span>
+│   ├── Tenant Directory             <span class="route">/admin/tenants</span>
+│   ├── Create Tenant                <span class="route">/admin/tenants/new</span>
+│   ├── Subscription Plans           <span class="route">/admin/tenants/plans</span>        <span class="phase">[Phase 2]</span>
+│   └── Usage Monitoring             <span class="route">/admin/tenants/usage</span>          <span class="phase">[Phase 1]</span>
+│
+├── <span class="section">NUMBERS</span>
+│   ├── Number Inventory             <span class="route">/admin/numbers</span>
+│   ├── Purchase Numbers             <span class="route">/admin/numbers/purchase</span>     <span class="phase">[Phase 1]</span>
+│   ├── Assign / Release             <span class="route">/admin/numbers/actions</span>      <span class="phase">[Phase 1]</span>
+│   └── Number Porting               <span class="route">/admin/numbers/porting</span>
+│
+├── <span class="section">BILLING</span>
+│   ├── Overview                     <span class="route">/admin/billing</span>
+│   ├── Subscriptions                <span class="route">/admin/billing/subscriptions</span>  <span class="phase">[Phase 2]</span>
+│   ├── Usage Charges                <span class="route">/admin/billing/usage</span>           <span class="phase">[Phase 2]</span>
+│   ├── Invoices &amp; Orders            <span class="route">/admin/billing/orders</span>
+│   └── Revenue Analytics            <span class="route">/admin/billing/revenue</span>
+│
+├── <span class="section">MONITORING</span>
+│   ├── Active Calls                 <span class="route">/admin/monitoring/calls</span>      <span class="phase">[Phase 1]</span>
+│   ├── Call Quality                 <span class="route">/admin/monitoring/quality</span>
+│   ├── Registrations (SIP/WebRTC)   <span class="route">/admin/monitoring/registrations</span>
+│   └── System Health                <span class="route">/admin/monitoring/health</span>       <span class="phase">[Phase 2]</span>
+│
+├── <span class="section">SUPPORT</span>
+│   ├── Tickets                      <span class="route">/admin/support/tickets</span>         <span class="phase">[Phase 2]</span>
+│   ├── User Management              <span class="route">/admin/support/users</span>
+│   └── Audit Logs                   <span class="route">/admin/support/audit</span>
+│
+└── <span class="section">SETTINGS</span>
+    ├── Platform                     <span class="route">/admin/settings/platform</span>
+    ├── Carrier (Telnyx, LCR)        <span class="route">/admin/settings/carrier</span>
+    ├── Billing (Stripe, Bank)       <span class="route">/admin/settings/billing</span>
+    └── Security &amp; Compliance        <span class="route">/admin/settings/security</span>
+        </div>
+
+        <table>
+          <thead><tr><th>Metric</th><th>Current</th><th>Proposed</th></tr></thead>
+          <tbody>
+            <tr><td>Top-level sections</td><td>7 nested in sidebar</td><td>7 flat with sub-pages</td></tr>
+            <tr><td>Standalone settings pages</td><td>4</td><td>1 (tabbed)</td></tr>
+            <tr><td>Duplicate KPI surfaces</td><td>3</td><td>1 executive + 1 operations</td></tr>
+            <tr><td>Clicks to configure Stripe</td><td>2–3</td><td>2</td></tr>
+            <tr><td>Live calls view</td><td>Does not exist</td><td>2 clicks</td></tr>
+          </tbody>
+        </table>
+
+        <div class="mermaid">
+flowchart LR
+    subgraph Current["Current Nav (14 items)"]
+        D1[System vitals]
+        D2[Voice quality]
+        T1[Tenants]
+        T2[Quotas]
+        I1[DID pool]
+        I2[Porting]
+        TR[LCR]
+        B1[Revenue]
+        B2[Orders]
+        P1[Stripe]
+        P2[Bank]
+        S1[Audit]
+        S2[Security]
+        S3[Settings]
+    end
+
+    subgraph Proposed["Proposed (7 areas)"]
+        ND[Dashboard]
+        NT[Tenants]
+        NN[Numbers]
+        NB[Billing]
+        NM[Monitoring]
+        NS[Support]
+        NSET[Settings]
+    end
+
+    D1 --> ND
+    D2 --> NM
+    T1 --> NT
+    T2 --> NT
+    I1 --> NN
+    I2 --> NN
+    TR --> NSET
+    B1 --> NB
+    B2 --> NB
+    P1 --> NSET
+    P2 --> NSET
+    S1 --> NS
+    S2 --> NSET
+    S3 --> NSET
+        </div>
+      </section>
+
+      <section id="dashboard">
+        <h2>6. Executive Dashboard Wireframe</h2>
+        <p><strong>Route:</strong> <code>/admin</code> — CEO/CFO/COO sees business health in 5 seconds. No engineering metrics on this page.</p>
+
+        <div class="wireframe">┌─────────────────────────────────────────────────────────────────────────────┐
+│  VSP-VOIP Admin    [Search tenants, numbers, orders...]    🔔 Alerts  👤   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  Dashboard › Executive                                                       │
+│                                                                              │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ...   │
+│  │ Tenants  │ │  Users   │ │ Active   │ │   MRR    │ │ Numbers  │         │
+│  │   847    │ │  12,403  │ │ Calls 23 │ │ $68,420  │ │  4,291   │         │
+│  │ +12 mo   │ │ +8% mo   │ │ LIVE ●   │ │ +4.2%    │ │ assigned │         │
+│  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘         │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐                                     │
+│  │ Inv.Pool │ │ Assigned │ │ SMS Today│ │  Platform Health  ● Healthy      │
+│  │   142    │ │   4291   │ │  18,442  │ │  (Telnyx · API · Webhooks)       │
+│  └──────────┘ └──────────┘ └──────────┘                                     │
+│                                                                              │
+│  CALL PERFORMANCE (today / MTD)                                              │
+│  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐│
+│  │Calls Today │ │Calls Month │ │ Success %  │ │ Failure %  │ │ Avg Duration│
+│  │   14,882   │ │  412,900   │ │   97.2%    │ │    2.8%    │ │   3m 42s   ││
+│  └────────────┘ └────────────┘ └────────────┘ └────────────┘ └────────────┘│
+│                                                                              │
+│  TRENDS (3 charts, 30-day default)                                           │
+│  ┌─────────────────────┐ ┌─────────────────────┐ ┌─────────────────────┐   │
+│  │  Revenue (MRR)      │ │  Tenant Growth      │ │  Call Volume        │   │
+│  │  ▁▂▃▅▆▇█            │ │  ▁▂▃▄▅▆▇            │ │  ▂▃▄▅▆▇█▇          │   │
+│  └─────────────────────┘ └─────────────────────┘ └─────────────────────┘   │
+│                                                                              │
+│  RECENT ACTIVITY                                                             │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐       │
+│  │ Latest Orders│ │ New Tenants  │ │ Support      │ │ System       │       │
+│  │ • Acme #4821 │ │ • Beta Corp  │ │ • #1042 Open │ │ • Telnyx OK  │       │
+│  └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘       │
+└─────────────────────────────────────────────────────────────────────────────┘</div>
+
+        <h3>KPI Data Mapping</h3>
+        <table>
+          <thead><tr><th>KPI</th><th>Current API</th><th>Gap</th></tr></thead>
+          <tbody>
+            <tr><td>Total Tenants</td><td><span class="badge badge-ok">✅</span> tenantCount</td><td>—</td></tr>
+            <tr><td>Total Users</td><td><span class="badge badge-ok">✅</span> totalExtensions</td><td>Rename label</td></tr>
+            <tr><td>Active Calls</td><td><span class="badge badge-partial">⚠️</span> 5-min proxy</td><td>Real-time session store</td></tr>
+            <tr><td>MRR</td><td><span class="badge badge-ok">✅</span> mrrEstimate</td><td>—</td></tr>
+            <tr><td>Number Inventory</td><td><span class="badge badge-missing">❌</span></td><td>Telnyx sync + pool table</td></tr>
+            <tr><td>SMS Today</td><td><span class="badge badge-missing">❌</span></td><td>Aggregation query</td></tr>
+            <tr><td>Calls Today/Month</td><td><span class="badge badge-partial">⚠️</span> callsLast24h only</td><td>Date-range aggregates</td></tr>
+            <tr><td>Success/Failure Rate</td><td><span class="badge badge-missing">❌</span></td><td>CDR status analytics</td></tr>
+            <tr><td>Revenue/Tenant/Call charts</td><td><span class="badge badge-missing">❌</span></td><td>Time-series API</td></tr>
+            <tr><td>Support Tickets</td><td><span class="badge badge-missing">❌</span></td><td>Ticket system</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="active-calls">
+        <h2>7. Active Calls Page</h2>
+        <p><strong>Route:</strong> <code>/admin/monitoring/calls</code> — WebSocket/SSE (Phase 2) or 5–10s polling (Phase 1)</p>
+
+        <div class="wireframe">┌─────────────────────────────────────────────────────────────────────────────┐
+│  Monitoring › Active Calls                              ● Live  [Refresh 5s]│
+│                                                                              │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐              │
+│  │ Concurrent: 23  │  │ Peak Today: 89  │  │ Calls Today:    │              │
+│  │ / 1,500 cap     │  │ at 2:14 PM      │  │ 14,882          │              │
+│  └─────────────────┘  └─────────────────┘  └─────────────────┘              │
+│                                                                              │
+│  Tenant      │ Caller        │ Callee        │ Dir │ Duration │ Status │ ⋮ │
+│  ────────────┼───────────────┼───────────────┼─────┼──────────┼────────┼───│
+│  Acme Corp   │ +1 555-0101   │ +1 555-9900   │ In  │ 02:14    │ Active │ ⏹ │
+│  Beta LLC    │ ext: jsmith   │ +1 555-4422   │ Out │ 00:45    │ Ringing│ — │
+│                                                                              │
+│  Hangup: admin force-hangup via Telnyx Call Control [Phase 2]               │
+└─────────────────────────────────────────────────────────────────────────────┘</div>
+
+        <div class="card">
+          <strong>Current gap:</strong> <code>activeConcurrentCalls</code> counts CallLog rows in last 5 minutes — not live sessions. <code>callControlSession.js</code> is in-memory and not exposed to admin API.
+        </div>
+      </section>
+
+      <section id="inventory">
+        <h2>8. Number Inventory Page</h2>
+        <p><strong>Route:</strong> <code>/admin/numbers</code></p>
+
+        <div class="wireframe">┌─────────────────────────────────────────────────────────────────────────────┐
+│  Numbers › Inventory                    [Purchase] [Assign] [Export CSV]    │
+│                                                                              │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐         │
+│  │ Purchased│ │ Assigned │ │ Available│ │ Porting  │ │ Released │         │
+│  │  4,433   │ │  4,291   │ │   142    │ │    18    │ │   312    │         │
+│  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘         │
+│                                                                              │
+│  Number        │ Status    │ Tenant      │ Assigned User │ MRC    │ Actions │
+│  +1 555-0100   │ Available │ —           │ —             │ $8.00  │ Assign  │
+│  +1 555-0101   │ Assigned  │ Acme Corp   │ Jane Doe      │ $12.00 │ Release │
+│  +1 555-0102   │ Porting   │ Beta LLC    │ —             │ —      │ View    │
+└─────────────────────────────────────────────────────────────────────────────┘</div>
+
+        <p><strong>Current gap:</strong> <code>PhoneNumber</code> table only stores assigned numbers. No status enum, no unassigned pool, no Telnyx sync.</p>
+      </section>
+
+      <section id="billing">
+        <h2>9. Billing Module</h2>
+        <p><strong>Route:</strong> <code>/admin/billing</code> with horizontal tabs</p>
+
+        <table>
+          <thead><tr><th>Tab</th><th>Content</th><th>Phase</th></tr></thead>
+          <tbody>
+            <tr><td>Overview</td><td>MRR, ARR, pending orders, failed payments</td><td><span class="badge badge-phase1">Phase 1</span></td></tr>
+            <tr><td>Subscriptions</td><td>Plan assignment, Stripe subscription status</td><td><span class="badge badge-phase2">Phase 2</span></td></tr>
+            <tr><td>Usage</td><td>Voice minutes, SMS count, overage charges</td><td><span class="badge badge-phase2">Phase 2</span></td></tr>
+            <tr><td>Invoices &amp; Orders</td><td>Current orders page + invoice actions</td><td><span class="badge badge-phase1">Phase 1</span></td></tr>
+            <tr><td>Revenue Analytics</td><td>Current revenue page + charts</td><td><span class="badge badge-phase1">Phase 1</span></td></tr>
+          </tbody>
+        </table>
+
+        <h3>Subscription Plans (Phase 2)</h3>
+        <table>
+          <thead><tr><th>Plan</th><th>Target</th><th>Included</th><th>Price Model</th></tr></thead>
+          <tbody>
+            <tr><td>Starter</td><td>1–5 users</td><td>1 number, basic routing</td><td>$19/seat + DID</td></tr>
+            <tr><td>Growth</td><td>5–25 users</td><td>3 numbers, IVR, SMS</td><td>$29/seat + usage</td></tr>
+            <tr><td>Business</td><td>25–100 users</td><td>Queues, recording, analytics</td><td>$39/seat + usage</td></tr>
+            <tr><td>Enterprise</td><td>100+</td><td>SSO, dedicated support</td><td>Custom</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Usage Billing Meters (Phase 2)</h3>
+        <table>
+          <thead><tr><th>Meter</th><th>Unit</th><th>Source</th></tr></thead>
+          <tbody>
+            <tr><td>Voice minutes</td><td>Per minute</td><td>CallLog.durationSeconds</td></tr>
+            <tr><td>SMS</td><td>Per segment</td><td>SmsMessage count</td></tr>
+            <tr><td>DID</td><td>Per number/month</td><td>PhoneNumber.tenantMonthlyTotal</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="usage">
+        <h2>10. Usage Monitoring Page</h2>
+        <p><strong>Route:</strong> <code>/admin/tenants/usage</code></p>
+
+        <div class="wireframe">┌─────────────────────────────────────────────────────────────────────────────┐
+│  Tenants › Usage Monitoring                    [Export] [Alert thresholds]  │
+│                                                                              │
+│  Tenant       │Users│Numbers│Calls│Minutes│SMS  │Plan     │Monthly Cost   │
+│  Acme Corp    │ 24  │  12   │ 882 │ 4,210 │ 340 │ Business │ $1,248       │
+│  Beta LLC     │  8  │   4   │ 124 │   620 │  89 │ Growth   │ $312         │
+│  ...          │     │       │     │       │     │          │              │
+│                                                                              │
+│  Click row → tenant detail Usage tab                                         │
+└─────────────────────────────────────────────────────────────────────────────┘</div>
+
+        <p><strong>Partial data today:</strong> Quotas page has users/numbers/concurrent vs limits. Missing: calls today, minutes, SMS, plan, cost rollup.</p>
+      </section>
+
+      <section id="support">
+        <h2>11. Support Module</h2>
+        <p><strong>Route:</strong> <code>/admin/support/tickets</code> <span class="badge badge-phase2">Phase 2</span></p>
+
+        <table>
+          <thead><tr><th>Field</th><th>Values</th></tr></thead>
+          <tbody>
+            <tr><td>Status</td><td>Open, In Progress, Waiting, Closed</td></tr>
+            <tr><td>Priority</td><td>Low, Medium, High, Critical</td></tr>
+            <tr><td>Linked entity</td><td>Tenant, User, Order, Port request</td></tr>
+          </tbody>
+        </table>
+
+        <p><strong>Phase 1 interim:</strong> Use Audit Log + billing alerts as pseudo-tickets; link to tenant detail.</p>
+        <p><strong>User Management</strong> (<code>/admin/support/users</code>): Cross-tenant user search, suspend, reset password — consolidates security page user table.</p>
+      </section>
+
+      <section id="monitoring">
+        <h2>12. System Monitoring</h2>
+        <p><strong>Route:</strong> <code>/admin/monitoring/health</code></p>
+
+        <table>
+          <thead><tr><th>Service</th><th>Current</th><th>Phase 1</th><th>Phase 2</th></tr></thead>
+          <tbody>
+            <tr><td>Telnyx API</td><td><span class="badge badge-ok">✅</span> /telnyx/status</td><td>Status card</td><td>Latency, balance</td></tr>
+            <tr><td>SIP Registration</td><td><span class="badge badge-ok">✅</span> voice telemetry</td><td>Registration dashboard</td><td>Per-tenant drill-down</td></tr>
+            <tr><td>WebRTC Registration</td><td><span class="badge badge-partial">⚠️</span> via SIP + presence</td><td>Combined page</td><td>Real-time map</td></tr>
+            <tr><td>Call Control</td><td><span class="badge badge-partial">⚠️</span> implicit</td><td>Webhook last-seen</td><td>Event stream</td></tr>
+            <tr><td>SMS</td><td><span class="badge badge-missing">❌</span></td><td>Profile status</td><td>Delivery rate</td></tr>
+            <tr><td>API Health</td><td><span class="badge badge-missing">❌</span></td><td>/health endpoint</td><td>Uptime dashboard</td></tr>
+            <tr><td>Webhooks</td><td><span class="badge badge-missing">❌</span></td><td>Last received per endpoint</td><td>Failure/retry log</td></tr>
+            <tr><td>Error Tracking</td><td><span class="badge badge-missing">❌</span></td><td>—</td><td>Sentry/Datadog</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="database">
+        <h2>13. Database Changes Required</h2>
+
+        <h3>Phase 1</h3>
+        <table>
+          <thead><tr><th>Table / Change</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td><code>PhoneNumber.status</code> enum</td><td>AVAILABLE, ASSIGNED, PORTING, RELEASED, RESERVED</td></tr>
+            <tr><td><code>ActiveCallSession</code></td><td>Persist live calls (replace in-memory sessions)</td></tr>
+            <tr><td><code>PlatformDailyMetric</code></td><td>Pre-aggregated KPIs for dashboard charts</td></tr>
+            <tr><td><code>SystemAlert</code></td><td>Billing failures, carrier issues, quota breaches</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Phase 2</h3>
+        <table>
+          <thead><tr><th>Table</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td><code>SubscriptionPlan</code></td><td>Starter/Growth/Business/Enterprise</td></tr>
+            <tr><td><code>TenantSubscription</code></td><td>Plan, status, billing cycle</td></tr>
+            <tr><td><code>UsageRecord</code></td><td>Metered voice minutes, SMS by tenant/period</td></tr>
+            <tr><td><code>Invoice</code></td><td>Formal invoice ledger</td></tr>
+            <tr><td><code>SupportTicket</code> + comments</td><td>Ticket system</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Phase 3 (Scale)</h3>
+        <ul>
+          <li><code>WebhookDeliveryLog</code> — idempotency, retry tracking</li>
+          <li><code>TenantUsageDailyRollup</code> — partitioned usage for 10K+ tenants</li>
+          <li><code>CallLog</code> partitioning by month</li>
+        </ul>
+      </section>
+
+      <section id="api">
+        <h2>14. API Changes Required</h2>
+
+        <h3>Phase 1</h3>
+        <table>
+          <thead><tr><th>Endpoint</th><th>Method</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td><code>/api/admin/dashboard/executive</code></td><td>GET</td><td>Business KPIs only</td></tr>
+            <tr><td><code>/api/admin/dashboard/operations</code></td><td>GET</td><td>Live ops KPIs</td></tr>
+            <tr><td><code>/api/admin/metrics/timeseries</code></td><td>GET</td><td>Revenue, tenants, calls charts</td></tr>
+            <tr><td><code>/api/admin/monitoring/active-calls</code></td><td>GET</td><td>Live call sessions</td></tr>
+            <tr><td><code>/api/admin/numbers/inventory</code></td><td>GET</td><td>Full inventory with filters</td></tr>
+            <tr><td><code>/api/admin/numbers/purchase</code></td><td>POST</td><td>Admin bulk purchase</td></tr>
+            <tr><td><code>/api/admin/numbers/:id/assign</code></td><td>POST</td><td>Assign to tenant</td></tr>
+            <tr><td><code>/api/admin/numbers/:id/release</code></td><td>POST</td><td>Release to pool</td></tr>
+            <tr><td><code>/api/admin/tenants/usage</code></td><td>GET</td><td>Per-tenant usage rollup</td></tr>
+            <tr><td><code>/api/admin/health</code></td><td>GET</td><td>Composite platform health</td></tr>
+            <tr><td><code>/api/admin/search</code></td><td>GET</td><td>Global search</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Phase 2</h3>
+        <table>
+          <thead><tr><th>Endpoint</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td><code>/api/admin/plans</code></td><td>Subscription plan CRUD</td></tr>
+            <tr><td><code>/api/admin/billing/subscriptions</code></td><td>All tenant subscriptions</td></tr>
+            <tr><td><code>/api/admin/billing/usage</code></td><td>Usage charges by tenant/period</td></tr>
+            <tr><td><code>/api/admin/support/tickets</code></td><td>Ticket system CRUD</td></tr>
+            <tr><td><code>/api/admin/users</code></td><td>Cross-tenant user management</td></tr>
+          </tbody>
+        </table>
+
+        <h3>APIs to Deprecate / Merge</h3>
+        <ul>
+          <li><code>GET /api/admin/dashboard</code> → split into executive + operations</li>
+          <li><code>GET /api/admin/revenue</code> → <code>/api/admin/billing/revenue</code></li>
+          <li><code>GET /api/admin/voice-quality</code> → <code>/api/admin/monitoring/quality</code></li>
+          <li><code>GET /api/admin/security</code> → settings + support users</li>
+        </ul>
+      </section>
+
+      <section id="ux">
+        <h2>15. UI/UX Improvements</h2>
+
+        <h3>Information Architecture</h3>
+        <ol>
+          <li><strong>Single admin shell</strong> — remove dual nav; icon rail + section labels</li>
+          <li><strong>Global search</strong> — Cmd+K across tenants, numbers, orders</li>
+          <li><strong>Breadcrumbs</strong> on all sub-pages</li>
+          <li><strong>Tabbed detail pages</strong> — tenant detail as hub</li>
+          <li><strong>Action buttons vs nav</strong> — Create Tenant, Purchase Numbers as primary actions</li>
+        </ol>
+
+        <h3>Visual Design</h3>
+        <table>
+          <thead><tr><th>Element</th><th>Current</th><th>Proposed</th></tr></thead>
+          <tbody>
+            <tr><td>KPI density</td><td>9+ cards on one page</td><td>8 executive cards max on row 1</td></tr>
+            <tr><td>Charts</td><td>CSS bar divs</td><td>Recharts with drill-down</td></tr>
+            <tr><td>Tables</td><td>Client-side DataTable</td><td>Server-side pagination, saved filters</td></tr>
+            <tr><td>Loading</td><td>Full-page spinner</td><td>Skeleton cards</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Industry Patterns</h3>
+        <ul>
+          <li><strong>RingCentral:</strong> Top nav tabs + contextual sub-nav on detail pages</li>
+          <li><strong>Dialpad:</strong> Usage meters with threshold alerts on tenant list</li>
+          <li><strong>OpenPhone:</strong> Number-centric inventory with inline assign</li>
+          <li><strong>Aircall:</strong> Live activity feed on dashboard</li>
+          <li><strong>GoTo:</strong> Health status strip always visible in header</li>
+        </ul>
+      </section>
+
+      <section id="scale">
+        <h2>16. SaaS Scalability Recommendations</h2>
+
+        <table>
+          <thead><tr><th>Scale</th><th>Admin UX Requirement</th></tr></thead>
+          <tbody>
+            <tr><td>100 tenants</td><td>Current tables OK with pagination</td></tr>
+            <tr><td>1,000 tenants</td><td>Global search, filters, saved views required</td></tr>
+            <tr><td>10,000 tenants</td><td>Pre-aggregated metrics, async exports, admin RBAC</td></tr>
+            <tr><td>100K users</td><td>Search index (FTS/Elasticsearch), not full table scan</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Backend at Scale</h3>
+        <ul>
+          <li>Redis for active call sessions — multi-instance requirement</li>
+          <li>Nightly aggregation jobs for MRR, usage, call stats</li>
+          <li>Read replica for reporting APIs</li>
+          <li>Telnyx inventory sync job (hourly)</li>
+          <li>Partition <code>CallLog</code> by month</li>
+        </ul>
+
+        <h3>Future Admin RBAC</h3>
+        <table>
+          <thead><tr><th>Role</th><th>Access</th></tr></thead>
+          <tbody>
+            <tr><td>Platform Admin</td><td>Full access</td></tr>
+            <tr><td>Billing Admin</td><td>Billing + orders only</td></tr>
+            <tr><td>Support Agent</td><td>Tickets + tenant read + impersonate</td></tr>
+            <tr><td>Network Ops</td><td>Monitoring + carrier settings only</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="phases">
+        <h2>17. Implementation Plan</h2>
+
+        <div class="card">
+          <h3><span class="badge badge-phase1">Phase 1</span> IA Cleanup &amp; Executive Dashboard (4–6 weeks)</h3>
+          <p><strong>Goal:</strong> Simpler nav, executive-first dashboard, no dead pages</p>
+          <table>
+            <thead><tr><th>Week</th><th>Deliverable</th></tr></thead>
+            <tbody>
+              <tr><td>1–2</td><td>New admin shell, Settings tabs (merge 4 pages), Billing tabs (merge revenue + orders)</td></tr>
+              <tr><td>2–3</td><td>Executive dashboard + new aggregates (calls today, SMS today)</td></tr>
+              <tr><td>3–4</td><td>Live Operations page (move voice quality + engineering KPIs)</td></tr>
+              <tr><td>4–5</td><td>Usage Monitoring (extend quotas API)</td></tr>
+              <tr><td>5–6</td><td>Number Inventory v1, remove old inventory page</td></tr>
+            </tbody>
+          </table>
+          <p><strong>Success:</strong> Nav 14 → 7 top-level; settings in 1 place; dashboard &lt; 2s load</p>
+        </div>
+
+        <div class="card">
+          <h3><span class="badge badge-phase2">Phase 2</span> Real-Time Ops &amp; SaaS Billing (6–10 weeks)</h3>
+          <ul>
+            <li>Active Calls with Redis-backed sessions</li>
+            <li>WebSocket/SSE for live call count</li>
+            <li>SubscriptionPlan + TenantSubscription models</li>
+            <li>Billing: subscriptions + usage tabs</li>
+            <li>Support ticket system</li>
+            <li>Global admin search</li>
+            <li>Admin bulk number purchase</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h3><span class="badge badge-phase3">Phase 3</span> Enterprise Scale (10–16 weeks)</h3>
+          <ul>
+            <li>Pre-aggregated metrics pipeline</li>
+            <li>CallLog partitioning + archival</li>
+            <li>Webhook delivery log + system health dashboard</li>
+            <li>Admin RBAC (4 roles)</li>
+            <li>API logs + error tracking (Sentry/Datadog)</li>
+            <li>Tenant impersonation for support</li>
+            <li>Async CSV export</li>
+          </ul>
+          <p><strong>Success:</strong> Dashboard works with 10K tenants (&lt;3s); search &lt;500ms</p>
+        </div>
+      </section>
+
+      <section id="migration">
+        <h2>18. Route Migration Map</h2>
+        <table>
+          <thead><tr><th>Old Route</th><th>New Route</th><th>Action</th></tr></thead>
+          <tbody>
+            <tr><td><code>/admin</code></td><td><code>/admin</code></td><td>Redesign (executive only)</td></tr>
+            <tr><td><code>/admin/voice-quality</code></td><td><code>/admin/monitoring/quality</code></td><td>Redirect</td></tr>
+            <tr><td><code>/admin/tenants/quotas</code></td><td><code>/admin/tenants/usage</code></td><td>Redirect + enhance</td></tr>
+            <tr><td><code>/admin/inventory</code></td><td><code>/admin/numbers</code></td><td>Replace</td></tr>
+            <tr><td><code>/admin/inventory/porting</code></td><td><code>/admin/numbers/porting</code></td><td>Redirect</td></tr>
+            <tr><td><code>/admin/trunking/lcr</code></td><td><code>/admin/settings/carrier</code></td><td>Redirect</td></tr>
+            <tr><td><code>/admin/revenue</code></td><td><code>/admin/billing/revenue</code></td><td>Redirect</td></tr>
+            <tr><td><code>/admin/orders</code></td><td><code>/admin/billing/orders</code></td><td>Redirect</td></tr>
+            <tr><td><code>/admin/payments/stripe</code></td><td><code>/admin/settings/billing</code></td><td>Redirect</td></tr>
+            <tr><td><code>/admin/payments/bank</code></td><td><code>/admin/settings/billing</code></td><td>Redirect</td></tr>
+            <tr><td><code>/admin/audit</code></td><td><code>/admin/support/audit</code></td><td>Redirect</td></tr>
+            <tr><td><code>/admin/security</code></td><td><code>/admin/settings/security</code></td><td>Redirect</td></tr>
+            <tr><td><code>/admin/settings</code></td><td><code>/admin/settings/platform</code></td><td>Redirect</td></tr>
+          </tbody>
+        </table>
+        <p>Implement Next.js redirects for bookmark compatibility.</p>
+      </section>
+
+      <section id="priorities">
+        <h2>19. Top 10 Priorities</h2>
+        <ol class="priority-list">
+          <li><strong>Unify navigation</strong> — one admin shell; remove sidebar admin shortcuts</li>
+          <li><strong>Split dashboard</strong> — Executive vs Live Operations (biggest UX win)</li>
+          <li><strong>Merge settings</strong> — 4 pages → 1 tabbed Settings hub</li>
+          <li><strong>Replace fake inventory</strong> — real number lifecycle (purchase/assign/release)</li>
+          <li><strong>Build Active Calls</strong> — Redis sessions + admin API</li>
+          <li><strong>Add global search</strong> — mandatory before 500+ tenants</li>
+          <li><strong>Usage Monitoring</strong> — per-tenant cost dashboard</li>
+          <li><strong>Introduce SubscriptionPlan</strong> — Starter/Growth/Business/Enterprise</li>
+          <li><strong>Pre-aggregate metrics</strong> — required for executive charts at scale</li>
+          <li><strong>Fix KPI link bugs</strong> — SIP card should not link to Stripe</li>
+        </ol>
+
+        <div class="card card-accent" style="margin-top: 2rem;">
+          <p><strong>Recommended next step:</strong> Approve Phase 1 scope (IA + dashboard + settings merge), then implement the new admin shell and executive dashboard in code.</p>
+        </div>
+      </section>
+
+      <footer>
+        <p>VSP-VOIP Super Admin Portal — Product Audit &amp; Redesign Document</p>
+        <p>Evidence: <code>web/src/components/admin-nav.tsx</code>, <code>web/src/app/(app)/admin/</code>, <code>routes/admin.js</code></p>
+        <p>Generated: June 21, 2026</p>
+      </footer>
+    </main>
+  </div>
+
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'neutral',
+      securityLevel: 'loose',
+      flowchart: { curve: 'basis' }
+    });
+  </script>
+</body>
+</html>
