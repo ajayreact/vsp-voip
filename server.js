@@ -45,6 +45,7 @@ const {
 const app = express();
 
 const defaultWebOrigin = process.env.WEB_ORIGIN || 'http://localhost:3001';
+const adminWebOrigin = process.env.ADMIN_ORIGIN || '';
 
 function isAllowedWebOrigin(origin) {
     if (!origin) return true;
@@ -54,6 +55,10 @@ function isAllowedWebOrigin(origin) {
         'http://localhost:3001',
         'http://127.0.0.1:3001',
     ]);
+
+    if (adminWebOrigin) {
+        allowed.add(adminWebOrigin);
+    }
 
     if (process.env.WEB_ORIGIN_LAN) {
         allowed.add(process.env.WEB_ORIGIN_LAN);
