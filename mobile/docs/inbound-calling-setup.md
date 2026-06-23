@@ -41,7 +41,7 @@ New API: `POST /api/softphone/push-token` — stores FCM/VoIP token on the user 
 5. Rebuild:
    ```powershell
    cd mobile
-   flutter run --dart-define=API_BASE_URL=http://10.0.2.2:3000
+   flutter run --dart-define=API_BASE_URL=http://vspphone.com:3000
    ```
 
 Without `google-services.json`, **foreground inbound** still works when the app is connected; **background push** requires Firebase.

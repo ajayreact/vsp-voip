@@ -1,6 +1,6 @@
 # VSP-VOIP Mobile (Flutter)
 
-Tenant mobile app for the VSP-VOIP platform. It consumes the same Express REST API as the Next.js web portal (`http://localhost:3000`).
+Tenant mobile app for the VSP-VOIP platform. It consumes the same Express REST API as the Next.js web portal (`http://vspphone.com:3000`).
 
 **Phase 1 (complete):** authentication, navigation, dashboard, call history, SMS inbox, recordings list, and profile — all wired to backend APIs.
 
@@ -89,11 +89,11 @@ flutter doctor
 ### Android APK (Windows / macOS / Linux)
 
 ```powershell
-# From repo root — emulator API (10.0.2.2 = host machine from Android emulator)
+# From repo root — production API (default)
 npm run build:mobile:android
 
-# Physical phone on same Wi‑Fi — replace with your PC's LAN IP
-.\scripts\build-mobile-android.ps1 -ApiUrl "http://192.168.0.138:3000"
+# Override API URL at build time if needed
+.\scripts\build-mobile-android.ps1 -ApiUrl "http://vspphone.com:3000"
 
 # Release APK (debug-signed if key.properties is missing)
 npm run build:mobile:android:release
@@ -125,14 +125,11 @@ Open `mobile/ios/Runner.xcworkspace` in Xcode to run on simulator/device or arch
 ## Run (development)
 
 ```powershell
-# Android emulator — API on host machine
-flutter run --dart-define=API_BASE_URL=http://10.0.2.2:3000
+# Default production API (configured in lib/config/api_config.dart)
+flutter run
 
-# Physical device on same Wi‑Fi as your PC
-flutter run --dart-define=API_BASE_URL=http://192.168.0.138:3000
-
-# iOS simulator
-flutter run --dart-define=API_BASE_URL=http://localhost:3000
+# Override API URL at run time
+flutter run --dart-define=API_BASE_URL=http://vspphone.com:3000
 ```
 
 From repo root:
