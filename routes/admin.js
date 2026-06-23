@@ -33,6 +33,7 @@ const {
   getLcrConfig,
 } = require('../lib/adminModules');
 const { getVoiceTelemetrySummary } = require('../lib/voiceTelemetry');
+const { getExecutiveDashboard, getOperationsDashboard } = require('../lib/adminDashboard');
 const { getRevenueProtectionDashboard, runBillingIntegrityChecks } = require('../lib/revenueProtection');
 const { reconcileLegacyRevenueRecords } = require('../lib/revenueReconcile');
 const {
