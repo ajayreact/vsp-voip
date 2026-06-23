@@ -7,6 +7,7 @@ import 'package:vsp_voip_mobile/core/storage/token_storage.dart';
 import 'package:vsp_voip_mobile/core/storage/token_storage_provider.dart';
 import 'package:vsp_voip_mobile/features/auth/data/auth_api.dart';
 import 'package:vsp_voip_mobile/features/auth/data/models/user.dart';
+import 'package:vsp_voip_mobile/core/push/push_bootstrap.dart';
 import 'package:vsp_voip_mobile/features/auth/data/provision_api.dart';
 import 'package:vsp_voip_mobile/features/calls/providers/calls_providers.dart';
 import 'package:vsp_voip_mobile/features/dashboard/providers/dashboard_providers.dart';
@@ -50,12 +51,14 @@ class AuthRepository {
       final deviceId = await DeviceInstallService.deviceId();
       final deviceName = await DeviceInstallService.deviceName();
       final appVersion = await DeviceInstallService.appVersion();
+      final pushToken = await fetchPushDeviceToken();
       final response = await _provisionApi.redeemToken(
         token: token,
         deviceId: deviceId,
-        platform: 'mobile',
+        platform: pushPlatformName(),
         deviceName: deviceName,
         appVersion: appVersion,
+        pushToken: pushToken,
       );
       await _tokenStorage.writeToken(response.accessToken);
       await _extensionConfigStorage.writeProvisionResult(response);

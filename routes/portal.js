@@ -48,7 +48,7 @@ const { getMessagingSetupStatus } = require('../lib/telnyxMessagingSetup');
 const { assertTenantActive } = require('../lib/tenantGuard');
 const { loadPlatformSettings } = require('../lib/platformSettings');
 const { getTelnyxConnectionConfig } = require('../lib/telnyxConfig');
-const { createSoftphoneLoginToken, setSoftphonePresence, loadCredentialConnectionId } = require('../lib/softphone');
+const { createSoftphoneLoginToken, getOrCreateUserTelephonyCredential, setSoftphonePresence, loadCredentialConnectionId } = require('../lib/softphone');
 const {
   registerUserDevice,
   listUserDevices,
@@ -728,6 +728,12 @@ router.post('/softphone/token', authMiddleware, async (req, res) => {
       tenantId: req.user.tenantId,
     });
 
+    if (!token?.loginToken || typeof token.loginToken !== 'string' || !token.loginToken.trim()) {
+      return res.status(502).json({
+        error: 'Telnyx did not return a valid WebRTC login token. Verify TELNYX_API_KEY and credential connection.',
+      });
+    }
+
     ensureTelnyxRecordingSetup(prisma).catch((syncError) => {
       console.warn('⚠️ Credential connection webhook/recording sync after softphone login:', syncError.message);
     });
@@ -845,12 +851,31 @@ router.post('/softphone/push-token', authMiddleware, async (req, res) => {
 
     const deviceCount = await countUserDevices(prisma, req.user.sub);
 
+    let sipUsername = null;
+    const connectionId = await loadCredentialConnectionId(prisma);
+    if (connectionId) {
+      try {
+        const telephony = await getOrCreateUserTelephonyCredential({
+          prisma,
+          userId: req.user.sub,
+          tenantId: req.user.tenantId,
+          connectionId,
+        });
+        sipUsername = telephony?.sipUsername || null;
+      } catch (credError) {
+        console.warn('⚠️ SIP credential provision on push-token:', credError.message);
+      }
+    }
+
     res.json({
       success: true,
       platform,
       registered: true,
       deviceId: device.deviceId,
       registeredDeviceCount: deviceCount,
+      sipUsername,
+      webrtcDialUri: sipUsername ? `sip:${sipUsername}@sip.telnyx.com` : null,
+      note: 'Telnyx push delivery requires notificationToken on SDK connectWithToken; this endpoint stores the device token and ensures SIP credentials exist for inbound dial.',
     });
   } catch (error) {
     res.status(error.status || 500).json({ error: error.message || 'Failed to register push token' });

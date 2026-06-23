@@ -37,10 +37,21 @@ export function resolveRemoteCallerNumber(call: Call | null | undefined) {
   if (!call) return '';
 
   const options = (call as Call & {
-    options?: { remoteCallerNumber?: string; callerNumber?: string };
+    options?: {
+      remoteCallerNumber?: string;
+      callerNumber?: string;
+      callerName?: string;
+      remoteCallerName?: string;
+    };
   }).options;
 
-  return options?.remoteCallerNumber || options?.callerNumber || '';
+  return (
+    options?.remoteCallerNumber
+    || options?.callerNumber
+    || options?.remoteCallerName
+    || options?.callerName
+    || ''
+  );
 }
 
 export function isConnectingCallState(state: string | undefined) {

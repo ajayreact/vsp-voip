@@ -80,7 +80,20 @@ Future<void> bootstrapPushServices() async {
   pushBootstrapComplete = true;
 }
 
-Future<String?> fetchPushDeviceToken() async {
+Future<String?> fetchPushDeviceToken({int maxAttempts = 3}) async {
+  for (var attempt = 0; attempt < maxAttempts; attempt++) {
+    final token = await _fetchPushDeviceTokenOnce();
+    if (token != null && token.isNotEmpty) {
+      return token;
+    }
+    if (attempt < maxAttempts - 1) {
+      await Future<void>.delayed(Duration(milliseconds: 400 * (attempt + 1)));
+    }
+  }
+  return null;
+}
+
+Future<String?> _fetchPushDeviceTokenOnce() async {
   if (defaultTargetPlatform == TargetPlatform.android) {
     try {
       await Firebase.initializeApp();

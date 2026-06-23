@@ -305,6 +305,10 @@ class SoftphoneController extends Notifier<SoftphoneState> {
       _scheduleTokenRefresh(token.expiresInSeconds);
 
       state = state.copyWith(status: 'Connecting to Telnyx…');
+      debugPrint(
+        '[VSP Softphone] connectWithToken pushRegistered=${state.pushRegistered} '
+        'notificationToken=${_pushToken != null && _pushToken!.isNotEmpty}',
+      );
       _client!.connectWithToken(_lastTokenConfig!);
     } catch (error) {
       final message = error is ApiException
@@ -348,11 +352,51 @@ class SoftphoneController extends Notifier<SoftphoneState> {
       appVersion: appVersion,
     );
     state = state.copyWith(pushRegistered: true);
+    await _reconnectTelnyxWithUpdatedPushToken();
   }
+
+  /// Re-register notificationToken with Telnyx after FCM/VoIP token rotation.
+  Future<void> _reconnectTelnyxWithUpdatedPushToken() async {
+    if (state.inCall || state.hasIncoming || _waitingForInvite || _callFromPush) {
+      return;
+    }
+    if (_client == null) return;
+
+    final user = ref.read(authControllerProvider).asData?.value;
+    if (user == null || !user.hasTenant) return;
+
+    try {
+      final token = await _repository.createToken();
+      final callerId = state.callerId.isNotEmpty
+          ? state.callerId
+          : (state.config?.numbers.firstOrNull?.number ?? '');
+      _lastTokenConfig = _buildTokenConfig(
+        loginToken: token.loginToken,
+        userName: user.name,
+        callerId: callerId,
+      );
+      _scheduleTokenRefresh(token.expiresInSeconds);
+      debugPrint(
+        '[VSP Softphone] Reconnecting Telnyx with updated push notificationToken',
+      );
+      _client!.disconnect();
+      _client!.connectWithToken(_lastTokenConfig!);
+    } catch (error) {
+      debugPrint('[VSP Softphone] Telnyx push-token reconnect failed: $error');
+    }
+  }
+
+  bool get _canUsePushForInboundWake =>
+      _pushToken != null && _pushToken!.isNotEmpty && state.pushRegistered;
 
   Future<void> _ensurePushTokenRegistered() async {
     final token = await fetchPushDeviceToken();
     if (token == null || token.isEmpty) {
+      debugPrint(
+        '[VSP Softphone] Push token unavailable — inbound may only work '
+        'while app is foreground-connected. Configure FCM (Android) or VoIP '
+        'APNs (iOS) in Telnyx Portal on the credential connection.',
+      );
       state = state.copyWith(pushRegistered: false);
       return;
     }
@@ -370,7 +414,9 @@ class SoftphoneController extends Notifier<SoftphoneState> {
         appVersion: appVersion,
       );
       state = state.copyWith(pushRegistered: true);
-    } catch (_) {
+      debugPrint('[VSP Softphone] Push token registered (${pushPlatformName()})');
+    } catch (error) {
+      debugPrint('[VSP Softphone] Push token backend registration failed: $error');
       state = state.copyWith(pushRegistered: false);
     }
   }
@@ -504,6 +550,11 @@ class SoftphoneController extends Notifier<SoftphoneState> {
     if (invite == null) return;
 
     final callId = invite.callID;
+    debugPrint(
+      '[VSP Softphone] INVITE received callId=$callId '
+      'from=${invite.callerIdNumber} socketInbound='
+      '${PushCallCoordinator.instance.socketConnectedForInbound}',
+    );
 
     if (state.uiState == SoftphoneUiState.active ||
         state.uiState == SoftphoneUiState.calling) {
@@ -783,12 +834,21 @@ class SoftphoneController extends Notifier<SoftphoneState> {
   }
 
   /// Telnyx: disconnect socket when backgrounded so push is the wake mechanism.
+  /// If push is not registered, keep the socket up for foreground INVITE delivery.
   Future<void> disconnectSocketForBackground() async {
     if (state.inCall || state.hasIncoming || _waitingForInvite || _callFromPush) {
       return;
     }
     if (PushCallCoordinator.instance.suppressBackgroundDisconnect) return;
     if (_client == null) return;
+
+    if (!_canUsePushForInboundWake) {
+      debugPrint(
+        '[VSP Softphone] Keeping WebSocket connected in background — '
+        'push token not registered for inbound wake',
+      );
+      return;
+    }
 
     _presenceTimer?.cancel();
     _presenceTimer = null;
