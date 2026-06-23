@@ -583,10 +583,20 @@ router.get('/softphone/config', authMiddleware, async (req, res) => {
       && user?.telnyxSipUsername,
     );
 
+    const sipUsername = user?.telnyxSipUsername || null;
+    const webrtcDialUri = sipUsername ? `sip:${sipUsername}@sip.telnyx.com` : null;
+
     res.json({
       success: true,
       configured: Boolean(connectionId),
       credentialConnectionId: connectionId,
+      sipUsername,
+      webrtcSession: {
+        sipUsername,
+        dialUri: webrtcDialUri,
+        credentialConnectionId: connectionId,
+        note: 'Call Control dials this SIP URI for inbound PSTN → WebRTC. Keep the softphone page open and registered.',
+      },
       numbers,
       defaultCallerId: numbers[0]?.number || null,
       callRecordingEnabled: greeting?.callRecordingEnabled !== false,
@@ -639,11 +649,15 @@ router.get('/softphone/config', authMiddleware, async (req, res) => {
           ? callControlSetup.message
           : !callControlSetup.applicationWebhookConfigured
             ? callControlSetup.message
-            : !user?.telnyxSipUsername
-              ? 'Open the softphone once while logged in to register for inbound calls.'
-              : !user?.pushDeviceToken
-                ? 'Extension direct routing is ready. Add google-services.json for background push ringing.'
-                : 'Extension direct routing is configured for this device.',
+            : !greeting?.ringGroupEnabled
+              ? 'Enable ring group in Call routing so inbound PSTN calls can reach WebRTC users.'
+              : !inAppRingGroup
+                ? 'Add this user to the ring group with member type "app" in Call routing.'
+                : !user?.telnyxSipUsername
+                  ? 'Open the softphone once while logged in to provision WebRTC SIP credentials for inbound calls.'
+                  : inboundRoutingReady
+                    ? 'Inbound WebRTC routing is configured. Keep this page open while registered (telnyx.ready).'
+                    : 'Inbound routing is partially configured — verify Call Control webhooks and ring group members.',
       },
     });
   } catch (error) {
@@ -725,6 +739,7 @@ router.post('/softphone/token', authMiddleware, async (req, res) => {
       success: true,
       loginToken: token.loginToken,
       sipUsername: token.sipUsername,
+      credentialConnectionId: connectionId,
       expiresInSeconds: token.expiresInSeconds,
     });
   } catch (error) {

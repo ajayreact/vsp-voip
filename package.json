@@ -36,7 +36,7 @@
     "validate:ring-group-routing": "tsx scripts/validate-ring-group-routing.ts",
     "build:mobile:android": "powershell -ExecutionPolicy Bypass -File scripts/build-mobile-android.ps1",
     "build:mobile:android:release": "powershell -ExecutionPolicy Bypass -File scripts/build-mobile-android.ps1 -Release",
-    "dev:mobile": "echo Run: cd mobile && flutter pub get && flutter run --dart-define=API_BASE_URL=http://vspphone.com:3000",
+    "dev:mobile": "echo Run: cd mobile && flutter pub get && flutter run --dart-define=API_BASE_URL=http://vspphone.com:3000"
   },
   "keywords": [],
   "author": "",

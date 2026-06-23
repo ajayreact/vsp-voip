@@ -29,7 +29,6 @@ import {
 import {
   errorSoftphone,
   formatCallFailureReason,
-  isOutboundRingingState,
   isTerminalCallState,
   logPeerConnectionDiagnostics,
   logSoftphone,
@@ -41,6 +40,14 @@ import {
   watchCallState,
   wireCallDebugHandlers,
 } from '@/lib/telnyx-debug';
+import {
+  extractCallFromNotification,
+  isConnectingCallState,
+  isInboundCall,
+  resolveRemoteCallerNumber,
+  shouldTrackInboundCall,
+  type TelnyxSoftphoneNotification,
+} from '@/lib/softphone-call-utils';
 
 type UiState = 'loading' | 'not-configured' | 'no-numbers' | 'connecting' | 'ready' | 'incoming' | 'calling' | 'active' | 'error';
 
@@ -130,6 +137,10 @@ function SoftphoneContent() {
   const [callControlHint, setCallControlHint] = useState('');
   const [webrtcSetupMessage, setWebrtcSetupMessage] = useState('');
   const [outboundReady, setOutboundReady] = useState(true);
+  const [inboundReady, setInboundReady] = useState(false);
+  const [inboundRoutingMessage, setInboundRoutingMessage] = useState('');
+  const [sipUsername, setSipUsername] = useState('');
+  const [webrtcDialUri, setWebrtcDialUri] = useState('');
   const [telnyxArchitecture, setTelnyxArchitecture] = useState<SoftphoneConfig['telnyxArchitecture']>();
   const [incomingFrom, setIncomingFrom] = useState('');
   const [callElapsedSeconds, setCallElapsedSeconds] = useState(0);
@@ -142,6 +153,8 @@ function SoftphoneContent() {
   const callingTimeoutRef = useRef<number | null>(null);
   const callWatchCleanupRef = useRef<(() => void) | null>(null);
   const callReachedActiveRef = useRef(false);
+  const clientReadyRef = useRef(false);
+  const watchedCallIdRef = useRef<string | null>(null);
   const applyCallUpdateRef = useRef<(call: Call) => void>(() => {});
   const [bootAttempt, setBootAttempt] = useState(0);
   const [audioBlocked, setAudioBlocked] = useState(false);
@@ -249,6 +262,10 @@ function SoftphoneContent() {
         setCallControlHint(config.callControlSetup?.message || '');
         setWebrtcSetupMessage(config.webrtcSetup?.message || '');
         setOutboundReady(config.webrtcSetup?.outboundReady !== false);
+        setInboundReady(config.inboundRouting?.ready === true);
+        setInboundRoutingMessage(config.inboundRouting?.message || '');
+        setSipUsername(config.sipUsername || config.webrtcSession?.sipUsername || '');
+        setWebrtcDialUri(config.webrtcSession?.dialUri || '');
         setTelnyxArchitecture(config.telnyxArchitecture);
         const defaultId = config.defaultCallerId || config.numbers[0]?.number || '';
         setCallerId(defaultId);
@@ -272,32 +289,58 @@ function SoftphoneContent() {
 
         logSoftphone('Login token received', {
           sipUsername: tokenRes.sipUsername,
+          credentialConnectionId: tokenRes.credentialConnectionId,
           expiresInSeconds: tokenRes.expiresInSeconds,
         });
 
+        if (tokenRes.sipUsername) {
+          setSipUsername(tokenRes.sipUsername);
+        }
+
         const rtcRegion = process.env.NEXT_PUBLIC_TELNYX_RTC_REGION?.trim() || 'us-east';
+        clientReadyRef.current = false;
+        watchedCallIdRef.current = null;
 
         client = new TelnyxRTC({
           login_token: tokenRes.loginToken,
           debug: true,
           region: rtcRegion,
+          keepConnectionAliveOnSocketClose: true,
+          trickleIce: true,
+          prefetchIceCandidates: true,
         });
         client.remoteElement = 'softphone-remote-audio';
         clientRef.current = client;
+
+        function bindTrackedCall(call: Call, label: string) {
+          if (watchedCallIdRef.current === call.id && callWatchCleanupRef.current) {
+            return;
+          }
+
+          clearCallWatch();
+          watchedCallIdRef.current = call.id;
+          callReachedActiveRef.current = false;
+          activeCallRef.current = call;
+          wireCallDebugHandlers(call, label);
+          callWatchCleanupRef.current = watchCallState(call, label, () => {
+            applyCallUpdateRef.current(call);
+          });
+          void logPeerConnectionDiagnostics(call, `${label}: immediate`);
+          applyCallUpdateRef.current(call);
+        }
 
         function applyCallUpdate(call: Call) {
           if (generation !== bootGenerationRef.current) return;
 
           activeCallRef.current = call;
           const state = normalizeCallState(call.state);
+          const inbound = isInboundCall(call);
+          const remoteNumber = resolveRemoteCallerNumber(call);
+
           logSoftphone('applyCallUpdate', summarizeCall(call));
           void logPeerConnectionDiagnostics(call, `applyCallUpdate:${state}`);
 
-          const inbound = String((call as Call & { direction?: string }).direction || '').toLowerCase() === 'inbound';
-          const remoteNumber =
-            (call as Call & { options?: { remoteCallerNumber?: string } }).options?.remoteCallerNumber || '';
-
-          if (isOutboundRingingState(state)) {
+          if (isConnectingCallState(state)) {
             if (inbound) {
               setIncomingFrom(remoteNumber || 'Unknown caller');
               setUiState('incoming');
@@ -314,6 +357,7 @@ function SoftphoneContent() {
             clearCallingTimeout();
             stopAllCallSounds();
             call.stopRingback?.();
+            call.stopRingtone?.();
             unwireCallAudioRef.current?.();
             unwireCallAudioRef.current = wireWebCallAudio(
               call,
@@ -354,8 +398,10 @@ function SoftphoneContent() {
           if (isTerminalCallState(state)) {
             clearCallingTimeout();
             clearCallWatch();
+            watchedCallIdRef.current = null;
             stopAllCallSounds();
             call.stopRingback?.();
+            call.stopRingtone?.();
             unwireCallAudioRef.current?.();
             unwireCallAudioRef.current = null;
             detachRemoteCallAudio(remoteAudioRef.current);
@@ -391,11 +437,59 @@ function SoftphoneContent() {
           }
         }
 
+        function handleTelnyxNotification(notification: TelnyxSoftphoneNotification) {
+          logSoftphone('telnyx.notification', summarizeNotification(notification));
+          if (generation !== bootGenerationRef.current) return;
+
+          const type = String(notification.type || '');
+
+          // Telnyx JS SDK maps telnyx_rtc.invite → callUpdate with call.state=ringing (direction=inbound).
+          // Some SDK builds also emit type=invite or participantData (telnyx_rtc.attach).
+          const call = extractCallFromNotification(notification);
+          if (!call) {
+            if (type === 'invite' && notification.call) {
+              logSoftphone('inbound invite notification', summarizeCall(notification.call));
+              bindTrackedCall(notification.call, 'inbound-invite');
+            }
+            return;
+          }
+
+          if (type === 'callUpdate' && normalizeCallState(call.state) === 'ringing' && isInboundCall(call)) {
+            logSoftphone('inbound callUpdate ringing', summarizeCall(call));
+          }
+
+          if (shouldTrackInboundCall(call, watchedCallIdRef.current)) {
+            bindTrackedCall(call, `inbound-${type || 'event'}`);
+          } else if (!watchedCallIdRef.current && isConnectingCallState(normalizeCallState(call.state))) {
+            bindTrackedCall(call, `tracked-${type || 'event'}`);
+          } else {
+            applyCallUpdate(call);
+            return;
+          }
+
+          applyCallUpdate(call);
+        }
+
         applyCallUpdateRef.current = applyCallUpdate;
+
+        client.on('telnyx.socket.open', () => {
+          logSoftphone('telnyx.socket.open — WebSocket signaling connected');
+        });
+
+        client.on('telnyx.socket.close', (event: unknown) => {
+          warnSoftphone('telnyx.socket.close', event);
+          if (!mounted || tearingDownRef.current || generation !== bootGenerationRef.current) return;
+          clientReadyRef.current = false;
+          setStatus('Reconnecting to Telnyx…');
+        });
 
         client.on('telnyx.ready', () => {
           if (!mounted || generation !== bootGenerationRef.current || tearingDownRef.current) return;
-          logSoftphone('telnyx.ready — WebRTC client registered with Telnyx');
+          clientReadyRef.current = true;
+          logSoftphone('telnyx.ready — WebRTC client registered with Telnyx', {
+            sipUsername: tokenRes.sipUsername || config.sipUsername,
+            region: rtcRegion,
+          });
           setUiState('ready');
           setStatus('Connected — ready for inbound and outbound calls');
           setError('');
@@ -405,19 +499,18 @@ function SoftphoneContent() {
         client.on('telnyx.error', (event: unknown) => {
           if (!mounted || generation !== bootGenerationRef.current || tearingDownRef.current) return;
           logTelnyxError(event);
+          clientReadyRef.current = false;
           setUiState('error');
           setError(formatTelnyxError(event));
         });
 
-        client.on('telnyx.notification', (notification: { type: string; call?: Call }) => {
-          logSoftphone('telnyx.notification', summarizeNotification(notification));
+        client.on('telnyx.notification', handleTelnyxNotification);
 
-          if (notification.type !== 'callUpdate' || !notification.call) return;
-          if (generation !== bootGenerationRef.current) return;
-          applyCallUpdate(notification.call);
+        logSoftphone('TelnyxRTC client configured', {
+          rtcRegion,
+          credentialConnectionId: tokenRes.credentialConnectionId || config.credentialConnectionId,
+          sipUsername: tokenRes.sipUsername || config.sipUsername,
         });
-
-        logSoftphone('TelnyxRTC client configured', { rtcRegion });
 
         setStatus('Connecting to Telnyx…');
         logSoftphone('Connecting TelnyxRTC client…');
@@ -436,6 +529,8 @@ function SoftphoneContent() {
     return () => {
       mounted = false;
       tearingDownRef.current = true;
+      clientReadyRef.current = false;
+      watchedCallIdRef.current = null;
       clearCallingTimeout();
       clearCallWatch();
       stopAllCallSounds();
@@ -473,6 +568,11 @@ function SoftphoneContent() {
     const client = clientRef.current;
     const dest = destination.trim();
     if (!client || !dest || !callerId) return;
+
+    if (!clientReadyRef.current) {
+      setError('Softphone is still connecting to Telnyx. Wait until status shows “Connected”.');
+      return;
+    }
 
     setError('');
     setUiState('calling');
@@ -520,7 +620,11 @@ function SoftphoneContent() {
     startCallingTimeout();
 
     const bindTrackedCall = (call: Call, label: string) => {
+      if (watchedCallIdRef.current === call.id && callWatchCleanupRef.current) {
+        return;
+      }
       clearCallWatch();
+      watchedCallIdRef.current = call.id;
       callReachedActiveRef.current = false;
       activeCallRef.current = call;
       wireCallDebugHandlers(call, label);
@@ -536,9 +640,14 @@ function SoftphoneContent() {
       audio: true as const,
       remoteElement: 'softphone-remote-audio',
       debug: true,
-      onNotification: (notification: { type?: string; call?: Call }) => {
-        if (notification?.type === 'callUpdate' && notification.call) {
-          applyCallUpdateRef.current(notification.call);
+      onNotification: (notification: TelnyxSoftphoneNotification) => {
+        const call = extractCallFromNotification(notification);
+        if (call) {
+          if (!watchedCallIdRef.current) {
+            bindTrackedCall(call, 'outbound-onNotification');
+          } else {
+            applyCallUpdateRef.current(call);
+          }
         }
       },
     };
@@ -591,8 +700,19 @@ function SoftphoneContent() {
     if (!call) return;
     try {
       stopIncomingRingtone();
+      call.stopRingtone?.();
       await ensureMicrophoneAccess();
       await ensureAudioPrimed();
+
+      const extended = call as Call & {
+        options?: { remoteElement?: string; audio?: boolean };
+      };
+      if (extended.options) {
+        extended.options.remoteElement = 'softphone-remote-audio';
+        extended.options.audio = true;
+      }
+
+      logSoftphone('Answering inbound call', summarizeCall(call));
       call.answer();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Microphone permission is required');
@@ -649,7 +769,25 @@ function SoftphoneContent() {
             Do <strong>not</strong> move phone numbers off <strong>VSP-Voice-App</strong> — that breaks inbound.
           </p>
         </div>
-      ) : telnyxArchitecture ? (
+      ) : null}
+
+      {uiState === 'ready' && !inboundReady ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900 space-y-2">
+          <p><strong>Inbound calls may not ring this browser yet.</strong></p>
+          <p>{inboundRoutingMessage || 'Add yourself to the ring group (type: app) in Call routing, enable ring group, and keep this page open while registered.'}</p>
+        </div>
+      ) : null}
+
+      {sipUsername && uiState !== 'not-configured' && uiState !== 'no-numbers' ? (
+        <p className="text-xs text-slate-500">
+          WebRTC registered as <code className="text-slate-700">{sipUsername}</code>
+          {webrtcDialUri ? (
+            <> — inbound dial target <code className="break-all text-slate-700">{webrtcDialUri}</code></>
+          ) : null}
+        </p>
+      ) : null}
+
+      {outboundReady && telnyxArchitecture ? (
         <details className="rounded-xl border border-slate-200 bg-slate-50 px-5 py-3 text-sm text-slate-700">
           <summary className="cursor-pointer font-medium text-slate-900">Telnyx connection model (inbound vs outbound)</summary>
           <div className="mt-3 space-y-3 text-xs leading-relaxed">

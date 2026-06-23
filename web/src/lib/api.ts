@@ -310,6 +310,13 @@ export async function deleteCallRecording(id: string) {
 export type SoftphoneConfig = {
   configured: boolean;
   credentialConnectionId: string | null;
+  sipUsername?: string | null;
+  webrtcSession?: {
+    sipUsername: string | null;
+    dialUri: string | null;
+    credentialConnectionId: string | null;
+    note: string;
+  };
   numbers: { id: string; number: string }[];
   defaultCallerId: string | null;
   callRecordingEnabled: boolean;
@@ -339,6 +346,12 @@ export type SoftphoneConfig = {
       note: string;
     };
   };
+  inboundRouting?: {
+    ringGroupEnabled: boolean;
+    inAppRingGroup: boolean;
+    ready: boolean;
+    message?: string;
+  };
   callControlSetup?: {
     applicationId: string | null;
     applicationName?: string | null;
@@ -358,6 +371,7 @@ export async function getSoftphoneToken() {
     success: boolean;
     loginToken: string;
     sipUsername?: string;
+    credentialConnectionId?: string | null;
     expiresInSeconds: number;
   }>('/api/softphone/token', { method: 'POST' });
 }
