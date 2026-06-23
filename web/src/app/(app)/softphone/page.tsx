@@ -56,6 +56,17 @@ import {
   scheduleTelnyxReconnect,
   waitForRemoteAudioElement,
 } from '@/lib/telnyx-softphone-session';
+import {
+  assignDebugGlobals,
+  attachCallTraceListeners,
+  createCallTraceSink,
+  describeCallObject,
+  hangupTrackedCall,
+  startOutboundDeepTrace,
+  traceGetUserMedia,
+  validateOutboundCallObject,
+  type CallTraceEvent,
+} from '@/lib/softphone-call-trace';
 
 type UiState = 'loading' | 'not-configured' | 'no-numbers' | 'connecting' | 'ready' | 'incoming' | 'calling' | 'active' | 'error';
 
@@ -129,6 +140,8 @@ export default function SoftphonePage() {
 function SoftphoneContent() {
   const clientRef = useRef<TelnyxRTC | null>(null);
   const activeCallRef = useRef<Call | null>(null);
+  const outboundCallRef = useRef<Call | null>(null);
+  const callTraceSinkRef = useRef(createCallTraceSink(() => {}));
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const callerIdRef = useRef('');
   const destinationRef = useRef('');
@@ -159,17 +172,24 @@ function SoftphoneContent() {
   const unwireCallAudioRef = useRef<(() => void) | null>(null);
   const audioPrimedRef = useRef(false);
   const callingTimeoutRef = useRef<number | null>(null);
+  const outboundTraceStopRef = useRef<(() => void) | null>(null);
   const callWatchCleanupRef = useRef<(() => void) | null>(null);
   const callReachedActiveRef = useRef(false);
   const clientReadyRef = useRef(false);
   const watchedCallIdRef = useRef<string | null>(null);
   const applyCallUpdateRef = useRef<(call: Call) => void>(() => {});
+  const bindTrackedCallRef = useRef<(call: Call, label: string) => void>(() => {});
   const [bootAttempt, setBootAttempt] = useState(0);
   const [audioBlocked, setAudioBlocked] = useState(false);
   const [telnyxReady, setTelnyxReady] = useState(false);
   const [tokenStatus, setTokenStatus] = useState('Loading…');
   const [serverDiagnostics, setServerDiagnostics] = useState<SoftphoneDiagnostics | null>(null);
   const [lastInviteReceived, setLastInviteReceived] = useState<string | null>(null);
+  const [debugCallId, setDebugCallId] = useState<string | null>(null);
+  const [debugCallState, setDebugCallState] = useState<string>('—');
+  const [debugCallDestination, setDebugCallDestination] = useState<string>('—');
+  const [lastCallEvent, setLastCallEvent] = useState<string>('None');
+  const [hangupObjectMatch, setHangupObjectMatch] = useState<string>('—');
 
   useEffect(() => {
     if (uiState !== 'active') {
@@ -208,6 +228,21 @@ function SoftphoneContent() {
     return undefined;
   }, [uiState]);
 
+  useEffect(() => {
+    callTraceSinkRef.current = createCallTraceSink((entry: CallTraceEvent) => {
+      setLastCallEvent(`${entry.at} — ${entry.source}: ${entry.event}${entry.state ? ` (${entry.state})` : ''}`);
+    });
+  }, []);
+
+  const syncDebugCallState = useCallback((call: Call | null, dest?: string) => {
+    assignDebugGlobals(clientRef.current, call);
+    setDebugCallId(call?.id ?? null);
+    setDebugCallState(call ? normalizeCallState(call.state) || 'unknown' : '—');
+    if (dest !== undefined) {
+      setDebugCallDestination(dest || '—');
+    }
+  }, []);
+
   const ensureAudioPrimed = useCallback(async () => {
     if (audioPrimedRef.current) return;
     await primeCallAudio(remoteAudioRef.current);
@@ -226,6 +261,31 @@ function SoftphoneContent() {
     callWatchCleanupRef.current = null;
   }, []);
 
+  const clearOutboundTrace = useCallback(() => {
+    outboundTraceStopRef.current?.();
+    outboundTraceStopRef.current = null;
+  }, []);
+
+  const resetOutboundCallUi = useCallback((message: string, callError = '') => {
+    clearCallingTimeout();
+    clearOutboundTrace();
+    clearCallWatch();
+    watchedCallIdRef.current = null;
+    activeCallRef.current = null;
+    outboundCallRef.current = null;
+    callReachedActiveRef.current = false;
+    unwireCallAudioRef.current?.();
+    unwireCallAudioRef.current = null;
+    detachRemoteCallAudio(remoteAudioRef.current);
+    recordingStartedRef.current = false;
+    setCallRecordingActive(false);
+    setIncomingFrom('');
+    syncDebugCallState(null);
+    setUiState('ready');
+    setStatus(message);
+    setError(callError);
+  }, [clearCallingTimeout, clearCallWatch, clearOutboundTrace, syncDebugCallState]);
+
   const startCallingTimeout = useCallback(() => {
     clearCallingTimeout();
     callingTimeoutRef.current = window.setTimeout(() => {
@@ -234,15 +294,18 @@ function SoftphoneContent() {
       if (call) {
         void logPeerConnectionDiagnostics(call, 'stuck-calling-timeout');
       }
+      clearOutboundTrace();
       clearCallWatch();
       stopAllCallSounds();
       call?.hangup();
       activeCallRef.current = null;
+      outboundCallRef.current = null;
+      syncDebugCallState(null);
       setUiState('ready');
       setStatus('Connected — ready for inbound and outbound calls');
       setError(formatCallFailureReason(call));
     }, 45000);
-  }, [clearCallingTimeout, clearCallWatch]);
+  }, [clearCallingTimeout, clearCallWatch, clearOutboundTrace, syncDebugCallState]);
 
   useEffect(() => {
     const generation = ++bootGenerationRef.current;
@@ -344,6 +407,10 @@ function SoftphoneContent() {
 
         function bindTrackedCall(call: Call, label: string) {
           if (watchedCallIdRef.current === call.id && callWatchCleanupRef.current) {
+            logSoftphone('[SOFTPHONE] bindTrackedCall skipped — already tracking call', {
+              callId: call.id,
+              label,
+            });
             return;
           }
 
@@ -351,13 +418,25 @@ function SoftphoneContent() {
           watchedCallIdRef.current = call.id;
           callReachedActiveRef.current = false;
           activeCallRef.current = call;
-          wireCallDebugHandlers(call, label);
-          callWatchCleanupRef.current = watchCallState(call, label, () => {
-            applyCallUpdateRef.current(call);
+          outboundCallRef.current = call;
+          syncDebugCallState(call);
+          logSoftphone('[SOFTPHONE] Current call stored', describeCallObject(call));
+          attachCallTraceListeners(call, label, callTraceSinkRef.current);
+          callWatchCleanupRef.current = watchCallState(call, label, (currentCall, state) => {
+            callTraceSinkRef.current.record({
+              source: `${label}:watchCallState`,
+              event: 'state-change',
+              callId: currentCall.id,
+              state,
+            });
+            syncDebugCallState(currentCall);
+            applyCallUpdateRef.current(currentCall);
           });
           void logPeerConnectionDiagnostics(call, `${label}: immediate`);
           applyCallUpdateRef.current(call);
         }
+
+        bindTrackedCallRef.current = bindTrackedCall;
 
         function applyCallUpdate(call: Call) {
           if (generation !== bootGenerationRef.current) return;
@@ -367,7 +446,14 @@ function SoftphoneContent() {
           const inbound = isInboundCall(call);
           const remoteNumber = resolveRemoteCallerNumber(call);
 
-          logSoftphone('applyCallUpdate', summarizeCall(call));
+          logSoftphone('applyCallUpdate', describeCallObject(call));
+          callTraceSinkRef.current.record({
+            source: 'applyCallUpdate',
+            event: 'ui-sync',
+            callId: call.id,
+            state,
+            detail: { inbound, remoteNumber },
+          });
           void logPeerConnectionDiagnostics(call, `applyCallUpdate:${state}`);
 
           if (isConnectingCallState(state)) {
@@ -469,8 +555,10 @@ function SoftphoneContent() {
             }
 
             activeCallRef.current = null;
+            outboundCallRef.current = null;
             callReachedActiveRef.current = false;
             setIncomingFrom('');
+            syncDebugCallState(null);
             if (mounted && generation === bootGenerationRef.current) {
               setUiState('ready');
               setStatus('Connected — ready for inbound and outbound calls');
@@ -483,6 +571,13 @@ function SoftphoneContent() {
           if (generation !== bootGenerationRef.current) return;
 
           const type = String(notification.type || '');
+          callTraceSinkRef.current.record({
+            source: 'client:telnyx.notification',
+            event: type || 'unknown',
+            callId: notification.call?.id ?? null,
+            state: notification.call ? normalizeCallState(notification.call.state) : undefined,
+            detail: summarizeNotification(notification),
+          });
 
           if (type === 'callUpdate' && notification.call) {
             const call = notification.call;
@@ -561,6 +656,8 @@ function SoftphoneContent() {
             region: clientOptions.region || 'auto',
             remoteElement: REMOTE_AUDIO_ELEMENT_ID,
           });
+          syncDebugCallState(null);
+          assignDebugGlobals(client, null);
           setUiState('ready');
           setStatus('Connected — ready for inbound and outbound calls');
           setError('');
@@ -609,6 +706,7 @@ function SoftphoneContent() {
       setTelnyxReady(false);
       watchedCallIdRef.current = null;
       clearCallingTimeout();
+      clearOutboundTrace();
       clearCallWatch();
       stopAllCallSounds();
       setSoftphonePresence(false).catch(() => {});
@@ -622,7 +720,7 @@ function SoftphoneContent() {
         /* ignore cleanup errors */
       }
     };
-  }, [bootAttempt, clearCallingTimeout, clearCallWatch]);
+  }, [bootAttempt, clearCallingTimeout, clearCallWatch, clearOutboundTrace]);
 
   useEffect(() => {
     if (uiState !== 'ready' && uiState !== 'incoming' && uiState !== 'active' && uiState !== 'calling') {
@@ -644,7 +742,16 @@ function SoftphoneContent() {
   const onCall = useCallback(async () => {
     const client = clientRef.current;
     const dest = destination.trim();
-    if (!client || !dest || !callerId) return;
+    logSoftphone('[SOFTPHONE] Call button clicked', { destination: dest, callerId });
+
+    if (!client || !dest || !callerId) {
+      warnSoftphone('[SOFTPHONE] Call blocked — missing client, destination, or caller ID', {
+        hasClient: Boolean(client),
+        dest,
+        callerId,
+      });
+      return;
+    }
 
     if (!clientReadyRef.current) {
       setError('Softphone is still connecting to Telnyx. Wait until status shows “Connected”.');
@@ -652,65 +759,47 @@ function SoftphoneContent() {
     }
 
     setError('');
-    setUiState('calling');
     recordingStartedRef.current = false;
     setCallRecordingActive(false);
 
     const extensionDigits = dest.replace(/\D/g, '');
     const isExtension = isExtensionDialInput(dest);
+    const normalizedCallerId = normalizeDialNumber(callerId);
+    const normalizedDest = isExtension ? extensionDigits : normalizeDialNumber(dest);
 
-    setStatus(isExtension ? `Calling ext ${extensionDigits}…` : `Calling ${dest}…`);
+    if (!outboundReady && !isExtension) {
+      setError(webrtcSetupMessage || 'Outbound calling is not configured on Telnyx. Assign an Outbound Voice Profile to the Credential Connection.');
+      return;
+    }
 
     try {
       await ensureMicrophoneAccess();
       await ensureAudioPrimed();
     } catch (err) {
-      setUiState('ready');
-      setStatus('Connected — enter a number and press Call');
+      const error = err instanceof Error ? err.message : String(err);
+      const name = err instanceof Error ? err.name : 'UnknownError';
+      callTraceSinkRef.current.record({
+        source: 'getUserMedia',
+        event: 'failure',
+        detail: { name, error, phase: 'pre-dial ensureMicrophoneAccess' },
+      });
       setError(err instanceof Error ? err.message : 'Microphone permission is required for calls');
       return;
     }
 
     const clientConnected = (client as TelnyxRTC & { connected?: boolean }).connected;
-    const normalizedCallerId = normalizeDialNumber(callerId);
-    const normalizedDest = isExtension ? extensionDigits : normalizeDialNumber(dest);
 
-    logSoftphone('Placing outbound call', {
+    logSoftphone('[SOFTPHONE] Creating Telnyx call', {
       destination: normalizedDest,
       callerId: normalizedCallerId,
       clientConnected,
-      uiState,
       outboundReady,
+      isExtension,
     });
-
-    if (!outboundReady && !isExtension) {
-      setUiState('ready');
-      setStatus('Connected — ready for inbound and outbound calls');
-      setError(webrtcSetupMessage || 'Outbound calling is not configured on Telnyx. Assign an Outbound Voice Profile to the Credential Connection.');
-      return;
-    }
 
     if (clientConnected === false) {
       warnSoftphone('Telnyx client reports not connected — call may fail');
     }
-
-    startCallingTimeout();
-
-    const bindTrackedCall = (call: Call, label: string) => {
-      if (watchedCallIdRef.current === call.id && callWatchCleanupRef.current) {
-        return;
-      }
-      clearCallWatch();
-      watchedCallIdRef.current = call.id;
-      callReachedActiveRef.current = false;
-      activeCallRef.current = call;
-      wireCallDebugHandlers(call, label);
-      callWatchCleanupRef.current = watchCallState(call, label, () => {
-        applyCallUpdateRef.current(call);
-      });
-      void logPeerConnectionDiagnostics(call, `${label}: immediate`);
-      applyCallUpdateRef.current(call);
-    };
 
     const callOptions = {
       callerNumber: normalizedCallerId,
@@ -718,46 +807,93 @@ function SoftphoneContent() {
       remoteElement: remoteAudioRef.current || REMOTE_AUDIO_ELEMENT_ID,
       debug: true,
       onNotification: (notification: TelnyxSoftphoneNotification) => {
+        logSoftphone('[SOFTPHONE] call.onNotification', summarizeNotification(notification));
         const call = extractCallFromNotification(notification);
         if (call) {
           if (!watchedCallIdRef.current) {
-            bindTrackedCall(call, 'outbound-onNotification');
+            bindTrackedCallRef.current(call, 'outbound-onNotification');
           } else {
+            syncDebugCallState(call);
             applyCallUpdateRef.current(call);
           }
         }
       },
     };
 
+    let call: Call;
     try {
-      if (isExtension) {
-        bindTrackedCall(
-          client.newCall({
-            ...callOptions,
-            destinationNumber: extensionDigits,
-          }),
-          'outbound-extension',
-        );
-        return;
-      }
-
-      bindTrackedCall(
-        client.newCall({
+      call = isExtension
+        ? client.newCall({
+          ...callOptions,
+          destinationNumber: extensionDigits,
+        })
+        : client.newCall({
           ...callOptions,
           destinationNumber: normalizedDest,
-        }),
-        'outbound-pstn',
-      );
+        });
+
+      logSoftphone('[SOFTPHONE] Call object returned from newCall', describeCallObject(call));
+
+      const validationError = validateOutboundCallObject(call);
+      if (validationError) {
+        throw new Error(validationError);
+      }
     } catch (err) {
-      clearCallingTimeout();
-      clearCallWatch();
-      activeCallRef.current = null;
-      setUiState('ready');
-      setStatus('Connected — ready for inbound and outbound calls');
-      setError(err instanceof Error ? err.message : 'Failed to start call');
-      errorSoftphone('newCall threw', err);
+      console.error('CALL CREATION FAILED', err);
+      errorSoftphone('CALL CREATION FAILED', err);
+      resetOutboundCallUi(
+        'Connected — ready for inbound and outbound calls',
+        err instanceof Error ? err.message : 'Failed to start call',
+      );
+      return;
     }
-  }, [destination, callerId, ensureAudioPrimed, startCallingTimeout, clearCallingTimeout, clearCallWatch, uiState, outboundReady, webrtcSetupMessage]);
+
+    outboundCallRef.current = call;
+    bindTrackedCallRef.current(call, isExtension ? 'outbound-extension' : 'outbound-pstn');
+
+    if (activeCallRef.current !== call || outboundCallRef.current !== call) {
+      errorSoftphone('[SOFTPHONE] Call storage mismatch after bindTrackedCall', {
+        newCall: describeCallObject(call),
+        activeCallRef: describeCallObject(activeCallRef.current),
+        outboundCallRef: describeCallObject(outboundCallRef.current),
+      });
+      resetOutboundCallUi(
+        'Connected — ready for inbound and outbound calls',
+        'Call object was not stored in activeCallRef',
+      );
+      return;
+    }
+
+    assignDebugGlobals(client, call);
+    logSoftphone('[SOFTPHONE] Verified call refs', {
+      activeCallRef: activeCallRef.current === call,
+      outboundCallRef: outboundCallRef.current === call,
+      windowCurrentCall: (window as typeof window & { currentCall?: Call | null }).currentCall === call,
+      windowTelnyxClient: (window as typeof window & { telnyxClient?: TelnyxRTC | null }).telnyxClient === client,
+    });
+
+    clearOutboundTrace();
+    const gumResult = await traceGetUserMedia(callTraceSinkRef.current, call.id);
+    const traceSession = startOutboundDeepTrace(client, call, callTraceSinkRef.current);
+    traceSession.capture.getUserMediaOk = gumResult.ok;
+    traceSession.capture.getUserMediaError = gumResult.error;
+    outboundTraceStopRef.current = traceSession.stop;
+
+    setDebugCallDestination(normalizedDest);
+    setUiState('calling');
+    setStatus(isExtension ? `Calling ext ${extensionDigits}…` : `Calling ${dest}…`);
+    startCallingTimeout();
+  }, [
+    destination,
+    callerId,
+    ensureAudioPrimed,
+    startCallingTimeout,
+    clearOutboundTrace,
+    outboundReady,
+    webrtcSetupMessage,
+    resetOutboundCallUi,
+    syncDebugCallState,
+  ]);
 
   const onEnableAudio = useCallback(async () => {
     const call = activeCallRef.current;
@@ -768,9 +904,28 @@ function SoftphoneContent() {
   }, [ensureAudioPrimed]);
 
   const onHangup = useCallback(() => {
+    const call = outboundCallRef.current ?? activeCallRef.current;
+    const sameObject = outboundCallRef.current === activeCallRef.current;
+    setHangupObjectMatch(
+      call
+        ? `outbound=${outboundCallRef.current === call}, active=${activeCallRef.current === call}, sameRef=${sameObject}`
+        : 'no call object',
+    );
+
+    logSoftphone('[SOFTPHONE] Hang up clicked', {
+      call: describeCallObject(call),
+      outboundCallRef: describeCallObject(outboundCallRef.current),
+      activeCallRef: describeCallObject(activeCallRef.current),
+      windowCurrentCall: describeCallObject(
+        (window as typeof window & { currentCall?: Call | null }).currentCall,
+      ),
+    });
     stopAllCallSounds();
-    activeCallRef.current?.hangup();
-  }, []);
+
+    void hangupTrackedCall(call, 'onHangup', callTraceSinkRef.current).finally(() => {
+      resetOutboundCallUi('Connected — ready for inbound and outbound calls');
+    });
+  }, [resetOutboundCallUi]);
 
   const onAnswer = useCallback(async () => {
     const call = activeCallRef.current;
@@ -881,6 +1036,32 @@ function SoftphoneContent() {
         <details open className="rounded-xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-700">
           <summary className="cursor-pointer font-medium text-slate-900">Session diagnostics</summary>
           <dl className="mt-3 grid grid-cols-1 gap-x-4 gap-y-2 text-xs sm:grid-cols-2">
+            <div>
+              <dt className="font-medium text-slate-500">Current Call Exists</dt>
+              <dd className={debugCallId ? 'text-emerald-700' : 'text-amber-700'}>
+                {debugCallId ? `Yes — ${debugCallId}` : 'No'}
+              </dd>
+            </div>
+            <div>
+              <dt className="font-medium text-slate-500">Call ID</dt>
+              <dd className="break-all font-mono text-slate-800">{debugCallId || '—'}</dd>
+            </div>
+            <div>
+              <dt className="font-medium text-slate-500">Current State</dt>
+              <dd className="font-mono text-slate-800">{debugCallState}</dd>
+            </div>
+            <div>
+              <dt className="font-medium text-slate-500">Last Event Received</dt>
+              <dd className="break-all text-slate-800">{lastCallEvent}</dd>
+            </div>
+            <div>
+              <dt className="font-medium text-slate-500">Hang Up Object Match</dt>
+              <dd className="break-all font-mono text-slate-800">{hangupObjectMatch}</dd>
+            </div>
+            <div>
+              <dt className="font-medium text-slate-500">Destination Number</dt>
+              <dd className="font-mono text-slate-800">{debugCallDestination}</dd>
+            </div>
             <div>
               <dt className="font-medium text-slate-500">Telnyx Ready</dt>
               <dd className={telnyxReady ? 'text-emerald-700' : 'text-amber-700'}>

@@ -134,8 +134,27 @@ export async function logPeerConnectionDiagnostics(call: Call, label: string) {
   }
 }
 
-export function normalizeCallState(state: string | undefined) {
-  return (state || '').trim().toLowerCase();
+/** Telnyx SDK State enum order — call.state may be a numeric enum value at runtime. */
+const TELNYX_STATE_BY_NUMBER = [
+  'new',
+  'requesting',
+  'trying',
+  'recovering',
+  'ringing',
+  'answering',
+  'early',
+  'active',
+  'held',
+  'hangup',
+  'destroy',
+  'purge',
+] as const;
+
+export function normalizeCallState(state: string | number | undefined | null) {
+  if (typeof state === 'number' && Number.isFinite(state)) {
+    return TELNYX_STATE_BY_NUMBER[state] ?? String(state);
+  }
+  return String(state ?? '').trim().toLowerCase();
 }
 
 export function isTerminalCallState(state: string | undefined) {
@@ -182,16 +201,44 @@ export function formatCallFailureReason(call: Call | null | undefined) {
 
 export function wireCallDebugHandlers(call: Call, label: string) {
   logSoftphone(`${label}: new call`, summarizeCall(call));
+  logSoftphone('[SOFTPHONE] Call object created', {
+    id: call.id,
+    state: call.state,
+    normalizedState: normalizeCallState(call.state),
+    direction: (call as Call & { direction?: string }).direction,
+  });
 
   const extended = call as Call & {
     on?: (event: string, handler: (...args: unknown[]) => void) => void;
   };
 
-  if (typeof extended.on === 'function') {
-    extended.on('stateChange', (...args: unknown[]) => {
-      logSoftphone(`${label}: call stateChange`, { args, call: summarizeCall(call) });
-      void logPeerConnectionDiagnostics(call, `${label}: stateChange`);
+  const logStateEvent = (eventName: string, args?: unknown) => {
+    logSoftphone(`[SOFTPHONE] call.${eventName}`, {
+      label,
+      args,
+      call: summarizeCall(call),
+      normalizedState: normalizeCallState(call.state),
     });
+    void logPeerConnectionDiagnostics(call, `${label}:${eventName}`);
+  };
+
+  if (typeof extended.on === 'function') {
+    const events = [
+      'stateChange',
+      'ringing',
+      'active',
+      'hangup',
+      'destroy',
+      'error',
+      'answer',
+      'notification',
+    ] as const;
+
+    for (const eventName of events) {
+      extended.on(eventName, (...args: unknown[]) => {
+        logStateEvent(eventName, args);
+      });
+    }
   }
 
   window.setTimeout(() => {
