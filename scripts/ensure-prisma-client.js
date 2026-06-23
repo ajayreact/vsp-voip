@@ -4,8 +4,13 @@ const path = require('path');
 
 const root = path.join(__dirname, '..');
 const clientPath = path.join(root, 'generated', 'prisma', 'client.ts');
+const schemaPath = path.join(root, 'prisma', 'schema.prisma');
 
 if (fs.existsSync(clientPath)) {
+  process.exit(0);
+}
+
+if (!fs.existsSync(schemaPath)) {
   process.exit(0);
 }
 
