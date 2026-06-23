@@ -103,7 +103,7 @@ export default function AdminRevenueProtectionPage() {
       <KpiSection title="Payment integrity">
         <KpiCard title="Paid orders" value={dashboard.paidOrders} icon={Shield} tone="emerald" />
         <KpiCard title="Pending payments" value={dashboard.pendingPayments} icon={AlertTriangle} tone="amber" href="/admin/billing/orders" />
-        <KpiCard title="Unpaid fulfillments" value={dashboard.unpaidFulfillments} icon={AlertTriangle} tone={dashboard.unpaidFulfillments ? 'red' : 'slate'} />
+        <KpiCard title="Unpaid fulfillments" value={dashboard.unpaidFulfillments} icon={AlertTriangle} tone={dashboard.unpaidFulfillments ? 'rose' : 'slate'} />
         <KpiCard title="Numbers without invoice" value={dashboard.numbersWithoutInvoice} icon={AlertTriangle} tone={dashboard.numbersWithoutInvoice ? 'amber' : 'slate'} />
       </KpiSection>
 

@@ -259,9 +259,9 @@ export default function AdminNumberPurchasePage() {
       `,
       icon: 'warning',
       showCancelButton: true,
+      ...SWAL_THEME,
       confirmButtonText: billTenantAutomatically ? 'Purchase & bill tenant' : 'Purchase (platform pays)',
       confirmButtonColor: billTenantAutomatically ? '#4f46e5' : '#d97706',
-      ...SWAL_THEME,
     });
     if (!confirm.isConfirmed) return;
 

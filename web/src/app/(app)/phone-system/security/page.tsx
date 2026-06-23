@@ -5,21 +5,13 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 import { PhoneSystemNav } from '@/components/phone-system-nav';
-import { getExtensions, getSecurityAuditLogs, getMe, isUnauthorizedError } from '@/lib/api';
+import { getExtensions, getSecurityAuditLogs, getMe, isUnauthorizedError, type ExtensionAuditLog } from '@/lib/api';
 
 export default function PhoneSystemSecurityPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [extensions, setExtensions] = useState<Array<{ id: string; extensionNumber: string; displayName: string }>>([]);
-  const [auditLogs, setAuditLogs] = useState<Array<{
-    id: string;
-    extensionNumber: string;
-    displayName: string;
-    category: string;
-    summary: string | null;
-    userEmail: string | null;
-    createdAt: string;
-  }>>([]);
+  const [auditLogs, setAuditLogs] = useState<ExtensionAuditLog[]>([]);
 
   useEffect(() => {
     getMe()
@@ -91,7 +83,7 @@ export default function PhoneSystemSecurityPage() {
             {auditLogs.map((log) => (
               <li key={log.id} className="rounded-lg border border-slate-100 px-3 py-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="font-medium">{log.extensionNumber} — {log.displayName}</span>
+                  <span className="font-medium">{log.extensionNumber ?? '—'} — {log.displayName ?? 'Extension'}</span>
                   <span className="text-xs text-slate-400">{new Date(log.createdAt).toLocaleString()}</span>
                 </div>
                 <p className="text-slate-600">

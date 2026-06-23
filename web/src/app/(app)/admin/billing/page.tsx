@@ -89,7 +89,7 @@ export default function AdminBillingOverviewPage() {
           title="Rejected payments"
           value={bankRejected}
           icon={XCircle}
-          tone={bankRejected ? 'red' : 'slate'}
+          tone={bankRejected ? 'rose' : 'slate'}
           href="/admin/billing/orders?paymentMethod=MANUAL_BANK"
         />
       </KpiSection>

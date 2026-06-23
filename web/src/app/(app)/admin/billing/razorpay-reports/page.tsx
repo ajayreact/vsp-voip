@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2 } from 'lucide-react';
+import { CreditCard, DollarSign, Loader2, Package, RotateCcw, XCircle } from 'lucide-react';
 import { AdminPageHeader } from '@/components/admin-page-header';
 import { AdminSectionNav, adminBillingTabs } from '@/components/admin-section-nav';
 import { KpiCard, KpiSection } from '@/components/kpi-card';
@@ -63,12 +63,12 @@ export default function AdminRazorpayReportsPage() {
       <AdminSectionNav tabs={adminBillingTabs} />
 
       <KpiSection title="Razorpay payments">
-        <KpiCard title="Total orders" value={payments.summary.totalOrders} />
-        <KpiCard title="Paid" value={payments.summary.paid} tone="emerald" />
-        <KpiCard title="Pending" value={payments.summary.pending} tone="amber" />
-        <KpiCard title="Failed" value={payments.summary.failed} tone={payments.summary.failed ? 'red' : 'slate'} />
-        <KpiCard title="Collected" value={formatPrice(payments.summary.totalCollected)} tone="indigo" />
-        <KpiCard title="Refunded" value={formatPrice(payments.summary.totalRefunded)} tone="slate" />
+        <KpiCard title="Total orders" value={payments.summary.totalOrders} icon={Package} />
+        <KpiCard title="Paid" value={payments.summary.paid} icon={CreditCard} tone="emerald" />
+        <KpiCard title="Pending" value={payments.summary.pending} icon={CreditCard} tone="amber" />
+        <KpiCard title="Failed" value={payments.summary.failed} icon={XCircle} tone={payments.summary.failed ? 'rose' : 'slate'} />
+        <KpiCard title="Collected" value={formatPrice(payments.summary.totalCollected)} icon={DollarSign} tone="indigo" />
+        <KpiCard title="Refunded" value={formatPrice(payments.summary.totalRefunded)} icon={RotateCcw} tone="slate" />
       </KpiSection>
 
       <KpiSection title="Revenue by gateway">
@@ -78,6 +78,7 @@ export default function AdminRazorpayReportsPage() {
             title={g.paymentMethod}
             value={formatPrice(g.net)}
             subtitle={`${g.orderCount} orders · ${formatPrice(g.refunds)} refunds`}
+            icon={CreditCard}
             tone="indigo"
           />
         ))}
