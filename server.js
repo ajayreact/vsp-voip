@@ -626,17 +626,31 @@ app.get('/webhook/call-recording', ...recordingWebhookMiddleware, (req, res) => 
 
 const PORT = process.env.PORT || 3000;
 const server = app.listen(PORT, async () => {
-    logger.info('server_started', { port: PORT, production: envConfig.isProduction });
-    console.log(`🚀 VSP-VOIP Server running locally on port ${PORT}`);
-    console.log(`📞 Webhook: http://localhost:${PORT}/webhook`);
+    const publicBase = process.env.API_PUBLIC_URL?.trim()?.replace(/\/$/, '')
+        || `http://localhost:${PORT}`;
+    logger.info('server_started', { port: PORT, production: envConfig.isProduction, publicBase });
+    console.log(`🚀 VSP-VOIP Server running on port ${PORT}`);
+    console.log(`📞 Webhook: ${publicBase}/webhook`);
     try {
         const prisma = await getPrisma();
         const cacheCount = await refreshTenantCache(prisma);
         console.log(`📋 Loaded ${cacheCount} tenant number(s) into cache`);
-        console.log('💡 Telnyx TeXML app: set Call progress events URL to /webhook/status');
-        console.log('💡 Telnyx Messaging profile: set webhook URL to /webhook/sms');
-        console.log('💡 Telnyx Credential connection: set webhook URL to /webhook/voice (for outbound recordings)');
-        console.log('💡 Call recordings also accepted at /webhook/call-recording');
+    } catch (error) {
+        console.warn('⚠️ Could not preload tenant cache:', error.message);
+        if (/does not exist|column|migrate/i.test(String(error.message))) {
+            console.warn('💡 Database schema may be behind Prisma. Run: npx prisma migrate deploy');
+        }
+    }
+
+    try {
+        const prisma = await getPrisma();
+        console.log('💡 Telnyx webhook URLs (use these in Mission Control):');
+        console.log(`   TeXML inbound:     ${publicBase}/webhook`);
+        console.log(`   Call status:     ${publicBase}/webhook/status`);
+        console.log(`   Call Control:    ${publicBase}/webhook/call-control`);
+        console.log(`   SMS:             ${publicBase}/webhook/sms`);
+        console.log(`   Voice/recording: ${publicBase}/webhook/voice`);
+        console.log(`   Call recordings: ${publicBase}/webhook/call-recording`);
         const setup = await ensureTelnyxRecordingSetup(prisma);
         const messagingSetup = await ensureTelnyxMessagingSetup(prisma);
         const callControlSetup = await ensureTelnyxCallControlSetup(prisma);
@@ -659,7 +673,7 @@ const server = app.listen(PORT, async () => {
             console.log('💡 MOS telemetry: captured from call.hangup webhooks (Call Control + /webhook/voice)');
             console.log('💡 SIP registration: polled from Telnyx + softphone presence heartbeat');
         } else {
-            console.log('💡 Set API_PUBLIC_URL in .env (ngrok URL) so Telnyx can deliver webhooks to /webhook/call-control');
+            console.log('💡 Set API_PUBLIC_URL in .env (public EC2 IP or domain) so Telnyx can deliver webhooks');
             console.log('💡 Without API_PUBLIC_URL, inbound mobile calls cannot ring until webhooks are reachable');
         }
         startVoiceTelemetryMonitor(prisma, loadPlatformSettings);
@@ -676,7 +690,10 @@ const server = app.listen(PORT, async () => {
 
         startBillingIntegrityScheduler();
     } catch (error) {
-        console.warn('⚠️ Could not preload tenant cache:', error.message);
+        console.warn('⚠️ Telnyx startup setup failed (API will still run):', error.message);
+        if (error.telnyx) {
+            console.warn('   ↳ Telnyx response:', JSON.stringify(error.telnyx));
+        }
     }
 });
 
