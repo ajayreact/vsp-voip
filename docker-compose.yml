@@ -5,6 +5,10 @@ services:
       - "3000:3000"
     env_file:
       - .env
+    environment:
+      # Override .env localhost values — inside Docker, use Compose service names.
+      DATABASE_URL: postgresql://vsp:vsp@postgres:5432/vsp_voip
+      REDIS_URL: redis://redis:6379
     depends_on:
       postgres:
         condition: service_healthy

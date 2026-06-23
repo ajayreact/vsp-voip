@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { AuthenticatedAudioPlayer } from '@/components/authenticated-audio-player';
 import { deleteVoicemail, getVoicemails, isUnauthorizedError, markVoicemailRead, type VoicemailRecord } from '@/lib/api';
 import { formatPhoneNumber } from '@/lib/phone';
 
@@ -106,10 +107,8 @@ export default function VoicemailPage() {
                 Delete
               </button>
             </div>
-            <audio
-              controls
-              preload="none"
-              src={vm.recordingUrl}
+            <AuthenticatedAudioPlayer
+              streamPath={`/api/tenant/voicemails/${vm.id}/stream`}
               className="mt-3 w-full max-w-md"
               onPlay={() => onPlay(vm)}
             />

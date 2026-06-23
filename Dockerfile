@@ -19,8 +19,12 @@ ENV NODE_ENV=production
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=build /app/generated ./generated
 COPY --from=build /app/prisma ./prisma
+COPY prisma.config.ts ./
+COPY scripts/docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 COPY . .
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD wget -qO- http://127.0.0.1:3000/health || exit 1
+ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["npx", "tsx", "server.js"]

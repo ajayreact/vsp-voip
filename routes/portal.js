@@ -1157,6 +1157,45 @@ router.delete('/tenant/voicemails/:id', authMiddleware, requireRole('SUPER_ADMIN
   }
 });
 
+router.get('/tenant/voicemails/:id/stream', authMiddleware, async (req, res) => {
+  try {
+    const tenantId = req.user.tenantId;
+    if (!tenantId && req.user.role !== 'SUPER_ADMIN') {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const prisma = await getPrisma();
+    const record = await prisma.voicemail.findUnique({ where: { id: req.params.id } });
+    if (!record) return res.status(404).json({ error: 'Voicemail not found' });
+    if (req.user.role !== 'SUPER_ADMIN' && record.tenantId !== tenantId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    if (!record.recordingSid) {
+      if (record.recordingUrl) {
+        return res.redirect(record.recordingUrl);
+      }
+      return res.status(404).json({ error: 'Voicemail file not available' });
+    }
+
+    const { stream, contentType, contentLength } = await streamTelnyxRecording(record.recordingSid);
+    res.setHeader('Content-Type', contentType);
+    if (contentLength) {
+      res.setHeader('Content-Length', contentLength);
+    }
+    res.setHeader('Accept-Ranges', 'bytes');
+    stream.on('error', () => {
+      if (!res.headersSent) {
+        res.status(502).json({ error: 'Failed to stream voicemail' });
+      }
+    });
+    stream.pipe(res);
+  } catch (error) {
+    const status = error.status || 502;
+    res.status(status).json({ error: error.message || 'Failed to stream voicemail' });
+  }
+});
+
 router.get('/tenant/recordings/setup', authMiddleware, async (req, res) => {
   try {
     const prisma = await getPrisma();

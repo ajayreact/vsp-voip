@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="VSP Phone — cloud business phone system with mobile app, call recording, SMS, auto attendant, and ring groups." />
+  <title>VSP Phone — Cloud Business Phone System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --navy: #0f172a;
+      --royal: #1d6fd8;
+      --royal-dark: #1558ad;
+      --sky: #38bdf8;
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --success: #059669;
+      --radius: 16px;
+      --shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--navy);
+      line-height: 1.6;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    .container {
+      width: min(1120px, calc(100% - 40px));
+      margin: 0 auto;
+    }
+
+    /* Header */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 0;
+      gap: 16px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 800;
+      font-size: 1.15rem;
+      color: var(--royal);
+    }
+
+    .brand-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--royal), var(--sky));
+      display: grid;
+      place-items: center;
+      color: white;
+      font-size: 1.1rem;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      font-size: 0.92rem;
+      color: var(--muted);
+    }
+
+    .nav-links a:hover { color: var(--royal); }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      border: 1px solid transparent;
+      transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+      cursor: pointer;
+    }
+
+    .btn:hover { transform: translateY(-1px); }
+
+    .btn-primary {
+      background: var(--royal);
+      color: white;
+      box-shadow: 0 8px 24px rgba(29, 111, 216, 0.25);
+    }
+
+    .btn-primary:hover { background: var(--royal-dark); }
+
+    .btn-outline {
+      background: white;
+      border-color: var(--border);
+      color: var(--navy);
+    }
+
+    .btn-outline:hover { border-color: var(--royal); color: var(--royal); }
+
+    /* Hero */
+    .hero {
+      padding: 80px 0 64px;
+      background:
+        radial-gradient(circle at 20% 20%, rgba(56, 189, 248, 0.15), transparent 40%),
+        radial-gradient(circle at 80% 0%, rgba(29, 111, 216, 0.12), transparent 35%),
+        var(--bg);
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 48px;
+      align-items: center;
+    }
+
+    .hero-badge {
+      display: inline-block;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(29, 111, 216, 0.1);
+      color: var(--royal);
+      font-size: 0.82rem;
+      font-weight: 600;
+      margin-bottom: 18px;
+    }
+
+    .hero h1 {
+      font-size: clamp(2.2rem, 5vw, 3.4rem);
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+      margin-bottom: 18px;
+    }
+
+    .hero p.lead {
+      font-size: 1.12rem;
+      color: var(--muted);
+      max-width: 540px;
+      margin-bottom: 28px;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+
+    .hero-stats {
+      display: flex;
+      gap: 28px;
+      flex-wrap: wrap;
+      font-size: 0.88rem;
+      color: var(--muted);
+    }
+
+    .hero-stats strong {
+      display: block;
+      font-size: 1.4rem;
+      color: var(--navy);
+    }
+
+    .hero-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 28px;
+      box-shadow: var(--shadow);
+    }
+
+    .hero-card h3 {
+      margin-bottom: 16px;
+      font-size: 1rem;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .mock-call {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px;
+      border-radius: 14px;
+      background: var(--bg);
+      margin-bottom: 10px;
+    }
+
+    .mock-call .icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: rgba(29, 111, 216, 0.12);
+      display: grid;
+      place-items: center;
+      color: var(--royal);
+    }
+
+    /* Sections */
+    section {
+      padding: 72px 0;
+    }
+
+    section.alt {
+      background: white;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-head {
+      text-align: center;
+      max-width: 640px;
+      margin: 0 auto 48px;
+    }
+
+    .section-head h2 {
+      font-size: clamp(1.8rem, 3vw, 2.4rem);
+      letter-spacing: -0.02em;
+      margin-bottom: 12px;
+    }
+
+    .section-head p {
+      color: var(--muted);
+      font-size: 1.05rem;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 20px;
+    }
+
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      transition: box-shadow 0.2s, border-color 0.2s;
+    }
+
+    .feature-card:hover {
+      box-shadow: var(--shadow);
+      border-color: rgba(29, 111, 216, 0.25);
+    }
+
+    .feature-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      background: rgba(29, 111, 216, 0.1);
+      color: var(--royal);
+      display: grid;
+      place-items: center;
+      font-size: 1.3rem;
+      margin-bottom: 16px;
+    }
+
+    .feature-card h3 {
+      margin-bottom: 8px;
+      font-size: 1.08rem;
+    }
+
+    .feature-card p {
+      color: var(--muted);
+      font-size: 0.94rem;
+    }
+
+    /* Mobile app */
+    .mobile-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 48px;
+      align-items: center;
+    }
+
+    .phone-mock {
+      background: linear-gradient(160deg, var(--navy), #1e3a5f);
+      border-radius: 32px;
+      padding: 24px;
+      color: white;
+      box-shadow: var(--shadow);
+    }
+
+    .phone-screen {
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 20px;
+      padding: 20px;
+      min-height: 320px;
+    }
+
+    .check-list {
+      list-style: none;
+      margin-top: 20px;
+    }
+
+    .check-list li {
+      padding: 10px 0;
+      padding-left: 28px;
+      position: relative;
+      color: var(--muted);
+    }
+
+    .check-list li::before {
+      content: "✓";
+      position: absolute;
+      left: 0;
+      color: var(--success);
+      font-weight: 700;
+    }
+
+    /* Pricing */
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+      align-items: stretch;
+    }
+
+    .price-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .price-card.featured {
+      border-color: var(--royal);
+      box-shadow: 0 24px 60px rgba(29, 111, 216, 0.15);
+      position: relative;
+    }
+
+    .price-card.featured::before {
+      content: "Popular";
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--royal);
+      color: white;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 4px 14px;
+      border-radius: 999px;
+    }
+
+    .price-card h3 { margin-bottom: 8px; }
+
+    .price {
+      font-size: 2.4rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin: 16px 0;
+    }
+
+    .price span {
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: var(--muted);
+    }
+
+    .price-card ul {
+      list-style: none;
+      margin: 20px 0 28px;
+      flex: 1;
+    }
+
+    .price-card li {
+      padding: 8px 0;
+      color: var(--muted);
+      font-size: 0.92rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* Contact */
+    .contact-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+    }
+
+    .contact-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px;
+    }
+
+    .contact-card label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .contact-card input,
+    .contact-card textarea {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font: inherit;
+      margin-bottom: 14px;
+    }
+
+    .contact-card textarea { min-height: 120px; resize: vertical; }
+
+    /* Footer */
+    footer {
+      background: var(--navy);
+      color: rgba(255, 255, 255, 0.75);
+      padding: 48px 0 32px;
+    }
+
+    .footer-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr;
+      gap: 32px;
+      margin-bottom: 32px;
+    }
+
+    .footer-grid h4 {
+      color: white;
+      margin-bottom: 12px;
+      font-size: 0.9rem;
+    }
+
+    .footer-grid a {
+      display: block;
+      padding: 4px 0;
+      font-size: 0.88rem;
+    }
+
+    .footer-grid a:hover { color: white; }
+
+    .footer-bottom {
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      padding-top: 24px;
+      font-size: 0.85rem;
+      text-align: center;
+    }
+
+    @media (max-width: 900px) {
+      .hero-grid, .mobile-grid, .contact-grid, .footer-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .nav-links { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container nav">
+      <a href="#" class="brand">
+        <span class="brand-icon">📞</span>
+        VSP Phone
+      </a>
+      <nav class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#mobile">Mobile App</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#contact">Contact</a>
+      </nav>
+      <div class="nav-actions">
+        <a class="btn btn-outline" href="https://app.vspphone.com/login">Customer Login</a>
+        <a class="btn btn-primary" href="https://admin.vspphone.com/login">Admin Login</a>
+      </div>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="container hero-grid">
+      <div>
+        <span class="hero-badge">Cloud PBX for growing teams</span>
+        <h1>Business phone system built for the way you work</h1>
+        <p class="lead">
+          VSP Phone delivers enterprise-grade voice, SMS, voicemail, and call recording —
+          with a mobile app your team can use anywhere. Powered by carrier-grade Telnyx infrastructure.
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="https://app.vspphone.com/login">Start with Customer Portal</a>
+          <a class="btn btn-outline" href="/apk/app-release.apk">Download Android App</a>
+        </div>
+        <div class="hero-stats">
+          <div><strong>99.9%</strong> carrier uptime</div>
+          <div><strong>HD</strong> voice quality</div>
+          <div><strong>24/7</strong> call recording</div>
+        </div>
+      </div>
+      <div class="hero-card">
+        <h3>Live activity preview</h3>
+        <div class="mock-call">
+          <div class="icon">↓</div>
+          <div>
+            <strong>Inbound call answered</strong><br />
+            <small style="color: var(--muted)">Ring group · Sales · 2m 14s</small>
+          </div>
+        </div>
+        <div class="mock-call">
+          <div class="icon">🎙</div>
+          <div>
+            <strong>Call recording saved</strong><br />
+            <small style="color: var(--muted)">Auto-attendant → Extension 101</small>
+          </div>
+        </div>
+        <div class="mock-call">
+          <div class="icon">💬</div>
+          <div>
+            <strong>SMS received</strong><br />
+            <small style="color: var(--muted)">Business line · unread</small>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="features">
+    <div class="container">
+      <div class="section-head">
+        <h2>Everything your business phone needs</h2>
+        <p>One platform for voice, messaging, and team collaboration — managed from a modern web portal or mobile app.</p>
+      </div>
+      <div class="features-grid">
+        <article class="feature-card">
+          <div class="feature-icon">📱</div>
+          <h3>Mobile Softphone</h3>
+          <p>Place and receive calls on Android with WebRTC. Push notifications wake the app for inbound calls.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon">🎙</div>
+          <h3>Call Recording</h3>
+          <p>Automatic inbound and outbound recording with secure playback in the portal and mobile app.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon">💬</div>
+          <h3>SMS Messaging</h3>
+          <p>Two-way business texting on your DIDs. Conversation inbox with read/unread tracking.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon">🤖</div>
+          <h3>Auto Attendant</h3>
+          <p>Custom greetings and IVR menus route callers to the right department or extension.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon">👥</div>
+          <h3>Ring Groups</h3>
+          <p>Simultaneous, sequential, or round-robin ringing across extensions and devices.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon">📞</div>
+          <h3>Business Numbers</h3>
+          <p>Search, purchase, and assign local DIDs. Full call routing per number.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section id="mobile" class="alt">
+    <div class="container mobile-grid">
+      <div class="phone-mock">
+        <div class="phone-screen">
+          <p style="opacity: 0.7; font-size: 0.85rem; margin-bottom: 8px;">VSP Phone Mobile</p>
+          <h3 style="margin-bottom: 16px;">Dashboard</h3>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div style="background: rgba(255,255,255,0.08); padding: 14px; border-radius: 12px;">Calls<br /><strong>128</strong></div>
+            <div style="background: rgba(255,255,255,0.08); padding: 14px; border-radius: 12px;">SMS<br /><strong>3</strong></div>
+            <div style="background: rgba(255,255,255,0.08); padding: 14px; border-radius: 12px;">VM<br /><strong>1</strong></div>
+            <div style="background: rgba(255,255,255,0.08); padding: 14px; border-radius: 12px;">Numbers<br /><strong>2</strong></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="section-head" style="text-align: left; margin: 0 0 24px;">
+          <h2>Take your desk phone anywhere</h2>
+          <p>The VSP Phone Android app connects to your organization's extensions, voicemail, SMS, and call history.</p>
+        </div>
+        <ul class="check-list">
+          <li>Email/password or QR provisioning for fast setup</li>
+          <li>Inbound call push notifications via Telnyx</li>
+          <li>Call history, recordings, and voicemail playback</li>
+          <li>Secure JWT authentication against api.vspphone.com</li>
+        </ul>
+        <div style="margin-top: 28px; display: flex; gap: 12px; flex-wrap: wrap;">
+          <a class="btn btn-primary" href="/apk/app-release.apk">Download Android App</a>
+          <a class="btn btn-outline" href="https://app.vspphone.com/login">Open Web Portal</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="recording">
+    <div class="container">
+      <div class="section-head">
+        <h2>Call Recording</h2>
+        <p>Stay compliant and never miss details. Recordings sync from Telnyx and are available in the tenant portal and mobile app.</p>
+      </div>
+      <div class="features-grid">
+        <article class="feature-card">
+          <div class="feature-icon">🔒</div>
+          <h3>Tenant-isolated storage</h3>
+          <p>Each organization's recordings are scoped by tenant — only authorized users can stream or download.</p>
+        </article>
+        <article class="feature-card">
+          <div class="feature-icon">⚡</div>
+          <h3>Automatic sync</h3>
+          <p>Recordings appear in your archive shortly after calls end. Linked to call logs for easy lookup.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section id="pricing" class="alt">
+    <div class="container">
+      <div class="section-head">
+        <h2>Simple, transparent pricing</h2>
+        <p>Per-number pricing with platform fees. Contact us for volume discounts and white-label options.</p>
+      </div>
+      <div class="pricing-grid">
+        <article class="price-card">
+          <h3>Starter</h3>
+          <p style="color: var(--muted); font-size: 0.9rem;">For small teams getting started</p>
+          <div class="price">$29<span>/mo per number</span></div>
+          <ul>
+            <li>1 business phone number</li>
+            <li>Up to 5 extensions</li>
+            <li>Voicemail &amp; call logs</li>
+            <li>Mobile app access</li>
+          </ul>
+          <a class="btn btn-outline" href="#contact" style="width: 100%;">Contact sales</a>
+        </article>
+        <article class="price-card featured">
+          <h3>Business</h3>
+          <p style="color: var(--muted); font-size: 0.9rem;">Most popular for growing companies</p>
+          <div class="price">$49<span>/mo per number</span></div>
+          <ul>
+            <li>Unlimited extensions</li>
+            <li>Call recording included</li>
+            <li>SMS messaging</li>
+            <li>Auto attendant &amp; ring groups</li>
+            <li>Priority support</li>
+          </ul>
+          <a class="btn btn-primary" href="#contact" style="width: 100%;">Get started</a>
+        </article>
+        <article class="price-card">
+          <h3>Enterprise</h3>
+          <p style="color: var(--muted); font-size: 0.9rem;">Custom deployment &amp; SLA</p>
+          <div class="price">Custom</div>
+          <ul>
+            <li>Dedicated onboarding</li>
+            <li>Multi-tenant admin console</li>
+            <li>Custom integrations</li>
+            <li>SLA &amp; compliance options</li>
+          </ul>
+          <a class="btn btn-outline" href="#contact" style="width: 100%;">Talk to us</a>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section id="contact">
+    <div class="container">
+      <div class="section-head">
+        <h2>Contact Us</h2>
+        <p>Ready to move your business phone to the cloud? We will help you port numbers and go live.</p>
+      </div>
+      <div class="contact-grid">
+        <form class="contact-card" action="mailto:support@vspphone.com" method="get" enctype="text/plain">
+          <label for="name">Name</label>
+          <input id="name" name="subject" type="text" placeholder="Your name" required />
+          <label for="email">Email</label>
+          <input id="email" name="body" type="email" placeholder="you@company.com" required />
+          <label for="message">Message</label>
+          <textarea id="message" placeholder="Tell us about your team size and phone needs…"></textarea>
+          <button type="submit" class="btn btn-primary" style="width: 100%; border: none;">Send message</button>
+        </form>
+        <div class="contact-card">
+          <h3 style="margin-bottom: 16px;">Get in touch</h3>
+          <p style="color: var(--muted); margin-bottom: 20px;">
+            Email <a href="mailto:support@vspphone.com" style="color: var(--royal);">support@vspphone.com</a>
+            for sales, onboarding, and technical support.
+          </p>
+          <h4 style="margin-bottom: 12px;">Portal access</h4>
+          <p style="margin-bottom: 10px;">
+            <a class="btn btn-outline" href="https://app.vspphone.com/login" style="width: 100%; margin-bottom: 10px;">Customer Login → app.vspphone.com</a>
+          </p>
+          <p>
+            <a class="btn btn-primary" href="https://admin.vspphone.com/login" style="width: 100%;">Admin Login → admin.vspphone.com</a>
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="container">
+      <div class="footer-grid">
+        <div>
+          <div class="brand" style="color: white; margin-bottom: 12px;">
+            <span class="brand-icon">📞</span>
+            VSP Phone
+          </div>
+          <p style="font-size: 0.9rem;">Cloud business phone system with mobile app, SMS, and call recording.</p>
+        </div>
+        <div>
+          <h4>Product</h4>
+          <a href="#features">Features</a>
+          <a href="#mobile">Mobile App</a>
+          <a href="#pricing">Pricing</a>
+          <a href="/apk/app-release.apk">Android Download</a>
+        </div>
+        <div>
+          <h4>Portals</h4>
+          <a href="https://app.vspphone.com">Customer Portal</a>
+          <a href="https://admin.vspphone.com">Admin Portal</a>
+          <a href="https://api.vspphone.com/health">API Status</a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        © 2026 VSP Phone. All rights reserved.
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

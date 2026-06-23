@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { AuthenticatedAudioPlayer } from '@/components/authenticated-audio-player';
 import {
   deleteCallRecording,
   getCallRecordings,
@@ -140,7 +141,10 @@ export default function RecordingsPage() {
                 Delete
               </button>
             </div>
-            <audio controls preload="none" src={rec.recordingUrl} className="mt-3 w-full max-w-md" />
+            <AuthenticatedAudioPlayer
+              streamPath={`/api/tenant/recordings/${rec.id}/stream`}
+              className="mt-3 w-full max-w-md"
+            />
           </div>
         ))}
         {!recordings.length ? (

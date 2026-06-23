@@ -6,6 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "postinstall": "node scripts/ensure-prisma-client.js",
+    "migrate:deploy": "prisma migrate deploy",
     "start": "tsx server.js",
     "seed": "tsx seed.ts",
     "cleanup:tenants": "tsx scripts/cleanup-duplicate-tenants.ts",
@@ -27,6 +28,7 @@
     "validate:phase4a-mvp": "tsx scripts/validate-phase4a-mvp.js",
     "validate:phase4b": "tsx scripts/validate-phase4b.js",
     "validate:phase4c": "tsx scripts/validate-phase4c.js",
+    "verify:mobile-auth": "node scripts/verify-mobile-auth.js",
     "validate:phase5a": "tsx scripts/validate-phase5a.js",
     "validate:did-assignment": "tsx scripts/validate-did-assignment.js",
     "validate:pbx-ownership": "tsx scripts/validate-pbx-ownership.js",
@@ -34,7 +36,7 @@
     "validate:ring-group-routing": "tsx scripts/validate-ring-group-routing.ts",
     "build:mobile:android": "powershell -ExecutionPolicy Bypass -File scripts/build-mobile-android.ps1",
     "build:mobile:android:release": "powershell -ExecutionPolicy Bypass -File scripts/build-mobile-android.ps1 -Release",
-    "dev:mobile": "echo Run: cd mobile && flutter pub get && flutter run --dart-define=API_BASE_URL=http://10.0.2.2:3000"
+    "dev:mobile": "echo Run: cd mobile && flutter pub get && flutter run --dart-define=API_BASE_URL=http://vspphone.com:3000",
   },
   "keywords": [],
   "author": "",
@@ -56,9 +58,8 @@
     "razorpay": "^2.9.6",
     "stripe": "^22.2.2",
     "telnyx": "^6.83.0",
-    "tsx": "^4.22.4"
-  },
-  "devDependencies": {
+    "tsx": "^4.22.4",
     "prisma": "^7.8.0"
-  }
+  },
+  "devDependencies": {}
 }

@@ -13,6 +13,18 @@ import {
   startSoftphoneRecording,
 } from '@/lib/api';
 import { TenantOnlyGate } from '@/components/tenant-only-gate';
+import {
+  playOutboundRingback,
+  primeCallAudio,
+  startIncomingRingtone,
+  stopAllCallSounds,
+  stopIncomingRingtone,
+} from '@/lib/call-sounds';
+import {
+  attachRemoteCallAudio,
+  detachRemoteCallAudio,
+  wireWebCallAudio,
+} from '@/lib/webrtc-audio';
 
 type UiState = 'loading' | 'not-configured' | 'no-numbers' | 'connecting' | 'ready' | 'incoming' | 'calling' | 'active' | 'error';
 
@@ -50,18 +62,6 @@ function formatTelnyxError(event: unknown) {
     return (event as Error).message;
   }
   return 'Softphone connection failed';
-}
-
-function attachCallAudio(call: Call, audioEl: HTMLAudioElement | null) {
-  if (!audioEl) return;
-  const stream = call.remoteStream;
-  if (!stream) return;
-  if (audioEl.srcObject !== stream) {
-    audioEl.srcObject = stream;
-  }
-  audioEl.play().catch(() => {
-    /* autoplay may need user gesture — Call button satisfies that */
-  });
 }
 
 async function ensureMicrophoneAccess() {
@@ -109,7 +109,10 @@ function SoftphoneContent() {
   const callRecordingEnabledRef = useRef(true);
   const bootGenerationRef = useRef(0);
   const tearingDownRef = useRef(false);
+  const unwireCallAudioRef = useRef<(() => void) | null>(null);
+  const audioPrimedRef = useRef(false);
   const [bootAttempt, setBootAttempt] = useState(0);
+  const [audioBlocked, setAudioBlocked] = useState(false);
 
   useEffect(() => {
     if (uiState !== 'active') {
@@ -136,6 +139,23 @@ function SoftphoneContent() {
   useEffect(() => {
     callRecordingEnabledRef.current = callRecordingEnabled;
   }, [callRecordingEnabled]);
+
+  useEffect(() => {
+    if (uiState === 'incoming') {
+      void startIncomingRingtone();
+      return () => {
+        stopIncomingRingtone();
+      };
+    }
+    stopIncomingRingtone();
+    return undefined;
+  }, [uiState]);
+
+  const ensureAudioPrimed = useCallback(async () => {
+    if (audioPrimedRef.current) return;
+    await primeCallAudio(remoteAudioRef.current);
+    audioPrimedRef.current = true;
+  }, []);
 
   useEffect(() => {
     const generation = ++bootGenerationRef.current;
@@ -213,16 +233,18 @@ function SoftphoneContent() {
             } else {
               setUiState('calling');
               setStatus(`Calling ${destinationRef.current || '…'}`);
-              try {
-                call.playRingback();
-              } catch {
-                /* ringback optional */
-              }
+              void playOutboundRingback(call);
             }
           }
           if (call.state === 'active') {
+            stopAllCallSounds();
             call.stopRingback?.();
-            attachCallAudio(call, remoteAudioRef.current);
+            unwireCallAudioRef.current?.();
+            unwireCallAudioRef.current = wireWebCallAudio(
+              call,
+              remoteAudioRef.current,
+              () => setAudioBlocked(true),
+            );
             setUiState('active');
             setStatus(inbound ? `In call with ${remoteNumber || incomingFrom}` : 'Call in progress');
             setCallRecordingActive(false);
@@ -253,10 +275,12 @@ function SoftphoneContent() {
             }
           }
           if (call.state === 'hangup' || call.state === 'destroy') {
+            stopAllCallSounds();
             call.stopRingback?.();
-            if (remoteAudioRef.current) {
-              remoteAudioRef.current.srcObject = null;
-            }
+            unwireCallAudioRef.current?.();
+            unwireCallAudioRef.current = null;
+            detachRemoteCallAudio(remoteAudioRef.current);
+            setAudioBlocked(false);
             setStatus('Call ended');
             recordingStartedRef.current = false;
             setCallRecordingActive(false);
@@ -295,6 +319,7 @@ function SoftphoneContent() {
     return () => {
       mounted = false;
       tearingDownRef.current = true;
+      stopAllCallSounds();
       setSoftphonePresence(false).catch(() => {});
       try {
         activeCallRef.current?.hangup();
@@ -321,8 +346,9 @@ function SoftphoneContent() {
   }, [uiState]);
 
   const appendDigit = useCallback((digit: string) => {
+    void ensureAudioPrimed();
     setDestination((prev) => prev + digit);
-  }, []);
+  }, [ensureAudioPrimed]);
 
   const onCall = useCallback(async () => {
     const client = clientRef.current;
@@ -341,6 +367,7 @@ function SoftphoneContent() {
 
     try {
       await ensureMicrophoneAccess();
+      await ensureAudioPrimed();
     } catch (err) {
       setUiState('ready');
       setStatus('Connected — enter a number and press Call');
@@ -366,9 +393,18 @@ function SoftphoneContent() {
       remoteElement: 'softphone-remote-audio',
     });
     activeCallRef.current = call;
-  }, [destination, callerId]);
+  }, [destination, callerId, ensureAudioPrimed]);
+
+  const onEnableAudio = useCallback(async () => {
+    const call = activeCallRef.current;
+    if (!call) return;
+    await ensureAudioPrimed();
+    const playing = await attachRemoteCallAudio(call, remoteAudioRef.current);
+    if (playing) setAudioBlocked(false);
+  }, [ensureAudioPrimed]);
 
   const onHangup = useCallback(() => {
+    stopAllCallSounds();
     activeCallRef.current?.hangup();
   }, []);
 
@@ -376,14 +412,17 @@ function SoftphoneContent() {
     const call = activeCallRef.current;
     if (!call) return;
     try {
+      stopIncomingRingtone();
       await ensureMicrophoneAccess();
+      await ensureAudioPrimed();
       call.answer();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Microphone permission is required');
     }
-  }, []);
+  }, [ensureAudioPrimed]);
 
   const onReject = useCallback(() => {
+    stopAllCallSounds();
     activeCallRef.current?.hangup();
     setIncomingFrom('');
     setUiState('ready');
@@ -399,8 +438,15 @@ function SoftphoneContent() {
 
   return (
     <div className="mx-auto max-w-lg space-y-6">
-      {/* Required for WebRTC audio playback in the browser */}
-      <audio ref={remoteAudioRef} id="softphone-remote-audio" autoPlay playsInline className="hidden" />
+      {/* Do not use display:none — browsers may block playback on hidden audio elements */}
+      <audio
+        ref={remoteAudioRef}
+        id="softphone-remote-audio"
+        autoPlay
+        playsInline
+        className="pointer-events-none absolute h-px w-px overflow-hidden opacity-0"
+        aria-hidden
+      />
 
       <div>
         <h2 className="text-lg font-medium text-slate-900">Softphone</h2>
@@ -449,7 +495,12 @@ function SoftphoneContent() {
       ) : null}
 
       {uiState !== 'not-configured' && uiState !== 'no-numbers' ? (
-        <div className="panel-card p-6 space-y-4">
+        <div
+          className="panel-card p-6 space-y-4"
+          onPointerDown={() => {
+            void ensureAudioPrimed();
+          }}
+        >
           <div className="rounded-lg bg-white px-4 py-2 text-sm text-slate-700">
             {uiState === 'active' ? (
               <div className="flex items-center justify-between gap-3">
@@ -545,6 +596,16 @@ function SoftphoneContent() {
               </button>
             )}
           </div>
+
+          {audioBlocked && uiState === 'active' ? (
+            <button
+              type="button"
+              onClick={onEnableAudio}
+              className="w-full rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-900 hover:bg-amber-100"
+            >
+              Enable speaker audio
+            </button>
+          ) : null}
 
           {callRecordingEnabled ? (
             <p className="text-xs text-slate-500">

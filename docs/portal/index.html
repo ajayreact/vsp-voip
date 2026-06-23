@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="VSP Phone — Multi-Tenant Cloud VoIP Platform documentation for administrators, tenants, support, and end users." />
+  <title>VSP Phone Documentation Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/docs.css" />
+</head>
+<body>
+  <header class="doc-header">
+    <button type="button" class="doc-menu-toggle" id="menu-toggle" aria-label="Toggle menu">☰ Menu</button>
+    <a href="#" class="doc-brand">
+      <span class="doc-brand-icon">📞</span>
+      VSP Phone Docs
+    </a>
+    <div class="doc-search-wrap">
+      <input type="search" class="doc-search" id="doc-search" placeholder="Search documentation…" autocomplete="off" />
+    </div>
+    <div class="doc-header-links">
+      <a href="https://app.vspphone.com" target="_blank" rel="noopener">Tenant Portal</a>
+      <a href="https://admin.vspphone.com" target="_blank" rel="noopener">Admin Portal</a>
+      <a href="https://api.vspphone.com/health" target="_blank" rel="noopener">API Status</a>
+    </div>
+  </header>
+
+  <div class="doc-layout">
+    <aside class="doc-sidebar" id="sidebar">
+      <nav>
+        <div class="doc-nav-group">
+          <button type="button" class="doc-nav-group-title">1. Platform</button>
+          <ul class="doc-nav-links">
+            <li><a href="#overview">Platform Overview</a></li>
+            <li><a href="#architecture">Architecture</a></li>
+            <li><a href="#roles">User Roles</a></li>
+          </ul>
+        </div>
+        <div class="doc-nav-group">
+          <button type="button" class="doc-nav-group-title">2. Super Admin</button>
+          <ul class="doc-nav-links">
+            <li><a href="#admin-dashboard">Dashboard KPIs</a></li>
+            <li><a href="#admin-tenants">Tenant Management</a></li>
+            <li><a href="#admin-numbers">Number Management</a></li>
+            <li><a href="#admin-porting">Number Porting</a></li>
+            <li><a href="#admin-billing">Billing</a></li>
+            <li><a href="#admin-security">Security</a></li>
+          </ul>
+        </div>
+        <div class="doc-nav-group">
+          <button type="button" class="doc-nav-group-title">3. Tenant Portal</button>
+          <ul class="doc-nav-links">
+            <li><a href="#tenant-dashboard">Dashboard KPIs</a></li>
+            <li><a href="#tenant-phone">Phone System</a></li>
+            <li><a href="#tenant-messaging">Messaging</a></li>
+            <li><a href="#tenant-billing">Billing</a></li>
+            <li><a href="#tenant-settings">Settings</a></li>
+          </ul>
+        </div>
+        <div class="doc-nav-group">
+          <button type="button" class="doc-nav-group-title">4. Customer User</button>
+          <ul class="doc-nav-links">
+            <li><a href="#customer-portal">Customer Dashboard</a></li>
+          </ul>
+        </div>
+        <div class="doc-nav-group">
+          <button type="button" class="doc-nav-group-title">5. Mobile App</button>
+          <ul class="doc-nav-links">
+            <li><a href="#mobile-setup">Login &amp; Setup</a></li>
+            <li><a href="#mobile-features">Mobile Features</a></li>
+          </ul>
+        </div>
+        <div class="doc-nav-group">
+          <button type="button" class="doc-nav-group-title">6–9. Technical</button>
+          <ul class="doc-nav-links">
+            <li><a href="#call-flows">Call Flows</a></li>
+            <li><a href="#api">API Reference</a></li>
+            <li><a href="#troubleshooting">Troubleshooting</a></li>
+            <li><a href="#deployment">Deployment</a></li>
+          </ul>
+        </div>
+      </nav>
+    </aside>
+
+    <main class="doc-main">
+      <div id="search-empty" class="search-empty">No matching documentation found. Try different keywords.</div>
+
+      <!-- SECTION 1 -->
+      <section class="doc-section" id="overview">
+        <h1>Platform Overview</h1>
+        <p class="lead">VSP Phone is a multi-tenant cloud VoIP platform that delivers business voice, SMS, voicemail, call recording, and mobile softphone capabilities powered by Telnyx carrier infrastructure.</p>
+
+        <h2>What is VSP Phone?</h2>
+        <p>VSP Phone is a <strong>RingCentral-style UCaaS platform</strong>. A platform operator (Super Admin) provisions tenant organizations. Each tenant receives phone numbers, extensions, users, call routing, billing, and mobile access through a unified web and mobile experience.</p>
+
+        <div class="callout callout-info">
+          <strong>Production URLs:</strong>
+          <code>https://vspphone.com</code> (landing) ·
+          <code>https://app.vspphone.com</code> (tenants) ·
+          <code>https://admin.vspphone.com</code> (super admin) ·
+          <code>https://api.vspphone.com</code> (API)
+        </div>
+
+        <h3>Core Components</h3>
+        <table class="doc-table">
+          <thead><tr><th>Component</th><th>URL / Port</th><th>Audience</th></tr></thead>
+          <tbody>
+            <tr><td>Super Admin Portal</td><td>admin.vspphone.com</td><td>Platform operator (VSP staff)</td></tr>
+            <tr><td>Tenant Portal</td><td>app.vspphone.com</td><td>Tenant admins &amp; business users</td></tr>
+            <tr><td>Customer Portal</td><td>app.vspphone.com (role-based)</td><td>End users with limited permissions</td></tr>
+            <tr><td>Mobile Application</td><td>Android APK / iOS</td><td>Field staff, mobile workers</td></tr>
+            <tr><td>REST API</td><td>api.vspphone.com :443 → :3000</td><td>Web, mobile, webhooks</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Telnyx Integration</h3>
+        <p>All voice and SMS traverse <strong>Telnyx CPaaS</strong>: number search/purchase, Call Control webhooks, WebRTC credentials, SMS messaging profiles, and call recordings sync from Telnyx storage.</p>
+
+        <h3>Number Management</h3>
+        <p>Numbers are searched via Telnyx inventory, purchased through the tenant cart or super-admin purchase flow, assigned to tenants/extensions, and routed via IVR, ring groups, or direct extension targets.</p>
+
+        <h3>Billing System</h3>
+        <p>Dual billing: <strong>Stripe</strong> card payments and <strong>manual bank transfer</strong> with admin approval. Per-number monthly fees, platform fees, and order invoices are tracked in PostgreSQL.</p>
+      </section>
+
+      <section class="doc-section" id="architecture">
+        <h2>Multi-Tenant Architecture</h2>
+        <div class="diagram">
+          <div class="arch-stack">
+            <div class="arch-layer arch-users">Users — Browser · Mobile App · Telnyx Cloud</div>
+            <div class="arch-layer arch-edge">Edge — Nginx + Let's Encrypt (443)</div>
+            <div class="arch-layer arch-app">Application — Next.js Portal (:3001) · Express API (:3000)</div>
+            <div class="arch-layer arch-data">Data — PostgreSQL · Redis · Docker Compose</div>
+            <div class="arch-layer arch-carrier">Carrier — Telnyx Call Control · WebRTC · SMS · Recordings</div>
+          </div>
+        </div>
+        <div class="diagram">
+          <div class="flow-row">
+            <div class="flow-box">Super Admin</div><span class="flow-arrow">→</span>
+            <div class="flow-box">admin.vspphone.com</div><span class="flow-arrow">→</span>
+            <div class="flow-box highlight">/api/admin/*</div>
+          </div>
+          <div class="flow-row">
+            <div class="flow-box">Tenant User</div><span class="flow-arrow">→</span>
+            <div class="flow-box">app.vspphone.com</div><span class="flow-arrow">→</span>
+            <div class="flow-box highlight">/api/*</div>
+          </div>
+          <div class="flow-row">
+            <div class="flow-box">Telnyx</div><span class="flow-arrow">→</span>
+            <div class="flow-box">api.vspphone.com</div><span class="flow-arrow">→</span>
+            <div class="flow-box highlight">/webhook/*</div>
+          </div>
+        </div>
+        <h3>SIP Infrastructure</h3>
+        <p>WebRTC softphones (web + mobile) register against Telnyx credential connections. Extension desk SIP credentials are provisioned per extension. SIP registration telemetry is polled and stored for admin monitoring.</p>
+      </section>
+
+      <section class="doc-section" id="roles">
+        <h2>User Roles</h2>
+        <table class="doc-table">
+          <thead><tr><th>Role</th><th>Portal</th><th>Capabilities</th></tr></thead>
+          <tbody>
+            <tr><td><span class="badge badge-blue">SUPER_ADMIN</span></td><td>admin.vspphone.com</td><td>All tenants, billing, numbers, platform settings, audit</td></tr>
+            <tr><td><span class="badge badge-green">TENANT_ADMIN</span></td><td>app.vspphone.com</td><td>Full tenant config: numbers, phone system, users, billing</td></tr>
+            <tr><td><span class="badge badge-slate">TENANT_USER</span></td><td>app.vspphone.com / mobile</td><td>Softphone, calls, SMS, voicemail (per permissions)</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- SECTION 2 SUPER ADMIN -->
+      <section class="doc-section" id="admin-dashboard">
+        <h1>Super Admin Dashboard</h1>
+        <p class="lead">The Super Admin console at <code>/admin</code> provides executive and operational views of the entire platform.</p>
+
+        <h2>Navigation Menu</h2>
+        <table class="doc-table">
+          <thead><tr><th>Section</th><th>Routes</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td>Dashboard</td><td>/admin, /admin/operations</td><td>Executive KPIs and live carrier telemetry</td></tr>
+            <tr><td>Tenants</td><td>/admin/tenants, /usage, /quotas</td><td>Tenant lifecycle and resource limits</td></tr>
+            <tr><td>Numbers</td><td>/admin/numbers, /purchase, /porting</td><td>Inventory, purchase, porting</td></tr>
+            <tr><td>Billing</td><td>/admin/billing/*</td><td>Orders, revenue, gateways, protection</td></tr>
+            <tr><td>Monitoring</td><td>/admin/monitoring/*</td><td>Call quality, SIP registrations</td></tr>
+            <tr><td>Support</td><td>/admin/support/*</td><td>Users, audit logs</td></tr>
+            <tr><td>Settings</td><td>/admin/settings/*</td><td>Platform, carrier, billing, security</td></tr>
+          </tbody>
+        </table>
+
+        <h2>Executive Dashboard KPI Cards</h2>
+        <div class="kpi-grid">
+          <div class="kpi-card"><h4>Total Tenants</h4><p class="purpose"><strong>Purpose:</strong> Displays total active tenant organizations on the platform.</p><p class="why"><strong>Why used:</strong> Measures platform growth and customer count for executive reporting.</p></div>
+          <div class="kpi-card"><h4>Monthly Revenue (MRR Estimate)</h4><p class="purpose"><strong>Purpose:</strong> Displays recurring monthly revenue from assigned numbers and platform fees.</p><p class="why"><strong>Why used:</strong> Tracks platform profitability and billing health.</p></div>
+          <div class="kpi-card"><h4>Active Numbers</h4><p class="purpose"><strong>Purpose:</strong> Shows all purchased and assigned phone numbers across tenants.</p><p class="why"><strong>Why used:</strong> Monitors number inventory and carrier spend.</p></div>
+          <div class="kpi-card"><h4>Active Extensions</h4><p class="purpose"><strong>Purpose:</strong> Shows all extensions provisioned across tenants.</p><p class="why"><strong>Why used:</strong> Measures system usage and seat adoption.</p></div>
+          <div class="kpi-card"><h4>Active Users</h4><p class="purpose"><strong>Purpose:</strong> Shows all tenant-linked users across the platform.</p><p class="why"><strong>Why used:</strong> Tracks user adoption and license utilization.</p></div>
+          <div class="kpi-card"><h4>Total Calls</h4><p class="purpose"><strong>Purpose:</strong> Displays call volume (today, 24h, month).</p><p class="why"><strong>Why used:</strong> Monitors traffic, capacity planning, and carrier quality.</p></div>
+          <div class="kpi-card"><h4>Porting Requests</h4><p class="purpose"><strong>Purpose:</strong> Shows open number porting (LNP) requests.</p><p class="why"><strong>Why used:</strong> Tracks customer migration activity and FOC dates.</p></div>
+          <div class="kpi-card"><h4>Billing Status</h4><p class="purpose"><strong>Purpose:</strong> Shows pending bank payments, failed billing events, and order backlog.</p><p class="why"><strong>Why used:</strong> Financial monitoring and collections workflow.</p></div>
+        </div>
+        <div class="screenshot">Screenshot: Super Admin Executive Dashboard — KPI cards and 30-day trend charts</div>
+      </section>
+
+      <section class="doc-section" id="admin-tenants">
+        <h2>Tenant Management</h2>
+        <table class="doc-table">
+          <thead><tr><th>Action</th><th>Description</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr><td>Create Tenant</td><td>Provision new organization with default fees and admin user</td><td>Acme Corp → tenant admin invited</td></tr>
+            <tr><td>Edit Tenant</td><td>Update name, contact email, platform fees, timezone</td><td>Change MRC from $8 to $10</td></tr>
+            <tr><td>Suspend Tenant</td><td>Sets <code>isActive=false</code>; blocks login and calls</td><td>Non-payment suspension</td></tr>
+            <tr><td>Activate Tenant</td><td>Re-enables suspended tenant</td><td>After payment received</td></tr>
+            <tr><td>Delete Tenant</td><td>Remove tenant (guarded; releases numbers first)</td><td>Churned customer cleanup</td></tr>
+            <tr><td>View Usage</td><td>Calls, SMS, numbers, MRC per tenant</td><td>/admin/tenants/usage</td></tr>
+            <tr><td>Billing Assignment</td><td>Stripe subscription, manual orders, receivables</td><td>Assign DID + invoice</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="doc-section" id="admin-numbers">
+        <h2>Number Management (Super Admin)</h2>
+        <h3>Complete Workflow</h3>
+        <ol class="steps">
+          <li><strong>Search Numbers</strong> — Query Telnyx inventory by area code, city, or pattern at <code>/admin/numbers/purchase</code>.</li>
+          <li><strong>Purchase Numbers</strong> — Add to cart; checkout via Stripe or platform-paid order; assign to target tenant.</li>
+          <li><strong>Assign Numbers</strong> — Link DID to tenant, extension, ring group, or routing rule.</li>
+          <li><strong>Release Numbers</strong> — Return number to carrier inventory; update tenant billing.</li>
+          <li><strong>Port Existing Numbers</strong> — Submit LOA and port request (see Porting section).</li>
+        </ol>
+        <div class="screenshot">Screenshot: Admin Number Inventory and Purchase flow</div>
+      </section>
+
+      <section class="doc-section" id="admin-porting">
+        <h2>Number Porting (LNP)</h2>
+        <h3>What is Number Porting?</h3>
+        <p>Number porting (Local Number Portability) transfers an existing phone number from a customer's current carrier to VSP Phone / Telnyx without changing the published number.</p>
+
+        <h3>Porting Process</h3>
+        <ol class="steps">
+          <li><strong>Customer submits LOA</strong> — Letter of Authorization with account number and numbers to port.</li>
+          <li><strong>Billing verification</strong> — Confirm tenant account is in good standing.</li>
+          <li><strong>Carrier validation</strong> — Telnyx validates number eligibility and losing carrier.</li>
+          <li><strong>FOC date received</strong> — Firm Order Commitment date scheduled.</li>
+          <li><strong>Number migration</strong> — Cutover window; routing updated on FOC.</li>
+          <li><strong>Testing</strong> — Inbound/outbound test calls on ported DID.</li>
+          <li><strong>Completion</strong> — Status set to Completed; number active in tenant inventory.</li>
+        </ol>
+
+        <h3>Status Values</h3>
+        <table class="doc-table">
+          <thead><tr><th>Status</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td><span class="badge badge-blue">Submitted</span></td><td>Request received, awaiting review</td></tr>
+            <tr><td><span class="badge badge-amber">Pending Review</span></td><td>Admin or carrier reviewing LOA documents</td></tr>
+            <tr><td><span class="badge badge-red">Rejected</span></td><td>Invalid LOA, wrong account info, or carrier denial</td></tr>
+            <tr><td><span class="badge badge-green">Approved</span></td><td>Accepted by carrier; awaiting FOC</td></tr>
+            <tr><td><span class="badge badge-amber">In Progress</span></td><td>Port order active with losing carrier</td></tr>
+            <tr><td><span class="badge badge-blue">FOC Received</span></td><td>Firm Order Commitment date confirmed</td></tr>
+            <tr><td><span class="badge badge-green">Completed</span></td><td>Number live on VSP Phone platform</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Risks &amp; Validation Checks</h3>
+        <ul>
+          <li>LOA signature and authorized contact must match carrier records</li>
+          <li>Account PIN / BTN must be correct or port will reject</li>
+          <li>Numbers must not have pending port with another carrier</li>
+          <li>Toll-free and wireless numbers have additional requirements</li>
+          <li>Partial port failures require per-number status tracking</li>
+        </ul>
+      </section>
+
+      <section class="doc-section" id="admin-billing">
+        <h2>Billing Management (Super Admin)</h2>
+        <table class="doc-table">
+          <thead><tr><th>Area</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td>Subscription Plans</td><td>Per-number monthly platform + carrier MRC configured per tenant</td></tr>
+            <tr><td>Monthly Billing</td><td>Stripe subscriptions and recurring number fees</td></tr>
+            <tr><td>Usage Billing</td><td>Call/SMS usage tracked; overage policies per quota settings</td></tr>
+            <tr><td>Number Billing</td><td>Setup fee, first month, recurring MRC on purchase</td></tr>
+            <tr><td>Taxes</td><td>Configured via platform settings / invoice templates</td></tr>
+            <tr><td>Invoices</td><td>Generated on order fulfillment; PDF/email delivery</td></tr>
+            <tr><td>Payment Methods</td><td>Stripe card, manual bank transfer, Razorpay (if enabled)</td></tr>
+          </tbody>
+        </table>
+        <h3>Billing Workflow</h3>
+        <ol class="steps">
+          <li>Tenant adds numbers to cart → checkout session created</li>
+          <li>Payment via Stripe webhook or manual bank proof upload</li>
+          <li>Admin approves bank payments at <code>/admin/billing/orders</code></li>
+          <li>Order fulfilled → numbers assigned → invoice sent</li>
+          <li>Revenue protection job validates paid fulfillments</li>
+        </ol>
+      </section>
+
+      <section class="doc-section" id="admin-security">
+        <h2>Security Management</h2>
+        <table class="doc-table">
+          <thead><tr><th>Feature</th><th>Location</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td>Audit Logs</td><td>/admin/support/audit</td><td>Platform admin actions: billing, tenant changes, number releases</td></tr>
+            <tr><td>Login History</td><td>JWT sessions + extension audit</td><td>Auth events tracked per user/extension</td></tr>
+            <tr><td>MFA</td><td>Roadmap</td><td>Planned TOTP for super admin accounts</td></tr>
+            <tr><td>Password Policies</td><td>bcrypt hashing, reset tokens via email</td><td>Minimum complexity enforced on reset</td></tr>
+            <tr><td>Access Control</td><td>Role-based: SUPER_ADMIN, TENANT_ADMIN, TENANT_USER</td><td>API middleware on every route</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- SECTION 3 TENANT -->
+      <section class="doc-section" id="tenant-dashboard">
+        <h1>Tenant Dashboard</h1>
+        <p class="lead">The tenant portal at <code>app.vspphone.com</code> is the primary workspace for business administrators and users.</p>
+
+        <h2>Dashboard KPI Cards</h2>
+        <div class="kpi-grid">
+          <div class="kpi-card"><h4>Assigned Numbers</h4><p class="purpose"><strong>Purpose:</strong> Count of DIDs assigned to your organization.</p><p class="why"><strong>Why used:</strong> Quick view of telephony capacity and monthly cost basis.</p></div>
+          <div class="kpi-card"><h4>Active Extensions</h4><p class="purpose"><strong>Purpose:</strong> Extensions configured in phone system.</p><p class="why"><strong>Why used:</strong> Track seat count vs. purchased capacity.</p></div>
+          <div class="kpi-card"><h4>Monthly Call Minutes</h4><p class="purpose"><strong>Purpose:</strong> Aggregate talk time for current billing period.</p><p class="why"><strong>Why used:</strong> Usage monitoring and plan sizing.</p></div>
+          <div class="kpi-card"><h4>Active Users</h4><p class="purpose"><strong>Purpose:</strong> Users with portal or mobile access.</p><p class="why"><strong>Why used:</strong> Adoption and license management.</p></div>
+          <div class="kpi-card"><h4>Missed Calls</h4><p class="purpose"><strong>Purpose:</strong> Unanswered inbound calls in recent period.</p><p class="why"><strong>Why used:</strong> Service level and staffing decisions.</p></div>
+          <div class="kpi-card"><h4>Voicemail Count</h4><p class="purpose"><strong>Purpose:</strong> Unread voicemail messages.</p><p class="why"><strong>Why used:</strong> Ensures messages are reviewed promptly.</p></div>
+          <div class="kpi-card"><h4>Open Support Tickets</h4><p class="purpose"><strong>Purpose:</strong> Pending support items (if enabled).</p><p class="why"><strong>Why used:</strong> Track outstanding issues with VSP support.</p></div>
+        </div>
+        <div class="screenshot">Screenshot: Tenant Dashboard — welcome banner and KPI grid</div>
+      </section>
+
+      <section class="doc-section" id="tenant-phone">
+        <h2>Phone System</h2>
+
+        <h3>Extensions</h3>
+        <ul>
+          <li><strong>Create Extension</strong> — Assign extension number, display name, user, SIP credentials</li>
+          <li><strong>Edit Extension</strong> — Update routing, security, voicemail, recording policy</li>
+          <li><strong>Delete Extension</strong> — Remove extension; unassign numbers first</li>
+          <li><strong>Assign User</strong> — Link portal user for softphone and mobile provisioning</li>
+        </ul>
+
+        <h3>Ring Groups</h3>
+        <ul>
+          <li><strong>Create Ring Group</strong> — Name, members (extensions), strategy, timeout</li>
+          <li><strong>Assign Members</strong> — Add extensions/users to simultaneous or sequential ring</li>
+          <li><strong>Routing Logic</strong> — Simultaneous, sequential, round-robin; overflow to voicemail</li>
+        </ul>
+
+        <h3>Call Queues</h3>
+        <div class="callout callout-warn"><strong>Status:</strong> Call queues (ACD) are on the product roadmap (Phase 5B). Ring groups provide similar hunt-group functionality today.</div>
+
+        <h3>IVR / Auto Attendant</h3>
+        <ul>
+          <li><strong>Create IVR</strong> — Configure greeting message and business hours</li>
+          <li><strong>Menu Options</strong> — DTMF keys route to extensions, ring groups, or voicemail</li>
+          <li><strong>Call Routing</strong> — Per-DID routing override at <code>/greeting</code></li>
+        </ul>
+
+        <h3>Call Forwarding</h3>
+        <table class="doc-table">
+          <thead><tr><th>Type</th><th>Behavior</th></tr></thead>
+          <tbody>
+            <tr><td>Unconditional</td><td>All calls forward immediately to destination</td></tr>
+            <tr><td>Busy</td><td>Forward when extension is on another call</td></tr>
+            <tr><td>No Answer</td><td>Forward after ring timeout expires</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Voicemail</h3>
+        <ul>
+          <li><strong>Mailbox Setup</strong> — Per-extension or tenant default mailbox</li>
+          <li><strong>Greeting Upload</strong> — Custom audio or text-to-speech greeting</li>
+          <li><strong>Email Delivery</strong> — Notification with optional attachment (SMTP required)</li>
+        </ul>
+
+        <h3>Call Recording</h3>
+        <ul>
+          <li><strong>Enable Recording</strong> — Policy: always, inbound, outbound, on-demand, disabled</li>
+          <li><strong>Storage</strong> — Recordings synced from Telnyx; tenant-isolated in database</li>
+          <li><strong>Playback</strong> — Web portal and mobile app streaming via authenticated API</li>
+        </ul>
+
+        <h3>Security</h3>
+        <ul>
+          <li><strong>Password Rotation</strong> — User password reset via email flow</li>
+          <li><strong>Extension Security</strong> — Whitelist/blacklist, caller ID rules, audit log</li>
+          <li><strong>Audit Logs</strong> — Extension-level changes at <code>/phone-system/security</code></li>
+        </ul>
+      </section>
+
+      <section class="doc-section" id="tenant-messaging">
+        <h2>Messaging</h2>
+        <table class="doc-table">
+          <thead><tr><th>Feature</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td>SMS</td><td>Two-way texting on assigned DIDs; conversation inbox</td></tr>
+            <tr><td>MMS</td><td>Media messaging where supported by Telnyx profile</td></tr>
+            <tr><td>Messaging History</td><td>Thread view with read/unread status</td></tr>
+            <tr><td>Number Assignment</td><td>SMS-enabled DIDs required; configured per messaging profile</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="doc-section" id="tenant-billing">
+        <h2>Tenant Billing</h2>
+        <ul>
+          <li><strong>Subscription</strong> — View active plan and Stripe portal link</li>
+          <li><strong>Orders</strong> — Number purchase history and payment status</li>
+          <li><strong>Payment Methods</strong> — Card on file via Stripe</li>
+          <li><strong>Usage Reports</strong> — Call and SMS counts on dashboard</li>
+          <li><strong>Invoices</strong> — Download PDF invoices for fulfilled orders</li>
+        </ul>
+      </section>
+
+      <section class="doc-section" id="tenant-settings">
+        <h2>Settings</h2>
+        <table class="doc-table">
+          <thead><tr><th>Page</th><th>Features</th></tr></thead>
+          <tbody>
+            <tr><td>Company Profile</td><td>Name, contact email, timezone</td></tr>
+            <tr><td>Users / Team</td><td>Invite users, assign roles</td></tr>
+            <tr><td>Roles</td><td>TENANT_ADMIN vs TENANT_USER permissions</td></tr>
+            <tr><td>Permissions</td><td>Feature access per role (softphone, SMS, admin)</td></tr>
+            <tr><td>Branding</td><td>Company display name in portal and emails</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- SECTION 4 CUSTOMER -->
+      <section class="doc-section" id="customer-portal">
+        <h1>Customer User Portal</h1>
+        <p class="lead">Users with the <code>TENANT_USER</code> role access a simplified subset of the tenant portal focused on daily communication tasks.</p>
+
+        <table class="doc-table">
+          <thead><tr><th>Feature</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td>Call History</td><td>View inbound/outbound calls for the organization</td></tr>
+            <tr><td>Voicemail</td><td>Listen, mark read, delete messages</td></tr>
+            <tr><td>SMS</td><td>Conversation inbox on assigned lines</td></tr>
+            <tr><td>Contacts</td><td>Quick dial from call history (roadmap: dedicated contacts)</td></tr>
+            <tr><td>Call Recording Access</td><td>Playback if policy allows</td></tr>
+            <tr><td>User Profile</td><td>Name, email, extension info</td></tr>
+            <tr><td>Password Management</td><td>Change password, forgot password flow</td></tr>
+          </tbody>
+        </table>
+        <div class="screenshot">Screenshot: Tenant User — Softphone and Call History view</div>
+        <div class="screenshot">Screenshot: Voicemail inbox with playback controls</div>
+      </section>
+
+      <!-- SECTION 5 MOBILE -->
+      <section class="doc-section" id="mobile-setup">
+        <h1>Mobile Application</h1>
+        <p class="lead">The VSP Phone Android app provides WebRTC softphone, SMS, voicemail, and call history for mobile workers.</p>
+
+        <h2>Login &amp; Provisioning Process</h2>
+        <ol class="steps">
+          <li><strong>Tenant admin creates user</strong> — Add user at Settings → Team</li>
+          <li><strong>Extension assigned</strong> — Link user to extension with SIP/WebRTC credentials</li>
+          <li><strong>User receives credentials</strong> — Email/password or QR provisioning token</li>
+          <li><strong>Install VSP Phone app</strong> — Download APK from landing page or Play Store (when published)</li>
+          <li><strong>Login</strong> — Email + password against <code>https://api.vspphone.com</code></li>
+          <li><strong>Extension config download</strong> — App fetches softphone config and Telnyx token</li>
+          <li><strong>WebRTC registration</strong> — SIP registration with Telnyx completed</li>
+          <li><strong>Ready</strong> — User can make and receive calls with push notifications</li>
+        </ol>
+        <div class="callout callout-tip">QR provisioning: Admin generates token at extension → user scans in app for zero-touch setup.</div>
+      </section>
+
+      <section class="doc-section" id="mobile-features">
+        <h2>Mobile Features</h2>
+        <table class="doc-table">
+          <thead><tr><th>Feature</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td>Inbound Calling</td><td>Receive calls via WebRTC; push wakes app when backgrounded</td></tr>
+            <tr><td>Outbound Calling</td><td>Dial PSTN or extension from softphone screen</td></tr>
+            <tr><td>SMS</td><td>Conversation inbox with read/unread tracking</td></tr>
+            <tr><td>Voicemail</td><td>Listen to messages, mark read</td></tr>
+            <tr><td>Contacts</td><td>Dial-back from call history</td></tr>
+            <tr><td>Push Notifications</td><td>Telnyx push for inbound calls (Android)</td></tr>
+            <tr><td>Call History</td><td>Organization call log with recording links</td></tr>
+            <tr><td>Call Transfer</td><td>Blind transfer during active call (roadmap enhancement)</td></tr>
+            <tr><td>Hold / Mute</td><td>In-call controls via WebRTC audio session</td></tr>
+            <tr><td>Conference</td><td>Multi-party calling (roadmap)</td></tr>
+          </tbody>
+        </table>
+        <div class="screenshot">Screenshot: Mobile Dashboard and Softphone screens</div>
+      </section>
+
+      <!-- SECTION 6 CALL FLOWS -->
+      <section class="doc-section" id="call-flows">
+        <h1>Call Flow Documentation</h1>
+
+        <h2>Inbound Call Flow</h2>
+        <div class="diagram">
+          <div class="flow-row">
+            <div class="flow-box">Customer PSTN</div><span class="flow-arrow">→</span>
+            <div class="flow-box">DID Number</div><span class="flow-arrow">→</span>
+            <div class="flow-box">Telnyx</div><span class="flow-arrow">→</span>
+            <div class="flow-box highlight">VSP API Webhook</div><span class="flow-arrow">→</span>
+            <div class="flow-box">Routing Engine</div>
+          </div>
+          <div class="flow-row">
+            <div class="flow-box">IVR</div><span class="flow-arrow">/</span>
+            <div class="flow-box">Ring Group</div><span class="flow-arrow">/</span>
+            <div class="flow-box">Extension</div><span class="flow-arrow">→</span>
+            <div class="flow-box highlight">User Device</div>
+          </div>
+        </div>
+        <p>Inbound events: <code>call.initiated</code> → routing lookup by DID → answer/bridge → <code>call.answered</code> → <code>call.hangup</code>. Recordings and CDRs stored on hangup.</p>
+
+        <h2>Outbound Call Flow</h2>
+        <div class="diagram">
+          <div class="flow-row">
+            <div class="flow-box">User</div><span class="flow-arrow">→</span>
+            <div class="flow-box">Mobile / Web App</div><span class="flow-arrow">→</span>
+            <div class="flow-box highlight">VSP API</div><span class="flow-arrow">→</span>
+            <div class="flow-box">Telnyx WebRTC</div><span class="flow-arrow">→</span>
+            <div class="flow-box">PSTN Destination</div>
+          </div>
+        </div>
+        <p>Outbound uses Telnyx Call Control or WebRTC credential connection with caller ID set to tenant DID.</p>
+      </section>
+
+      <!-- SECTION 7 API -->
+      <section class="doc-section" id="api">
+        <h1>API Documentation</h1>
+        <p class="lead">Base URL: <code>https://api.vspphone.com</code>. Authenticate with JWT Bearer token from login.</p>
+
+        <h2>Authentication</h2>
+        <pre>POST /api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@asuitech.com",
+  "password": "Admin@123"
+}
+
+Response 200:
+{
+  "success": true,
+  "accessToken": "eyJhbG...",
+  "user": {
+    "id": "...",
+    "email": "admin@asuitech.com",
+    "role": "TENANT_ADMIN",
+    "tenantId": "...",
+    "tenantName": "Asuitech Solutions Inc"
+  }
+}</pre>
+
+        <h2>Tenant APIs (selected)</h2>
+        <table class="doc-table">
+          <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td>GET</td><td><code>/api/auth/me</code></td><td>Current user profile</td></tr>
+            <tr><td>GET</td><td><code>/api/dashboard/stats</code></td><td>Tenant dashboard KPIs</td></tr>
+            <tr><td>GET</td><td><code>/api/calls</code></td><td>Call history</td></tr>
+            <tr><td>GET</td><td><code>/api/tenant/recordings</code></td><td>Call recordings list</td></tr>
+            <tr><td>GET</td><td><code>/api/tenant/voicemails</code></td><td>Voicemail messages</td></tr>
+            <tr><td>GET</td><td><code>/api/sms/conversations</code></td><td>SMS threads</td></tr>
+            <tr><td>GET</td><td><code>/api/softphone/token</code></td><td>WebRTC login token</td></tr>
+          </tbody>
+        </table>
+
+        <h2>Number APIs</h2>
+        <pre>GET /api/numbers/search?areaCode=309
+POST /api/numbers/checkout
+GET /api/numbers/mine</pre>
+
+        <h2>Extension APIs</h2>
+        <pre>GET  /api/extensions
+POST /api/extensions
+PUT  /api/extensions/:id
+GET  /api/extensions/:id/security</pre>
+
+        <h2>Super Admin APIs</h2>
+        <pre>GET  /api/admin/dashboard/executive
+GET  /api/admin/tenants
+POST /api/admin/tenants
+GET  /api/admin/numbers/inventory
+POST /api/admin/numbers/:id/release</pre>
+
+        <h2>Billing APIs</h2>
+        <pre>POST /api/billing/checkout
+GET  /api/billing/orders
+POST /api/billing/webhook  (Stripe — server only)</pre>
+      </section>
+
+      <!-- SECTION 8 TROUBLESHOOTING -->
+      <section class="doc-section" id="troubleshooting">
+        <h1>Troubleshooting Guide</h1>
+        <table class="doc-table">
+          <thead><tr><th>Issue</th><th>Common Causes</th><th>Resolution</th></tr></thead>
+          <tbody>
+            <tr><td>Cannot login</td><td>Wrong URL, CORS, DB down, bad credentials</td><td>Verify <code>WEB_ORIGIN</code> in API .env; run seed; check <code>/ready</code></td></tr>
+            <tr><td>Extension offline</td><td>SIP creds missing, Telnyx connection down</td><td>Re-provision extension; check <code>/admin/monitoring/registrations</code></td></tr>
+            <tr><td>Cannot receive calls</td><td>Webhook URL wrong, DID not routed</td><td>Update Telnyx webhook to <code>https://api.vspphone.com/webhook/call-control</code></td></tr>
+            <tr><td>One-way audio</td><td>NAT/firewall, codec mismatch</td><td>Check WebRTC ICE; verify Telnyx connection</td></tr>
+            <tr><td>Voicemail not working</td><td>Greeting not configured, routing timeout</td><td>Check ring group timeout → voicemail target</td></tr>
+            <tr><td>SMS failure</td><td>Messaging profile not set, 10DLC</td><td>Configure Telnyx messaging profile ID in .env</td></tr>
+            <tr><td>Porting rejection</td><td>Invalid LOA, wrong BTN/PIN</td><td>Resubmit with corrected carrier account info</td></tr>
+            <tr><td>Billing failure</td><td>Stripe webhook secret mismatch</td><td>Update <code>STRIPE_WEBHOOK_SECRET</code> in production .env</td></tr>
+            <tr><td>Mobile Unauthorized</td><td>JWT not sent, token race</td><td>Rebuild app with <code>https://api.vspphone.com</code>; update mobile build</td></tr>
+            <tr><td>502 on portal</td><td>Next.js not running on :3001</td><td><code>pm2 restart vsp-web</code></td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- SECTION 9 DEPLOYMENT -->
+      <section class="doc-section" id="deployment">
+        <h1>Deployment Architecture</h1>
+        <div class="diagram">
+          <div class="arch-stack">
+            <div class="arch-layer arch-users">Internet — Browsers · Mobile · Telnyx Webhooks</div>
+            <div class="arch-layer arch-edge">AWS EC2 — Nginx 443 → SSL (Let's Encrypt)</div>
+            <div class="arch-layer arch-app">Node.js Express API :3000 (Docker) · Next.js Portal :3001 (PM2)</div>
+            <div class="arch-layer arch-data">PostgreSQL 16 (Docker) · Redis 7 (Docker)</div>
+            <div class="arch-layer arch-carrier">Telnyx — Call Control · WebRTC · SMS · Recordings</div>
+          </div>
+        </div>
+
+        <h2>Technology Stack</h2>
+        <table class="doc-table">
+          <thead><tr><th>Layer</th><th>Technology</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr><td>Compute</td><td>AWS EC2 (Ubuntu)</td><td>Single-node production; scale with ALB + ECS later</td></tr>
+            <tr><td>Container</td><td>Docker Compose</td><td>api, postgres, redis services</td></tr>
+            <tr><td>Reverse Proxy</td><td>Nginx</td><td>Subdomain routing, SSL termination</td></tr>
+            <tr><td>Database</td><td>PostgreSQL 16</td><td>Prisma ORM, 39 migrations</td></tr>
+            <tr><td>Cache</td><td>Redis 7</td><td>Tenant cache, rate limits, sessions</td></tr>
+            <tr><td>API</td><td>Node.js + Express 5</td><td>Port 3000, JWT auth</td></tr>
+            <tr><td>Portal</td><td>Next.js 16</td><td>Port 3001, PM2 process manager</td></tr>
+            <tr><td>Mobile</td><td>Flutter</td><td>Android APK, WebRTC via Telnyx SDK</td></tr>
+            <tr><td>Carrier</td><td>Telnyx</td><td>Voice, SMS, numbers, recordings</td></tr>
+          </tbody>
+        </table>
+
+        <h2>Production Checklist</h2>
+        <ol class="steps">
+          <li>DNS A records for vspphone.com, api, app, admin</li>
+          <li>Let's Encrypt SSL via Certbot</li>
+          <li>Docker Compose with correct <code>DATABASE_URL=postgres:5432</code></li>
+          <li><code>API_PUBLIC_URL</code>, <code>WEB_ORIGIN</code>, <code>ADMIN_ORIGIN</code> in .env</li>
+          <li>Next.js build with <code>NEXT_PUBLIC_API_URL=https://api.vspphone.com</code></li>
+          <li>Telnyx webhooks pointed to production API</li>
+          <li>PM2 for portal persistence; <code>pm2 save</code> + startup hook</li>
+        </ol>
+        <div class="callout callout-info">Full deployment runbook: <code>deploy/PRODUCTION-CHECKLIST.md</code> in the repository.</div>
+      </section>
+    </main>
+  </div>
+
+  <footer class="doc-footer">
+    <p>VSP Phone Documentation Portal · Multi-Tenant Cloud VoIP Platform · © 2026 VSP Phone</p>
+    <p>Version 1.0 · June 2026 · For support: support@vspphone.com</p>
+  </footer>
+
+  <script src="js/docs.js"></script>
+</body>
+</html>

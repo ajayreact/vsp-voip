@@ -10,7 +10,7 @@
 #   mobile\build\app\outputs\flutter-apk\app-release.apk (-Release)
 
 param(
-    [string]$ApiUrl = "http://10.0.2.2:3000",
+    [string]$ApiUrl = "https://api.vspphone.com",
     [switch]$Release
 )
 

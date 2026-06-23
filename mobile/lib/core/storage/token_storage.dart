@@ -7,10 +7,28 @@ class TokenStorage {
   final FlutterSecureStorage _storage;
   static const _tokenKey = 'vsp_access_token';
 
-  Future<String?> readToken() => _storage.read(key: _tokenKey);
+  /// In-memory cache avoids a race where tab screens fire API calls before
+  /// secure storage finishes persisting a token right after login.
+  String? _cachedToken;
 
-  Future<void> writeToken(String token) =>
-      _storage.write(key: _tokenKey, value: token);
+  Future<String?> readToken() async {
+    if (_cachedToken != null && _cachedToken!.isNotEmpty) {
+      return _cachedToken;
+    }
+    final stored = await _storage.read(key: _tokenKey);
+    if (stored != null && stored.isNotEmpty) {
+      _cachedToken = stored;
+    }
+    return stored;
+  }
 
-  Future<void> deleteToken() => _storage.delete(key: _tokenKey);
+  Future<void> writeToken(String token) async {
+    _cachedToken = token;
+    await _storage.write(key: _tokenKey, value: token);
+  }
+
+  Future<void> deleteToken() async {
+    _cachedToken = null;
+    await _storage.delete(key: _tokenKey);
+  }
 }

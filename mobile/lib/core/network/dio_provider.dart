@@ -19,6 +19,47 @@ class AuthInterceptor extends Interceptor {
     }
     handler.next(options);
   }
+
+  @override
+  Future<void> onError(
+    DioException err,
+    ErrorInterceptorHandler handler,
+  ) async {
+    final response = err.response;
+    final alreadyRetried = err.requestOptions.extra['auth_retry'] == true;
+
+    if (response?.statusCode == 401 &&
+        !alreadyRetried &&
+        !err.requestOptions.path.contains('/auth/login')) {
+      final token = await _ref.read(tokenStorageProvider).readToken();
+      if (token != null && token.isNotEmpty) {
+        final retryOptions = err.requestOptions.copyWith(
+          extra: {...err.requestOptions.extra, 'auth_retry': true},
+          headers: {
+            ...err.requestOptions.headers,
+            'Authorization': 'Bearer $token',
+          },
+        );
+        try {
+          final retryDio = Dio(
+            BaseOptions(
+              baseUrl: retryOptions.baseUrl,
+              connectTimeout: retryOptions.connectTimeout,
+              receiveTimeout: retryOptions.receiveTimeout,
+              headers: retryOptions.headers,
+            ),
+          );
+          final retryResponse = await retryDio.fetch(retryOptions);
+          handler.resolve(retryResponse);
+          return;
+        } catch (_) {
+          // Fall through to original error.
+        }
+      }
+    }
+
+    handler.next(err);
+  }
 }
 
 final dioProvider = Provider<Dio>((ref) {

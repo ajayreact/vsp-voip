@@ -8,6 +8,10 @@ import 'package:vsp_voip_mobile/core/storage/token_storage_provider.dart';
 import 'package:vsp_voip_mobile/features/auth/data/auth_api.dart';
 import 'package:vsp_voip_mobile/features/auth/data/models/user.dart';
 import 'package:vsp_voip_mobile/features/auth/data/provision_api.dart';
+import 'package:vsp_voip_mobile/features/calls/providers/calls_providers.dart';
+import 'package:vsp_voip_mobile/features/dashboard/providers/dashboard_providers.dart';
+import 'package:vsp_voip_mobile/features/profile/providers/profile_providers.dart';
+import 'package:vsp_voip_mobile/features/recordings/providers/recordings_providers.dart';
 import 'package:vsp_voip_mobile/features/softphone/providers/softphone_controller.dart';
 
 final authApiProvider = Provider<AuthApi>((ref) {
@@ -110,6 +114,7 @@ class AuthController extends AsyncNotifier<User?> {
       return ref.read(authRepositoryProvider).login(email, password);
     });
     if (state.hasError) throw state.error!;
+    _refreshAuthenticatedData();
   }
 
   Future<void> provisionFromQr(String token) async {
@@ -118,6 +123,14 @@ class AuthController extends AsyncNotifier<User?> {
       return ref.read(authRepositoryProvider).provisionFromQr(token);
     });
     if (state.hasError) throw state.error!;
+    _refreshAuthenticatedData();
+  }
+
+  void _refreshAuthenticatedData() {
+    ref.invalidate(dashboardStatsProvider);
+    ref.invalidate(callHistoryProvider);
+    ref.invalidate(recordingsProvider);
+    ref.invalidate(tenantProfileProvider);
   }
 
   Future<void> logout() async {
