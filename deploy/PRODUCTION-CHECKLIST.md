@@ -95,6 +95,7 @@ TELNYX_API_KEY=<existing>
 TELNYX_PUBLIC_KEY=<existing>
 TELNYX_CALL_CONTROL_APP_ID=<existing>
 TELNYX_CREDENTIAL_CONNECTION_ID=<existing>
+TELNYX_OUTBOUND_VOICE_PROFILE_ID=2982164000495633730
 
 WEBHOOK_STRICT=true
 ```
@@ -134,9 +135,18 @@ PORT=3001 pm2 start npm --name vsp-web -- start
 ### 3. Landing page
 
 ```bash
-# Static files already in repo at landing/
-sudo mkdir -p /opt/vsp-voip/landing
-sudo cp -r /opt/vsp-voip/landing/* /opt/vsp-voip/landing/
+cd /opt/vsp-voip
+git pull   # ensures landing/index.html exists
+
+# Fix permissions (403 Forbidden if skipped)
+sudo bash deploy/setup-landing.sh
+```
+
+Verify:
+
+```bash
+ls -la /opt/vsp-voip/landing/index.html
+curl -sI https://vspphone.com/ | head -5   # expect HTTP/2 200
 ```
 
 ### 4. Nginx + SSL
@@ -226,6 +236,8 @@ Expected: all routes return 200 (or 403 for super-admin-only edge cases).
 | `ADMIN_ORIGIN` missing breaks prod startup | Medium | Add to `.env` before `docker compose up` |
 | Let's Encrypt rate limits | Low | Use `--dry-run` first; ensure DNS propagated |
 | CORS blocks web portal | Medium | Set `WEB_ORIGIN` and `ADMIN_ORIGIN` exactly matching browser URLs |
+| **`https://vspphone.com` returns 403** | Medium | Missing `landing/index.html` or nginx `www-data` cannot read `/opt/vsp-voip/landing` — run `sudo bash deploy/setup-landing.sh` |
+| **Outbound stuck on Calling…** | High | Assign **VSP-Outbound** on **VSP-SIP-Trunk** (Credential Connection) Outbound tab — **not** on VSP-Voice-App. Keep numbers on Call Control for inbound. |
 | Call recording sync slow on first load | Low | Mobile uses `sync=0` query param; optional |
 
 ---

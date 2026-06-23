@@ -58,7 +58,7 @@ const {
 const { getCallControlSetupStatus, ensureTelnyxCallControlSetup } = require('../lib/telnyxCallControlSetup');
 const { startOutboundCallRecording } = require('../lib/outboundRecording');
 const { syncCallRecordingsFromTelnyx, refreshCallRecordingUrls, streamTelnyxRecording } = require('../lib/recordingSync');
-const { getRecordingSetupStatus } = require('../lib/telnyxRecordingSetup');
+const { getRecordingSetupStatus, ensureTelnyxRecordingSetup } = require('../lib/telnyxRecordingSetup');
 const { redeemProvisioningToken } = require('../lib/extensionProvisioning');
 const { loginLimiter, searchLimiter, billingLimiter } = require('../lib/rateLimit');
 const { sendPasswordResetEmail } = require('../lib/transactionalEmail');
@@ -568,6 +568,8 @@ router.get('/softphone/config', authMiddleware, async (req, res) => {
 
     const apiPublic = process.env.API_PUBLIC_URL || `http://localhost:${process.env.PORT || 3000}`;
     const callControlSetup = await getCallControlSetupStatus(prisma);
+    const webrtcSetup = await getRecordingSetupStatus(prisma);
+    const outboundReady = Boolean(connectionId && webrtcSetup.outboundVoiceProfileId);
 
     const ringMembers = normalizeRingGroupMembers(greeting?.ringGroupMembers);
     const inAppRingGroup = ringMembers.some(
@@ -591,6 +593,34 @@ router.get('/softphone/config', authMiddleware, async (req, res) => {
       voiceWebhookUrl: `${apiPublic}/webhook/voice`,
       callRecordingWebhookUrl: `${apiPublic}/webhook/call-recording`,
       callControlSetup,
+      webrtcSetup: {
+        outboundVoiceProfileId: webrtcSetup.outboundVoiceProfileId,
+        outboundReady,
+        credentialWebhookConfigured: webrtcSetup.credentialWebhookConfigured,
+        webhooksReachable: webrtcSetup.webhooksReachable,
+        message: !connectionId
+          ? 'WebRTC credential connection is not configured.'
+          : !webrtcSetup.outboundVoiceProfileId
+            ? 'Assign Outbound Voice Profile "VSP-Outbound" on the Telnyx CREDENTIAL connection (VSP-SIP-Trunk), not the Call Control app (VSP-Voice-App). Phone numbers stay on Call Control for inbound.'
+            : webrtcSetup.message,
+      },
+      telnyxArchitecture: {
+        inbound: {
+          resource: 'Call Control Application',
+          name: callControlSetup.applicationName || 'VSP-Voice-App',
+          id: callControlSetup.applicationId || null,
+          webhookUrl: callControlSetup.callControlWebhookUrl,
+          numberAssignment: 'Keep numbers (e.g. +13099880196) assigned here for inbound PSTN → webhook → ring WebRTC users.',
+        },
+        outboundWebRtc: {
+          resource: 'Credential Connection',
+          name: webrtcSetup.credentialConnectionId ? 'VSP-SIP-Trunk (platform credential connection)' : null,
+          id: connectionId,
+          webhookUrl: `${apiPublic}/webhook/voice`,
+          outboundVoiceProfileId: webrtcSetup.outboundVoiceProfileId,
+          note: 'Softphone registers here via telephony credential JWT. Caller ID is any tenant-owned number; numbers do not need to move off Call Control.',
+        },
+      },
       inboundRouting: {
         ringGroupEnabled: greeting?.ringGroupEnabled ?? false,
         inAppRingGroup,
@@ -621,6 +651,51 @@ router.get('/softphone/config', authMiddleware, async (req, res) => {
   }
 });
 
+router.get('/softphone/diagnostics', authMiddleware, async (req, res) => {
+  try {
+    if (!req.user.tenantId) {
+      return res.status(403).json({ error: 'No organization linked to this account' });
+    }
+
+    const prisma = await getPrisma();
+    const platform = await loadPlatformSettings(prisma);
+    const connectionId = await loadCredentialConnectionId(prisma);
+    const webrtcSetup = await getRecordingSetupStatus(prisma);
+    const callControlSetup = await getCallControlSetupStatus(prisma);
+
+    let connectionName = null;
+    let connectionWebhook = null;
+    if (connectionId && process.env.TELNYX_API_KEY) {
+      const { getCredentialConnection } = require('../lib/telnyxRecordingSetup');
+      const connection = await getCredentialConnection(connectionId);
+      connectionName = connection?.connection_name || connection?.name || null;
+      connectionWebhook = connection?.webhook_event_url || null;
+    }
+
+    res.json({
+      success: true,
+      outboundReady: Boolean(connectionId && webrtcSetup.outboundVoiceProfileId),
+      credentialConnection: {
+        id: connectionId,
+        name: connectionName,
+        webhookUrl: connectionWebhook,
+        outboundVoiceProfileId: webrtcSetup.outboundVoiceProfileId,
+      },
+      callControlApplication: {
+        id: callControlSetup.applicationId,
+        name: callControlSetup.applicationName,
+        webhookConfigured: callControlSetup.applicationWebhookConfigured,
+        webhookUrl: callControlSetup.callControlWebhookUrl,
+      },
+      fix: !webrtcSetup.outboundVoiceProfileId
+        ? 'Assign VSP-Outbound on VSP-SIP-Trunk (Credential Connection) Outbound tab, or set TELNYX_OUTBOUND_VOICE_PROFILE_ID in API .env and restart API.'
+        : null,
+    });
+  } catch (error) {
+    res.status(error.status || 500).json({ error: error.message || 'Diagnostics failed' });
+  }
+});
+
 router.post('/softphone/token', authMiddleware, async (req, res) => {
   try {
     if (!req.user.tenantId) {
@@ -639,6 +714,9 @@ router.post('/softphone/token', authMiddleware, async (req, res) => {
       tenantId: req.user.tenantId,
     });
 
+    ensureTelnyxRecordingSetup(prisma).catch((syncError) => {
+      console.warn('⚠️ Credential connection webhook/recording sync after softphone login:', syncError.message);
+    });
     ensureTelnyxCallControlSetup(prisma).catch((syncError) => {
       console.warn('⚠️ Call Control number sync after softphone login:', syncError.message);
     });

@@ -171,6 +171,15 @@ app.post('/webhook/call-control', ...voiceWebhookMiddleware, (req, res) => {
     });
 });
 
+app.get('/webhook/voice', (req, res) => {
+    res.status(200).json({
+        ok: true,
+        endpoint: '/webhook/voice',
+        method: 'POST',
+        message: 'Voice webhook is active. Telnyx sends POST events here (recordings, call telemetry). Browser GET requests are normal health checks.',
+    });
+});
+
 app.post('/webhook/voice', ...voiceWebhookMiddleware, (req, res) => {
     handleTelnyxVoiceWebhook(req, res).catch((error) => {
         console.error('❌ Voice webhook error:', error.message);

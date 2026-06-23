@@ -315,8 +315,33 @@ export type SoftphoneConfig = {
   callRecordingEnabled: boolean;
   voiceWebhookUrl: string;
   callRecordingWebhookUrl: string;
+  webrtcSetup?: {
+    outboundVoiceProfileId: string | null;
+    outboundReady: boolean;
+    credentialWebhookConfigured: boolean;
+    webhooksReachable: boolean;
+    message: string;
+  };
+  telnyxArchitecture?: {
+    inbound: {
+      resource: string;
+      name: string | null;
+      id: string | null;
+      webhookUrl: string;
+      numberAssignment: string;
+    };
+    outboundWebRtc: {
+      resource: string;
+      name: string | null;
+      id: string | null;
+      webhookUrl: string;
+      outboundVoiceProfileId: string | null;
+      note: string;
+    };
+  };
   callControlSetup?: {
     applicationId: string | null;
+    applicationName?: string | null;
     callControlWebhookUrl: string;
     webhooksReachable: boolean;
     applicationWebhookConfigured: boolean;
