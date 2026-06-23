@@ -824,6 +824,35 @@ router.post('/softphone/presence', authMiddleware, async (req, res) => {
   }
 });
 
+router.post('/softphone/telemetry', authMiddleware, async (req, res) => {
+  try {
+    if (!req.user.tenantId) {
+      return res.status(403).json({ error: 'No organization linked to this account' });
+    }
+
+    const event = req.body?.event ? String(req.body.event).trim() : '';
+    if (!event) {
+      return res.status(400).json({ error: 'event is required' });
+    }
+
+    const properties = req.body?.properties && typeof req.body.properties === 'object'
+      ? req.body.properties
+      : {};
+
+    console.log('[softphone-telemetry]', {
+      tenantId: req.user.tenantId,
+      userId: req.user.sub,
+      event,
+      properties,
+      at: new Date().toISOString(),
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(error.status || 500).json({ error: error.message || 'Failed to record telemetry' });
+  }
+});
+
 router.post('/softphone/push-token', authMiddleware, async (req, res) => {
   try {
     if (!req.user.tenantId) {

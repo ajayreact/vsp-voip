@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { isSoftphoneV2Enabled } from '@/lib/softphone-config';
 import { TelnyxRTC } from '@telnyx/webrtc';
 import type { Call } from '@telnyx/webrtc';
 import {
@@ -132,9 +134,29 @@ function normalizeDialNumber(value: string) {
 export default function SoftphonePage() {
   return (
     <TenantOnlyGate featureName="Softphone">
-      <SoftphoneContent />
+      <SoftphoneLegacyGate />
     </TenantOnlyGate>
   );
+}
+
+function SoftphoneLegacyGate() {
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isSoftphoneV2Enabled()) {
+      router.replace('/softphone-v2');
+    }
+  }, [router]);
+
+  if (isSoftphoneV2Enabled()) {
+    return (
+      <p className="py-8 text-center text-sm text-slate-500">
+        Redirecting to softphone…
+      </p>
+    );
+  }
+
+  return <SoftphoneContent />;
 }
 
 function SoftphoneContent() {

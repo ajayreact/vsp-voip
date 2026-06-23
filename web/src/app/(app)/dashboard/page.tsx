@@ -7,6 +7,7 @@ import { DataTable } from '@/components/data-table';
 import { getDashboardStats, getMe, type NumberOrder, type User } from '@/lib/api';
 import { formatPrice } from '@/lib/pricing';
 import { orderStatusBadgeClass, orderStatusLabel, orderStatusTone } from '@/lib/orderStatus';
+import { getSoftphoneHref } from '@/lib/softphone-config';
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<Awaited<ReturnType<typeof getDashboardStats>> | null>(null);
@@ -57,7 +58,7 @@ export default function DashboardPage() {
               <Link href="/my-numbers" className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-50">
                 My numbers
               </Link>
-              <Link href="/softphone" className="rounded-lg border border-white/40 px-4 py-2 text-sm font-medium text-white hover:bg-white/10">
+              <Link href={getSoftphoneHref()} className="rounded-lg border border-white/40 px-4 py-2 text-sm font-medium text-white hover:bg-white/10">
                 Open softphone
               </Link>
             </div>

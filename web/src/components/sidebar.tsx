@@ -21,13 +21,15 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { clearToken, getDashboardStats } from '@/lib/api';
+import { getSoftphoneHref, isSoftphoneRoute } from '@/lib/softphone-config';
 import { useCart } from '@/context/cart-context';
 import { AdminNav } from '@/components/admin-nav';
 
-const tenantNav = [
+function buildTenantNav() {
+  return [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/my-numbers', label: 'My Numbers', icon: Phone },
-  { href: '/softphone', label: 'Softphone', icon: PhoneCall },
+  { href: getSoftphoneHref(), label: 'Softphone', icon: PhoneCall },
   { href: '/phone-system/extensions', label: 'Phone system', icon: Network },
   { href: '/sms', label: 'SMS', icon: MessagesSquare },
   { href: '/numbers', label: 'Buy Numbers', icon: ShoppingCart },
@@ -36,10 +38,14 @@ const tenantNav = [
   { href: '/recordings', label: 'Recordings', icon: Mic },
   { href: '/calls', label: 'Call History', icon: History },
   { href: '/settings', label: 'Settings', icon: Settings },
-];
+  ];
+}
 
 function isNavActive(pathname: string, href: string) {
   if (href === '/admin') return pathname === '/admin';
+  if (href === getSoftphoneHref() || isSoftphoneRoute(href)) {
+    return isSoftphoneRoute(pathname);
+  }
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -51,6 +57,7 @@ export function Sidebar({ tenantName, role }: { tenantName?: string | null; role
   const isAdminRoute = pathname.startsWith('/admin');
   const showAdminNav = isSuperAdmin && (isAdminRoute || !tenantName);
   const showTenantNav = !showAdminNav || (isSuperAdmin && tenantName && !isAdminRoute);
+  const tenantNav = buildTenantNav();
   const [badges, setBadges] = useState({ voicemail: 0, sms: 0 });
 
   useEffect(() => {

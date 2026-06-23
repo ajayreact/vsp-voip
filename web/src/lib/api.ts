@@ -518,6 +518,16 @@ export async function startSoftphoneRecording(data: {
   );
 }
 
+export async function postSoftphoneTelemetry(data: {
+  event: string;
+  properties?: Record<string, unknown>;
+}) {
+  return apiFetch<{ success: boolean }>('/api/softphone/telemetry', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
 export type SmsMessageRecord = {
   id: string;
   tenantId: string;

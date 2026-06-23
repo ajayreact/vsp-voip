@@ -52,7 +52,8 @@ if [[ ! -x "${WEB_DIR}/node_modules/.bin/next" ]]; then
 fi
 
 export NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL:-https://api.vspphone.com}"
-echo "==> npm run build (NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL})"
+export NEXT_PUBLIC_SOFTPHONE_V2_ENABLED="${NEXT_PUBLIC_SOFTPHONE_V2_ENABLED:-${SOFTPHONE_V2_ENABLED:-true}}"
+echo "==> npm run build (NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}, NEXT_PUBLIC_SOFTPHONE_V2_ENABLED=${NEXT_PUBLIC_SOFTPHONE_V2_ENABLED})"
 npm run build
 
 if [[ ! -f "${WEB_DIR}/.next/BUILD_ID" ]]; then
