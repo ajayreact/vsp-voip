@@ -59,6 +59,8 @@ const { getCallControlSetupStatus, ensureTelnyxCallControlSetup } = require('../
 const { startOutboundCallRecording } = require('../lib/outboundRecording');
 const { syncCallRecordingsFromTelnyx, refreshCallRecordingUrls, streamTelnyxRecording } = require('../lib/recordingSync');
 const { getRecordingSetupStatus, ensureTelnyxRecordingSetup } = require('../lib/telnyxRecordingSetup');
+const { resolveSoftphoneInboundRoutingDiagnostics } = require('../lib/softphoneInboundDiagnostics');
+const { getCredentialConnectionPushStatus } = require('../lib/telnyxPushSetup');
 const { redeemProvisioningToken } = require('../lib/extensionProvisioning');
 const { loginLimiter, searchLimiter, billingLimiter } = require('../lib/rateLimit');
 const { sendPasswordResetEmail } = require('../lib/transactionalEmail');
@@ -571,29 +573,21 @@ router.get('/softphone/config', authMiddleware, async (req, res) => {
     const webrtcSetup = await getRecordingSetupStatus(prisma);
     const outboundReady = Boolean(connectionId && webrtcSetup.outboundVoiceProfileId);
 
-    const ringMembers = normalizeRingGroupMembers(greeting?.ringGroupMembers);
-    const inAppRingGroup = ringMembers.some(
-      (member) => member.type === 'app' && member.userId === req.user.sub,
+    const inboundDiagnostics = await resolveSoftphoneInboundRoutingDiagnostics(
+      prisma,
+      req.user.tenantId,
+      req.user.sub,
     );
-    const inboundRoutingReady = Boolean(
-      callControlSetup.webhooksReachable
-      && callControlSetup.applicationWebhookConfigured
-      && greeting?.ringGroupEnabled
-      && inAppRingGroup
-      && user?.telnyxSipUsername,
-    );
-
-    const sipUsername = user?.telnyxSipUsername || null;
-    const webrtcDialUri = sipUsername ? `sip:${sipUsername}@sip.telnyx.com` : null;
+    const inAppRingGroup = inboundDiagnostics.routingMethods.greetingRingGroup.userIncluded;
 
     res.json({
       success: true,
       configured: Boolean(connectionId),
       credentialConnectionId: connectionId,
-      sipUsername,
+      sipUsername: inboundDiagnostics.sipUsername,
       webrtcSession: {
-        sipUsername,
-        dialUri: webrtcDialUri,
+        sipUsername: inboundDiagnostics.sipUsername,
+        dialUri: inboundDiagnostics.webrtcDialUri,
         credentialConnectionId: connectionId,
         note: 'Call Control dials this SIP URI for inbound PSTN → WebRTC. Keep the softphone page open and registered.',
       },
@@ -634,7 +628,10 @@ router.get('/softphone/config', authMiddleware, async (req, res) => {
       inboundRouting: {
         ringGroupEnabled: greeting?.ringGroupEnabled ?? false,
         inAppRingGroup,
-        ready: inboundRoutingReady,
+        ready: inboundDiagnostics.ready,
+        routingMethods: inboundDiagnostics.routingMethods,
+        numberTargets: inboundDiagnostics.numberTargets,
+        sampleNumberTargets: inboundDiagnostics.sampleNumberTargets,
         pushTokenRegistered: Boolean(user?.pushDeviceToken) || registeredDevices.length > 0,
         pushPlatform: user?.pushDevicePlatform || null,
         registeredDeviceCount: registeredDevices.length,
@@ -645,19 +642,7 @@ router.get('/softphone/config', authMiddleware, async (req, res) => {
           appVersion: device.appVersion,
           lastSeenAt: device.lastSeenAt,
         })),
-        message: !callControlSetup.webhooksReachable
-          ? callControlSetup.message
-          : !callControlSetup.applicationWebhookConfigured
-            ? callControlSetup.message
-            : !greeting?.ringGroupEnabled
-              ? 'Enable ring group in Call routing so inbound PSTN calls can reach WebRTC users.'
-              : !inAppRingGroup
-                ? 'Add this user to the ring group with member type "app" in Call routing.'
-                : !user?.telnyxSipUsername
-                  ? 'Open the softphone once while logged in to provision WebRTC SIP credentials for inbound calls.'
-                  : inboundRoutingReady
-                    ? 'Inbound WebRTC routing is configured. Keep this page open while registered (telnyx.ready).'
-                    : 'Inbound routing is partially configured — verify Call Control webhooks and ring group members.',
+        message: inboundDiagnostics.message,
       },
     });
   } catch (error) {
@@ -672,10 +657,14 @@ router.get('/softphone/diagnostics', authMiddleware, async (req, res) => {
     }
 
     const prisma = await getPrisma();
-    const platform = await loadPlatformSettings(prisma);
     const connectionId = await loadCredentialConnectionId(prisma);
-    const webrtcSetup = await getRecordingSetupStatus(prisma);
-    const callControlSetup = await getCallControlSetupStatus(prisma);
+    const [webrtcSetup, callControlSetup, inboundDiagnostics, pushStatus, registeredDevices] = await Promise.all([
+      getRecordingSetupStatus(prisma),
+      getCallControlSetupStatus(prisma),
+      resolveSoftphoneInboundRoutingDiagnostics(prisma, req.user.tenantId, req.user.sub),
+      getCredentialConnectionPushStatus(connectionId),
+      listUserDevices(prisma, req.user.sub),
+    ]);
 
     let connectionName = null;
     let connectionWebhook = null;
@@ -700,10 +689,30 @@ router.get('/softphone/diagnostics', authMiddleware, async (req, res) => {
         name: callControlSetup.applicationName,
         webhookConfigured: callControlSetup.applicationWebhookConfigured,
         webhookUrl: callControlSetup.callControlWebhookUrl,
+        webhooksReachable: callControlSetup.webhooksReachable,
+      },
+      inboundRouting: inboundDiagnostics,
+      push: {
+        telnyxPortal: pushStatus,
+        userDevices: {
+          registered: registeredDevices.length > 0,
+          count: registeredDevices.length,
+          devices: registeredDevices.map((device) => ({
+            deviceId: device.deviceId,
+            platform: device.platform,
+            deviceName: device.deviceName,
+            lastSeenAt: device.lastSeenAt,
+          })),
+        },
+        note: 'Telnyx Portal push + SDK notificationToken on connectWithToken are both required for background mobile inbound.',
       },
       fix: !webrtcSetup.outboundVoiceProfileId
         ? 'Assign VSP-Outbound on VSP-SIP-Trunk (Credential Connection) Outbound tab, or set TELNYX_OUTBOUND_VOICE_PROFILE_ID in API .env and restart API.'
-        : null,
+        : !inboundDiagnostics.ready
+          ? inboundDiagnostics.message
+          : !pushStatus.configured
+            ? pushStatus.portalAction || pushStatus.message
+            : null,
     });
   } catch (error) {
     res.status(error.status || 500).json({ error: error.message || 'Diagnostics failed' });

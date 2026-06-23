@@ -43,6 +43,7 @@ const {
 } = require('./lib/telnyxVerify');
 
 const app = express();
+app.set('trust proxy', 1);
 
 const defaultWebOrigin = process.env.WEB_ORIGIN || 'http://localhost:3001';
 const adminWebOrigin = process.env.ADMIN_ORIGIN || '';
@@ -135,7 +136,7 @@ app.post(
     },
 );
 
-const smsWebhookMiddleware = [webhookLimiter, parseTelnyxJsonBody, verifyTelnyxWebhookMiddleware];
+const smsWebhookMiddleware = [parseTelnyxJsonBody, verifyTelnyxWebhookMiddleware];
 
 async function handleTelnyxSmsWebhook(req, res) {
     const eventType = req.body?.data?.event_type || '(unknown)';
@@ -161,8 +162,8 @@ app.post('/webhook/sms', ...smsWebhookMiddleware, (req, res) => {
     });
 });
 
-const voiceWebhookMiddleware = [webhookLimiter, parseTelnyxJsonBody, verifyTelnyxWebhookMiddleware];
-const recordingWebhookMiddleware = [webhookLimiter, parseTelnyxWebhookBody, verifyTelnyxWebhookMiddleware];
+const voiceWebhookMiddleware = [parseTelnyxJsonBody, verifyTelnyxWebhookMiddleware];
+const recordingWebhookMiddleware = [parseTelnyxWebhookBody, verifyTelnyxWebhookMiddleware];
 
 app.post('/webhook/call-control', ...voiceWebhookMiddleware, (req, res) => {
     handleTelnyxCallControlWebhook(req, res).catch((error) => {
@@ -592,7 +593,7 @@ async function handleTelnyxVoiceWebhook(req, res) {
 // Call logs are served via authenticated portal route: GET /api/calls
 // Number search/assign: authenticated portal + admin routes only
 
-const webhookMiddleware = [webhookLimiter, parseTelnyxFormBody, verifyTelnyxWebhookMiddleware];
+const webhookMiddleware = [parseTelnyxFormBody, verifyTelnyxWebhookMiddleware];
 
 // 5. TELNYX INBOUND CALL WEBHOOK
 app.get('/webhook', ...webhookMiddleware, (req, res) => {

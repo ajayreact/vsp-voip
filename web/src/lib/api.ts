@@ -351,6 +351,47 @@ export type SoftphoneConfig = {
     inAppRingGroup: boolean;
     ready: boolean;
     message?: string;
+    routingMethods?: {
+      greetingRingGroup: {
+        active: boolean;
+        userIncluded: boolean;
+        memberCount: number;
+        appMemberCount: number;
+      };
+      directUser: {
+        active: boolean;
+        numbers: string[];
+      };
+      extensionAssignment: {
+        active: boolean;
+        assignments: Array<{
+          number: string;
+          extensionId: string;
+          extensionNumber: string;
+          displayName: string | null;
+        }>;
+      };
+      entityRingGroup: {
+        active: boolean;
+        groups: Array<{
+          number: string;
+          ringGroupId: string;
+          ringGroupName: string;
+          userIncludedAsApp: boolean;
+          memberCount: number;
+          appTargetCount: number;
+        }>;
+      };
+    };
+    sampleNumberTargets?: Array<{
+      number: string;
+      routingType?: string;
+      targetCount?: number;
+      appTargetCount?: number;
+      userTargeted?: boolean;
+      userHasSipUsername?: boolean;
+      error?: string;
+    }>;
   };
   callControlSetup?: {
     applicationId: string | null;
@@ -364,6 +405,59 @@ export type SoftphoneConfig = {
 
 export async function getSoftphoneConfig() {
   return apiFetch<{ success: boolean } & SoftphoneConfig>('/api/softphone/config');
+}
+
+export type SoftphoneDiagnostics = {
+  success: boolean;
+  outboundReady: boolean;
+  fix: string | null;
+  credentialConnection: {
+    id: string | null;
+    name: string | null;
+    webhookUrl: string | null;
+    outboundVoiceProfileId: string | null;
+  };
+  callControlApplication: {
+    id: string | null;
+    name: string | null;
+    webhookConfigured: boolean;
+    webhookUrl: string;
+    webhooksReachable?: boolean;
+  };
+  inboundRouting: {
+    ready: boolean;
+    message: string;
+    sipUsername: string | null;
+    webrtcDialUri: string | null;
+    routingMethods?: SoftphoneConfig['inboundRouting'] extends { routingMethods?: infer R } ? R : never;
+    sampleNumberTargets?: SoftphoneConfig['inboundRouting'] extends { sampleNumberTargets?: infer S } ? S : never;
+  };
+  push: {
+    telnyxPortal: {
+      configured: boolean;
+      pushEnabled?: boolean;
+      androidConfigured: boolean;
+      iosConfigured: boolean;
+      message: string;
+      portalAction?: string | null;
+      note?: string;
+    };
+    userDevices: {
+      registered: boolean;
+      count: number;
+      devices: Array<{
+        deviceId: string;
+        platform: string;
+        deviceName: string | null;
+        lastSeenAt: string | null;
+      }>;
+    };
+    note: string;
+  };
+};
+
+export async function getSoftphoneDiagnostics() {
+  return apiFetch<SoftphoneDiagnostics>('/api/softphone/diagnostics');
 }
 
 export async function getSoftphoneToken() {

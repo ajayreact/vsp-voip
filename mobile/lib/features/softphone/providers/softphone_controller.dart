@@ -414,7 +414,9 @@ class SoftphoneController extends Notifier<SoftphoneState> {
         appVersion: appVersion,
       );
       state = state.copyWith(pushRegistered: true);
-      debugPrint('[VSP Softphone] Push token registered (${pushPlatformName()})');
+      debugPrint(
+        '[VSP Softphone] Push token registration complete (${pushPlatformName()})',
+      );
     } catch (error) {
       debugPrint('[VSP Softphone] Push token backend registration failed: $error');
       state = state.copyWith(pushRegistered: false);
@@ -952,6 +954,10 @@ class SoftphoneController extends Notifier<SoftphoneState> {
     if (_client == null) return;
     _socketDisconnectedForBackground = false;
     PushCallCoordinator.instance.socketConnectedForInbound = true;
+    debugPrint(
+      '[VSP Softphone] telnyx.ready — WebRTC client registered '
+      'pushRegistered=${state.pushRegistered}',
+    );
     state = state.copyWith(
       uiState: SoftphoneUiState.ready,
       status: '',
@@ -1198,6 +1204,10 @@ class SoftphoneController extends Notifier<SoftphoneState> {
     }
     _activeCall = call;
     NativeIncomingCallUi.dismissAll().catchError((_) {});
+    debugPrint(
+      '[VSP Softphone] Call answered — active callId=${call.callId} '
+      'direction=${_isInboundCall ? 'inbound' : 'outbound'}',
+    );
     debugPrint('[WebRTC Audio] Call ACTIVE ${call.callId}');
     unawaited(
       WebRtcAudioHelper.onMediaConnected(
@@ -1245,6 +1255,11 @@ class SoftphoneController extends Notifier<SoftphoneState> {
     }
     _endingCall = true;
     _stopDurationTimer();
+    debugPrint(
+      '[VSP Softphone] Call ended callId=${call.callId} '
+      'direction=${_isInboundCall ? 'inbound' : 'outbound'} '
+      'duration=${state.elapsedSeconds}s',
+    );
     final from = _lastFrom;
     final to = _lastTo;
     final duration = state.elapsedSeconds;

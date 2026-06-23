@@ -11,6 +11,48 @@ import 'package:vsp_voip_mobile/core/push/push_call_coordinator.dart';
 import 'package:vsp_voip_mobile/core/push/telnyx_android_notifications.dart';
 
 bool pushBootstrapComplete = false;
+bool _backgroundCallKitListenerRegistered = false;
+
+/// Telnyx docs: background FCM isolate must set push metadata on CallKit accept/decline.
+void _ensureBackgroundCallKitPushHandler() {
+  if (_backgroundCallKitListenerRegistered) return;
+  _backgroundCallKitListenerRegistered = true;
+
+  FlutterCallkitIncoming.onEvent.listen((CallEvent? event) {
+    if (event == null) return;
+
+    final extra = event.body['extra'];
+    final data = extra is Map
+        ? Map<String, dynamic>.from(extra)
+        : null;
+    if (data == null || data.isEmpty) return;
+
+    switch (event.event) {
+      case Event.actionCallIncoming:
+        TelnyxClient.setPushMetaData(data);
+        debugPrint('[VSP Softphone] Background CallKit incoming — push metadata set');
+      case Event.actionCallAccept:
+        TelnyxClient.setPushMetaData(
+          data,
+          isAnswer: true,
+          isDecline: false,
+        );
+        debugPrint('[VSP Softphone] Background CallKit accept — push metadata set');
+      case Event.actionCallDecline:
+      case Event.actionCallEnded:
+        TelnyxClient.setPushMetaData(
+          data,
+          isAnswer: false,
+          isDecline: event.event == Event.actionCallDecline,
+        );
+        debugPrint(
+          '[VSP Softphone] Background CallKit ${event.event == Event.actionCallDecline ? 'decline' : 'ended'} — push metadata set',
+        );
+      default:
+        break;
+    }
+  });
+}
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -18,12 +60,15 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
   if (defaultTargetPlatform == TargetPlatform.android) {
     await TelnyxAndroidNotifications.initialize();
+    _ensureBackgroundCallKitPushHandler();
   }
   final data = Map<String, dynamic>.from(message.data);
   if (NativeIncomingCallUi.isMissedCallPush(data)) {
     await NativeIncomingCallUi.handleMissedCallPush(data);
     return;
   }
+  TelnyxClient.setPushMetaData(data);
+  debugPrint('[VSP Softphone] Background FCM push — metadata set before incoming UI');
   await NativeIncomingCallUi.showFromRemoteMessage(message);
 }
 

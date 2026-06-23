@@ -6,13 +6,14 @@ import { TelnyxRTC } from '@telnyx/webrtc';
 import type { Call } from '@telnyx/webrtc';
 import {
   getSoftphoneConfig,
+  getSoftphoneDiagnostics,
   getSoftphoneToken,
   isUnauthorizedError,
   logSoftphoneCall,
   setSoftphonePresence,
   startSoftphoneRecording,
 } from '@/lib/api';
-import type { SoftphoneConfig } from '@/lib/api';
+import type { SoftphoneConfig, SoftphoneDiagnostics } from '@/lib/api';
 import { TenantOnlyGate } from '@/components/tenant-only-gate';
 import {
   playOutboundRingback,
@@ -165,6 +166,10 @@ function SoftphoneContent() {
   const applyCallUpdateRef = useRef<(call: Call) => void>(() => {});
   const [bootAttempt, setBootAttempt] = useState(0);
   const [audioBlocked, setAudioBlocked] = useState(false);
+  const [telnyxReady, setTelnyxReady] = useState(false);
+  const [tokenStatus, setTokenStatus] = useState('Loading…');
+  const [serverDiagnostics, setServerDiagnostics] = useState<SoftphoneDiagnostics | null>(null);
+  const [lastInviteReceived, setLastInviteReceived] = useState<string | null>(null);
 
   useEffect(() => {
     if (uiState !== 'active') {
@@ -279,6 +284,16 @@ function SoftphoneContent() {
         setCallerId(defaultId);
         callerIdRef.current = defaultId;
 
+        getSoftphoneDiagnostics()
+          .then((diagnostics) => {
+            if (mounted && generation === bootGenerationRef.current) {
+              setServerDiagnostics(diagnostics);
+            }
+          })
+          .catch((err) => {
+            warnSoftphone('Softphone diagnostics fetch failed', err);
+          });
+
         if (!config.configured) {
           setUiState('not-configured');
           setStatus('WebRTC credential connection is not configured');
@@ -292,6 +307,7 @@ function SoftphoneContent() {
 
         setUiState('connecting');
         setStatus('Requesting secure login token…');
+        setTokenStatus('Requesting…');
         const tokenRes = await getSoftphoneToken();
         if (!mounted || generation !== bootGenerationRef.current) return;
 
@@ -300,6 +316,11 @@ function SoftphoneContent() {
           credentialConnectionId: tokenRes.credentialConnectionId,
           expiresInSeconds: tokenRes.expiresInSeconds,
         });
+        setTokenStatus(
+          tokenRes.loginToken?.trim()
+            ? `Valid (${tokenRes.loginToken.trim().length} chars, expires ${tokenRes.expiresInSeconds}s)`
+            : 'Empty — Telnyx did not return a JWT',
+        );
 
         if (tokenRes.sipUsername) {
           setSipUsername(tokenRes.sipUsername);
@@ -311,6 +332,7 @@ function SoftphoneContent() {
 
         clientReadyRef.current = false;
         watchedCallIdRef.current = null;
+        setTelnyxReady(false);
 
         setStatus('Preparing audio and WebRTC session…');
         const remoteAudioEl = await waitForRemoteAudioElement(remoteAudioRef);
@@ -366,6 +388,11 @@ function SoftphoneContent() {
             stopAllCallSounds();
             call.stopRingback?.();
             call.stopRingtone?.();
+            logSoftphone('Call answered', {
+              callId: call.id,
+              inbound,
+              remoteNumber,
+            });
             unwireCallAudioRef.current?.();
             unwireCallAudioRef.current = wireWebCallAudio(
               call,
@@ -410,6 +437,12 @@ function SoftphoneContent() {
             stopAllCallSounds();
             call.stopRingback?.();
             call.stopRingtone?.();
+            logSoftphone('Call ended', {
+              callId: call.id,
+              state,
+              inbound,
+              remoteNumber,
+            });
             unwireCallAudioRef.current?.();
             unwireCallAudioRef.current = null;
             detachRemoteCallAudio(remoteAudioRef.current);
@@ -457,11 +490,14 @@ function SoftphoneContent() {
 
             if (state === 'ringing' && isInboundCall(call)) {
               const from = resolveRemoteCallerNumber(call);
-              logSoftphone('Incoming call ringing', {
+              logSoftphone('Incoming INVITE received', {
                 from,
                 callerNumber: (call as Call & { options?: { callerNumber?: string } }).options?.callerNumber,
                 call: summarizeCall(call),
               });
+              setLastInviteReceived(
+                `${new Date().toLocaleTimeString()} — ${from || 'Unknown caller'}`,
+              );
             }
           }
 
@@ -470,7 +506,14 @@ function SoftphoneContent() {
           const call = extractCallFromNotification(notification);
           if (!call) {
             if (type === 'invite' && notification.call) {
-              logSoftphone('inbound invite notification', summarizeCall(notification.call));
+              const from = resolveRemoteCallerNumber(notification.call);
+              logSoftphone('Incoming INVITE received (invite notification)', {
+                from,
+                call: summarizeCall(notification.call),
+              });
+              setLastInviteReceived(
+                `${new Date().toLocaleTimeString()} — ${from || 'Unknown caller'}`,
+              );
               bindTrackedCall(notification.call, 'inbound-invite');
             }
             return;
@@ -498,6 +541,7 @@ function SoftphoneContent() {
           warnSoftphone('telnyx.socket.close', event);
           if (!mounted || tearingDownRef.current || generation !== bootGenerationRef.current) return;
           clientReadyRef.current = false;
+          setTelnyxReady(false);
           setStatus('Reconnecting to Telnyx…');
           cancelReconnect?.();
           cancelReconnect = scheduleTelnyxReconnect(
@@ -511,6 +555,7 @@ function SoftphoneContent() {
           cancelReconnect?.();
           cancelReconnect = null;
           clientReadyRef.current = true;
+          setTelnyxReady(true);
           logSoftphone('telnyx.ready — WebRTC client registered with Telnyx', {
             sipUsername: tokenRes.sipUsername || config.sipUsername,
             region: clientOptions.region || 'auto',
@@ -526,6 +571,7 @@ function SoftphoneContent() {
           if (!mounted || generation !== bootGenerationRef.current || tearingDownRef.current) return;
           logTelnyxError(event);
           clientReadyRef.current = false;
+          setTelnyxReady(false);
           setUiState('error');
           setError(formatTelnyxError(event));
         });
@@ -544,6 +590,7 @@ function SoftphoneContent() {
         client.connect();
       } catch (err) {
         if (!mounted || generation !== bootGenerationRef.current) return;
+        setTokenStatus('Failed');
         if (!isUnauthorizedError(err)) {
           setUiState('error');
           setError(err instanceof Error ? err.message : 'Could not start softphone');
@@ -559,6 +606,7 @@ function SoftphoneContent() {
       cancelReconnect?.();
       cancelReconnect = null;
       clientReadyRef.current = false;
+      setTelnyxReady(false);
       watchedCallIdRef.current = null;
       clearCallingTimeout();
       clearCallWatch();
@@ -741,7 +789,7 @@ function SoftphoneContent() {
         extended.options.audio = true;
       }
 
-      logSoftphone('Answering inbound call', summarizeCall(call));
+      logSoftphone('Call answered (user action)', summarizeCall(call));
       call.answer();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Microphone permission is required');
@@ -827,6 +875,79 @@ function SoftphoneContent() {
             <> — inbound dial target <code className="break-all text-slate-700">{webrtcDialUri}</code></>
           ) : null}
         </p>
+      ) : null}
+
+      {uiState !== 'not-configured' && uiState !== 'no-numbers' ? (
+        <details open className="rounded-xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-700">
+          <summary className="cursor-pointer font-medium text-slate-900">Session diagnostics</summary>
+          <dl className="mt-3 grid grid-cols-1 gap-x-4 gap-y-2 text-xs sm:grid-cols-2">
+            <div>
+              <dt className="font-medium text-slate-500">Telnyx Ready</dt>
+              <dd className={telnyxReady ? 'text-emerald-700' : 'text-amber-700'}>
+                {telnyxReady ? 'Yes — telnyx.ready received' : uiState === 'connecting' ? 'Connecting…' : 'No — not registered'}
+              </dd>
+            </div>
+            <div>
+              <dt className="font-medium text-slate-500">SIP Username</dt>
+              <dd className="break-all font-mono text-slate-800">{sipUsername || 'Not provisioned'}</dd>
+            </div>
+            <div>
+              <dt className="font-medium text-slate-500">Registration Status</dt>
+              <dd>
+                {telnyxReady
+                  ? 'Registered on Telnyx WebRTC'
+                  : uiState === 'error'
+                    ? 'Registration failed'
+                    : uiState === 'connecting'
+                      ? 'Registering…'
+                      : 'Not connected'}
+              </dd>
+            </div>
+            <div>
+              <dt className="font-medium text-slate-500">WebRTC State</dt>
+              <dd className="capitalize">{uiState}</dd>
+            </div>
+            <div>
+              <dt className="font-medium text-slate-500">Token Status</dt>
+              <dd className="break-all">{tokenStatus}</dd>
+            </div>
+            <div>
+              <dt className="font-medium text-slate-500">Last INVITE Received</dt>
+              <dd>{lastInviteReceived || 'None this session'}</dd>
+            </div>
+            <div className="sm:col-span-2">
+              <dt className="font-medium text-slate-500">Push Status (mobile / Telnyx Portal)</dt>
+              <dd>
+                {serverDiagnostics?.push
+                  ? [
+                      serverDiagnostics.push.telnyxPortal.configured
+                        ? 'Telnyx Portal push configured'
+                        : 'Telnyx Portal push NOT configured',
+                      serverDiagnostics.push.userDevices.registered
+                        ? `${serverDiagnostics.push.userDevices.count} mobile device(s) registered`
+                        : 'No mobile push tokens in backend',
+                    ].join(' · ')
+                  : 'Loading server diagnostics…'}
+              </dd>
+            </div>
+            <div className="sm:col-span-2">
+              <dt className="font-medium text-slate-500">Inbound Routing</dt>
+              <dd>
+                {serverDiagnostics?.inboundRouting?.ready
+                  ? 'Ready — Call Control can dial this WebRTC user'
+                  : serverDiagnostics?.inboundRouting?.message
+                    || inboundRoutingMessage
+                    || 'Checking…'}
+              </dd>
+            </div>
+            {serverDiagnostics?.fix ? (
+              <div className="sm:col-span-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900">
+                <dt className="font-medium">Recommended fix</dt>
+                <dd className="mt-1">{serverDiagnostics.fix}</dd>
+              </div>
+            ) : null}
+          </dl>
+        </details>
       ) : null}
 
       {outboundReady && telnyxArchitecture ? (
