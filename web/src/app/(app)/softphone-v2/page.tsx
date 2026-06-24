@@ -130,15 +130,35 @@ type TelnyxNotificationPayload = {
 
 type CallDisplayFields = Call & {
   callerNumber?: string;
+  callerName?: string;
   remoteCallerNumber?: string;
+  remotePartyNumber?: string;
+  remotePartyName?: string;
   options?: {
     destinationNumber?: string;
     remoteCallerNumber?: string;
+    remotePartyNumber?: string;
     callerNumber?: string;
   };
 };
 
-function extractPhoneDisplayValue(value?: string | null) {
+function phoneDigits(value?: string | null) {
+  return String(value || '').replace(/\D/g, '');
+}
+
+function isOwnInboundNumber(digits: string, ownNumbers: string[] = []) {
+  if (!digits) return false;
+  return ownNumbers.some((value) => {
+    const ownDigits = phoneDigits(value);
+    if (!ownDigits) return false;
+    if (digits === ownDigits) return true;
+    return digits.length >= 10
+      && ownDigits.length >= 10
+      && digits.slice(-10) === ownDigits.slice(-10);
+  });
+}
+
+function extractPhoneDisplayValue(value?: string | null, ownNumbers: string[] = []) {
   if (!value) return '';
   let candidate = String(value).trim();
   if (!candidate) return '';
@@ -151,6 +171,7 @@ function extractPhoneDisplayValue(value?: string | null) {
   const digits = candidate.replace(/\D/g, '');
   if (!digits) return '';
   if (/[a-z]/i.test(candidate.replace(/^sip:/i, ''))) return '';
+  if (isOwnInboundNumber(digits, ownNumbers)) return '';
 
   if (digits.length === 10) return `+1${digits}`;
   if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`;
@@ -159,32 +180,36 @@ function extractPhoneDisplayValue(value?: string | null) {
   return '';
 }
 
-function findPhoneDisplayValueInPayload(value: unknown, depth = 0): string {
+function findPhoneDisplayValueInPayload(
+  value: unknown,
+  ownNumbers: string[] = [],
+  depth = 0,
+): string {
   if (!value || depth > 5) return '';
-  if (typeof value === 'string') return extractPhoneDisplayValue(value);
+  if (typeof value === 'string') return extractPhoneDisplayValue(value, ownNumbers);
   if (typeof value !== 'object') return '';
 
   const record = value as Record<string, unknown>;
   const preferredKeys = [
-    'remoteCallerNumber',
-    'callerNumber',
     'from',
+    'remotePartyNumber',
+    'callerNumber',
+    'remoteCallerNumber',
     'caller_id_number',
     'callerIdNumber',
     'ani',
     'cli',
     'phone_number',
-    'number',
   ];
 
   for (const key of preferredKeys) {
-    const direct = findPhoneDisplayValueInPayload(record[key], depth + 1);
+    const direct = findPhoneDisplayValueInPayload(record[key], ownNumbers, depth + 1);
     if (direct) return direct;
   }
 
   for (const [key, nested] of Object.entries(record)) {
-    if (key === 'call' || preferredKeys.includes(key)) continue;
-    const found = findPhoneDisplayValueInPayload(nested, depth + 1);
+    if (key === 'call' || key === 'to' || preferredKeys.includes(key)) continue;
+    const found = findPhoneDisplayValueInPayload(nested, ownNumbers, depth + 1);
     if (found) return found;
   }
 
@@ -195,16 +220,19 @@ function resolveCallDisplayNumber(
   call: Call,
   fallback = '',
   notification?: TelnyxNotificationPayload,
+  ownNumbers: string[] = [],
 ) {
   const extended = call as CallDisplayFields;
   const options = extended.options;
 
   if (isInboundCall(call)) {
     return (
-      extractPhoneDisplayValue(options?.remoteCallerNumber)
-      || extractPhoneDisplayValue(extended.callerNumber)
-      || findPhoneDisplayValueInPayload(notification?.payload)
-      || findPhoneDisplayValueInPayload(notification)
+      extractPhoneDisplayValue(extended.remotePartyNumber, ownNumbers)
+      || extractPhoneDisplayValue(options?.remotePartyNumber, ownNumbers)
+      || findPhoneDisplayValueInPayload(notification?.payload, ownNumbers)
+      || extractPhoneDisplayValue(options?.remoteCallerNumber, ownNumbers)
+      || extractPhoneDisplayValue(extended.callerNumber, ownNumbers)
+      || findPhoneDisplayValueInPayload(notification, ownNumbers)
       || 'Unknown'
     );
   }
@@ -281,11 +309,13 @@ function isInboundCall(call: Call) {
   const extended = call as Call & {
     direction?: string;
     callerNumber?: string;
+    remotePartyNumber?: string;
     options?: { destinationNumber?: string; remoteCallerNumber?: string };
   };
   if (extended.direction?.toLowerCase() === 'inbound') return true;
   return Boolean(
-    extended.options?.remoteCallerNumber
+    extended.remotePartyNumber
+    || extended.options?.remoteCallerNumber
     || (extended.callerNumber && !extended.options?.destinationNumber),
   );
 }
@@ -412,6 +442,7 @@ function SoftphoneV2Content() {
   const callSecondsRef = useRef(0);
   const callSessionRef = useRef<ActiveCallSession | null>(null);
   const callerNumberRef = useRef('');
+  const tenantNumbersRef = useRef<string[]>([]);
   const saveCallToHistoryRef = useRef<() => void>(() => {});
   const incomingRingtoneRef = useRef<IncomingRingtoneHandle | null>(null);
   const missedToastTimerRef = useRef<number | null>(null);
@@ -514,6 +545,11 @@ function SoftphoneV2Content() {
     incomingRingtoneRef.current?.stop();
     incomingRingtoneRef.current = null;
   };
+
+  const getOwnedInboundNumbers = () => [
+    callerNumberRef.current,
+    ...tenantNumbersRef.current,
+  ].filter(Boolean);
 
   stopIncomingRingtoneRef.current = stopIncomingRingtone;
 
@@ -654,6 +690,10 @@ function SoftphoneV2Content() {
   }, [callerNumber]);
 
   useEffect(() => {
+    tenantNumbersRef.current = tenantNumbers.map((entry) => entry.number);
+  }, [tenantNumbers]);
+
+  useEffect(() => {
     if (!telnyxReady) return undefined;
     return startSoftphonePresenceHeartbeat(undefined, setPresenceStatus);
   }, [telnyxReady]);
@@ -742,6 +782,7 @@ function SoftphoneV2Content() {
           config.inboundRouting?.routingMethods?.extensionAssignment?.assignments ?? [],
           me.id,
         );
+        tenantNumbersRef.current = config.numbers.map((entry) => entry.number);
         if (mounted) {
           setTenantNumbers(config.numbers);
           setCallerNumber(initialCallerId);
@@ -847,9 +888,10 @@ function SoftphoneV2Content() {
             });
             syncTimerWithCallState(payload.call.state);
             if (mounted) {
+              const ownedInboundNumbers = getOwnedInboundNumbers();
               setCallState(normalized);
               setDisplayNumber((prev) => {
-                const resolved = resolveCallDisplayNumber(payload.call!, prev, payload);
+                const resolved = resolveCallDisplayNumber(payload.call!, prev, payload, ownedInboundNumbers);
                 if (isInboundCall(payload.call!)) {
                   return resolved !== 'Unknown' ? resolved : '';
                 }
@@ -857,7 +899,7 @@ function SoftphoneV2Content() {
               });
 
               if (isInboundCall(payload.call) && payload.call.id) {
-                const inboundNumber = resolveCallDisplayNumber(payload.call, '', payload);
+                const inboundNumber = resolveCallDisplayNumber(payload.call, '', payload, ownedInboundNumbers);
                 if (
                   !callSessionRef.current
                   || callSessionRef.current.callId !== payload.call.id
@@ -1035,7 +1077,7 @@ function SoftphoneV2Content() {
     stopIncomingRingtone();
     try {
       call.answer();
-      setDisplayNumber((prev) => resolveCallDisplayNumber(call, prev));
+      setDisplayNumber((prev) => resolveCallDisplayNumber(call, prev, undefined, getOwnedInboundNumbers()));
       logTelnyx('answer.invoked');
     } catch (err) {
       logTelnyx('answer.error', err);
