@@ -177,7 +177,7 @@ export function IphonePhoneApp(props: IphonePhoneAppProps) {
       >
         ← Back to Portal
       </Link>
-      <div className="flex h-[100dvh] w-full flex-col items-center justify-center sm:h-auto sm:w-auto">
+      <div className="flex h-[100dvh] w-full flex-col items-center justify-center sm:h-auto sm:w-[490px]">
         <Link
           href="/dashboard"
           className="mb-2 hidden self-start rounded-full bg-white/80 px-3 py-1.5 text-sm font-medium text-[#007AFF] shadow-sm backdrop-blur-md transition hover:bg-white sm:inline-flex"

@@ -212,12 +212,24 @@ export function OutgoingCallScreen({
   callState: string;
   onHangup: () => void;
 }) {
+  const formattedNumber = formatPhoneDisplay(callerNumber);
+  const hasCallerName = Boolean(
+    callerName
+    && callerName !== callerNumber
+    && callerName !== formattedNumber
+    && callerName !== 'Unknown Caller',
+  );
+
   return (
     <div className="absolute inset-0 z-50 flex flex-col bg-[#1C1C1E] text-white">
       <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
         <p className="text-sm font-medium text-white/55">Calling</p>
-        <h1 className="mt-3 max-w-full truncate text-4xl font-light tracking-tight">{callerName || 'Unknown Caller'}</h1>
-        <p className="mt-2 max-w-full truncate text-base text-white/55">{formatPhoneDisplay(callerNumber)}</p>
+        <h1 className="mt-3 max-w-full text-4xl font-light tracking-tight">
+          {hasCallerName ? callerName : formattedNumber}
+        </h1>
+        {hasCallerName ? (
+          <p className="mt-2 max-w-full truncate text-base text-white/55">{formattedNumber}</p>
+        ) : null}
         <p className="mt-4 animate-pulse text-lg text-[#34C759]">{callStatusLabel(callState)}</p>
       </div>
       <div className="flex justify-center pb-12">

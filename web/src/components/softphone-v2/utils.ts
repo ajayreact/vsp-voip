@@ -40,6 +40,11 @@ export function formatHistoryTimestamp(iso: string) {
 }
 
 export function callerInitials(number: string) {
+  const digits = number.replace(/\D/g, '');
+  if (digits && !/[a-z]/i.test(number)) {
+    return digits.slice(0, 2);
+  }
+
   const words = number.trim().split(/\s+/).filter(Boolean);
   if (words.length > 1) {
     return words.slice(0, 2).map((word) => word[0]?.toUpperCase()).join('');
@@ -47,7 +52,6 @@ export function callerInitials(number: string) {
   if (words[0] && /[a-z]/i.test(words[0])) {
     return words[0].slice(0, 2).toUpperCase();
   }
-  const digits = number.replace(/\D/g, '').slice(-4);
   return digits.slice(0, 2) || 'UC';
 }
 
