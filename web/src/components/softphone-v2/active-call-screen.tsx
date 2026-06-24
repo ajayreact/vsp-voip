@@ -21,7 +21,8 @@ import {
 import { cn } from '@/lib/utils';
 
 type ActiveCallScreenProps = {
-  displayNumber: string;
+  callerName: string;
+  callerNumber: string;
   callState: string;
   onHold: boolean;
   callSeconds: number;
@@ -42,12 +43,14 @@ function CallAction({
   icon,
   active,
   disabled,
+  badge,
   onClick,
 }: {
   label: string;
   icon: ReactNode;
   active?: boolean;
   disabled?: boolean;
+  badge?: string;
   onClick?: () => void;
 }) {
   return (
@@ -65,13 +68,17 @@ function CallAction({
       >
         {icon}
       </span>
-      <span className="text-xs font-medium text-white/90">{label}</span>
+      <span className="text-xs font-medium text-white/90">
+        {label}
+        {badge ? <span className="ml-1 text-[10px] text-white/45">{badge}</span> : null}
+      </span>
     </button>
   );
 }
 
 export function ActiveCallScreen({
-  displayNumber,
+  callerName,
+  callerNumber,
   callState,
   onHold,
   callSeconds,
@@ -90,15 +97,15 @@ export function ActiveCallScreen({
   const keypadDigits = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'];
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-[#1C1C1E] text-white">
+    <div className="absolute inset-0 z-50 flex flex-col bg-[#1C1C1E] text-white">
       <div className="flex flex-1 flex-col items-center px-6 pt-16 text-center">
-        <p className="text-sm font-medium text-white/55">Contact</p>
-        <h1 className="mt-2 text-3xl font-light tracking-tight">{formatPhoneDisplay(displayNumber)}</h1>
-        <p className="mt-3 text-lg text-white/75">
+        <h1 className="mt-2 max-w-full truncate text-3xl font-light tracking-tight">{callerName || 'Unknown Caller'}</h1>
+        <p className="mt-2 max-w-full truncate text-base text-white/55">{callerNumber || 'Unknown Caller'}</p>
+        <p className="mt-4 text-base text-white/65">
           {callStatusLabel(onHold ? 'held' : callState)}
         </p>
         {isActive ? (
-          <p className="mt-2 font-mono text-2xl tabular-nums text-white/90">
+          <p className="mt-6 font-mono text-4xl tabular-nums text-white/95">
             {formatCallTimer(callSeconds)}
           </p>
         ) : null}
@@ -154,14 +161,16 @@ export function ActiveCallScreen({
             onClick={onToggleHold}
           />
           <CallAction
-            label="Record"
-            icon={<Mic className="h-7 w-7 opacity-40" />}
-            disabled
-          />
-          <CallAction
             label="Add Call"
             icon={<UserPlus className="h-7 w-7 opacity-40" />}
             disabled
+            badge="Off"
+          />
+          <CallAction
+            label="Record"
+            icon={<Mic className="h-7 w-7 opacity-40" />}
+            disabled
+            badge="Off"
           />
         </div>
 
@@ -182,19 +191,22 @@ export function ActiveCallScreen({
 }
 
 export function OutgoingCallScreen({
-  displayNumber,
+  callerName,
+  callerNumber,
   callState,
   onHangup,
 }: {
-  displayNumber: string;
+  callerName: string;
+  callerNumber: string;
   callState: string;
   onHangup: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-[#1C1C1E] text-white">
+    <div className="absolute inset-0 z-50 flex flex-col bg-[#1C1C1E] text-white">
       <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
         <p className="text-sm font-medium text-white/55">Calling</p>
-        <h1 className="mt-3 text-4xl font-light tracking-tight">{formatPhoneDisplay(displayNumber)}</h1>
+        <h1 className="mt-3 max-w-full truncate text-4xl font-light tracking-tight">{callerName || 'Unknown Caller'}</h1>
+        <p className="mt-2 max-w-full truncate text-base text-white/55">{formatPhoneDisplay(callerNumber)}</p>
         <p className="mt-4 animate-pulse text-lg text-[#34C759]">{callStatusLabel(callState)}</p>
       </div>
       <div className="flex justify-center pb-12">

@@ -66,6 +66,7 @@ export const superAdminSections: NavSection[] = [
   {
     title: 'Monitoring',
     items: [
+      { href: '/admin/monitoring/telephony-health', label: 'Telephony health', icon: Radio },
       { href: '/admin/monitoring/quality', label: 'Call quality', icon: Activity },
       { href: '/admin/monitoring/registrations', label: 'Registrations', icon: Radio },
     ],

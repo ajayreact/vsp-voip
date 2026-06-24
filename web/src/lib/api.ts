@@ -1638,6 +1638,59 @@ export async function getAdminVoiceQuality() {
   return apiFetch<{ report: VoiceQualityReport }>('/api/admin/voice-quality');
 }
 
+export type TelephonyHealthEvent = {
+  id: string;
+  event: string;
+  tenantId: string | null;
+  userId: string | null;
+  properties: Record<string, unknown>;
+  createdAt: string;
+};
+
+export type TelephonyHealthReport = {
+  generatedAt: string;
+  windows: {
+    calls: string;
+    presenceOnlineMinutes: number;
+    telemetryFeedLimit: number;
+  };
+  registrations: {
+    activeRegistrations: number;
+    failedRegistrations: number;
+    reconnectCount: number;
+  };
+  calls: {
+    callsStarted: number;
+    callsConnected: number;
+    callsFailed: number;
+    callsEnded: number;
+  };
+  presence: {
+    onlineUsers: number;
+    offlineUsers: number;
+  };
+  voicemail: {
+    unreadVoicemails: number;
+    totalVoicemails: number;
+  };
+  recordings: {
+    totalRecordings: number;
+  };
+  callControl: {
+    activeSessions: number;
+    winnerClaims: number;
+    raceConditionPreventedCount: number;
+    source: string;
+  };
+  telemetryFeed: TelephonyHealthEvent[];
+  queries: string[];
+  endpoints: string[];
+};
+
+export async function getAdminTelephonyHealth() {
+  return apiFetch<TelephonyHealthReport & { success: boolean }>('/api/admin/telephony-health');
+}
+
 export type QuotaTenantRow = {
   id: string;
   name: string;

@@ -7,12 +7,13 @@ import {
   PhoneMissed,
   Search,
 } from 'lucide-react';
-import type { CallHistoryRecord, RecentsFilter } from '@/components/softphone-v2/types';
+import type { CallHistoryRecord, ContactEntry, RecentsFilter } from '@/components/softphone-v2/types';
 import {
   callerInitials,
   formatHistoryTimestamp,
   formatPhoneDisplay,
   historyDirectionLabel,
+  resolveCallerIdentity,
 } from '@/components/softphone-v2/utils';
 import { cn } from '@/lib/utils';
 
@@ -20,6 +21,7 @@ type RecentsTabProps = {
   records: CallHistoryRecord[];
   search: string;
   filter: RecentsFilter;
+  contacts?: ContactEntry[];
   onSearchChange: (value: string) => void;
   onFilterChange: (filter: RecentsFilter) => void;
   onSelect: (record: CallHistoryRecord) => void;
@@ -41,6 +43,7 @@ export function RecentsTab({
   records,
   search,
   filter,
+  contacts = [],
   onSearchChange,
   onFilterChange,
   onSelect,
@@ -94,18 +97,20 @@ export function RecentsTab({
         {filtered.length === 0 ? (
           <li className="px-4 py-16 text-center text-sm text-[#8E8E93]">No recent calls</li>
         ) : (
-          filtered.map((record) => (
-            <li
-              key={record.id}
-              className="flex items-center gap-3 rounded-2xl px-3 py-3 transition-colors hover:bg-white/70"
-            >
+          filtered.map((record) => {
+            const identity = resolveCallerIdentity(record.number, contacts);
+            return (
+              <li
+                key={record.id}
+                className="flex items-center gap-3 border-b border-[#E5E5EA] px-3 py-3 last:border-b-0"
+              >
               <button
                 type="button"
                 onClick={() => onSelect(record)}
                 className="flex min-w-0 flex-1 items-center gap-3 text-left"
               >
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#E5E5EA] text-sm font-semibold text-[#636366]">
-                  {callerInitials(record.number)}
+                  {callerInitials(identity.name)}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className={cn(
@@ -113,11 +118,12 @@ export function RecentsTab({
                     record.status === 'missed' ? 'font-semibold text-[#FF3B30]' : 'font-medium text-[#1D1D1F]',
                   )}
                   >
-                    {formatPhoneDisplay(record.number)}
+                    {identity.name}
                   </p>
                   <p className="mt-0.5 flex items-center gap-1.5 text-sm text-[#8E8E93]">
                     <DirectionIcon record={record} />
                     <span>{historyDirectionLabel(record.direction)}</span>
+                    <span className="truncate">{identity.number !== identity.name ? identity.number : formatPhoneDisplay(record.number)}</span>
                   </p>
                 </div>
                 <span className="shrink-0 text-sm text-[#8E8E93]">
@@ -133,7 +139,8 @@ export function RecentsTab({
                 <Info className="h-5 w-5" />
               </button>
             </li>
-          ))
+            );
+          })
         )}
       </ul>
     </div>

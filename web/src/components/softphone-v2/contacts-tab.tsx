@@ -1,6 +1,6 @@
 'use client';
 
-import { Search } from 'lucide-react';
+import { Phone, Search } from 'lucide-react';
 import type { ContactEntry } from '@/components/softphone-v2/types';
 import { callerInitials } from '@/components/softphone-v2/utils';
 
@@ -54,11 +54,11 @@ export function ContactsTab({
           </li>
         ) : (
           filtered.map((contact) => (
-            <li key={contact.id}>
+            <li key={contact.id} className="border-b border-[#E5E5EA] last:border-b-0">
               <button
                 type="button"
                 onClick={() => onSelect(contact)}
-                className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-colors hover:bg-white/70"
+                className="flex w-full items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-white/70"
               >
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#007AFF]/10 text-sm font-semibold text-[#007AFF]">
                   {callerInitials(contact.name || contact.extensionNumber)}
@@ -70,6 +70,9 @@ export function ContactsTab({
                     {contact.department ? ` · ${contact.department}` : ''}
                   </p>
                 </div>
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#34C759]/10 text-[#34C759]">
+                  <Phone className="h-4 w-4" />
+                </span>
               </button>
             </li>
           ))

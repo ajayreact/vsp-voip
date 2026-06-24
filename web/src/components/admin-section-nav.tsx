@@ -46,6 +46,7 @@ export const adminBillingTabs = [
 ];
 
 export const adminMonitoringTabs = [
+  { href: '/admin/monitoring/telephony-health', label: 'Telephony health' },
   { href: '/admin/monitoring/quality', label: 'Call quality' },
   { href: '/admin/monitoring/registrations', label: 'Registrations' },
 ];

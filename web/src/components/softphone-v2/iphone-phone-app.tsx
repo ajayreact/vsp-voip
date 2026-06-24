@@ -13,6 +13,7 @@ import {
   MissedCallToast,
 } from '@/components/softphone-v2/incoming-call-screen';
 import { RecentsDetailSheet, RecentsTab } from '@/components/softphone-v2/recents-tab';
+import { resolveCallerIdentity } from '@/components/softphone-v2/utils';
 import type {
   CallHistoryRecord,
   ContactEntry,
@@ -164,12 +165,16 @@ export function IphonePhoneApp(props: IphonePhoneAppProps) {
     && callState !== 'held';
 
   const showActiveOverlay = hasLiveCall && (isCallActive || callState === 'held');
+  const liveIdentity = resolveCallerIdentity(displayNumber, contacts);
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-[#F5F5F7] text-[#1D1D1F]">
+    <div className="fixed inset-0 z-0 flex min-h-[100dvh] items-center justify-center overflow-hidden bg-[#E9E9EE] text-[#1D1D1F] sm:p-4 lg:bg-[radial-gradient(circle_at_top,#ffffff_0%,#E5E5EA_45%,#D1D1D6_100%)]">
+      <div className="relative flex h-[100dvh] w-full flex-col overflow-hidden bg-[#F5F5F7] shadow-2xl sm:h-[min(860px,calc(100dvh-2rem))] sm:max-w-[430px] sm:rounded-[3rem] sm:border-[10px] sm:border-[#111]">
+        <div className="pointer-events-none absolute left-1/2 top-2 z-[80] hidden h-6 w-32 -translate-x-1/2 rounded-full bg-black sm:block" />
       {showIncomingOverlay ? (
         <IncomingCallScreen
-          callerNumber={displayNumber}
+          callerName={liveIdentity.name}
+          callerNumber={liveIdentity.number}
           receivedAt={incomingReceivedAt}
           onAccept={onAnswer}
           onDecline={onDeclineIncoming}
@@ -178,7 +183,8 @@ export function IphonePhoneApp(props: IphonePhoneAppProps) {
 
       {showOutgoingOverlay ? (
         <OutgoingCallScreen
-          displayNumber={displayNumber}
+          callerName={liveIdentity.name}
+          callerNumber={liveIdentity.number}
           callState={callState}
           onHangup={onHangup}
         />
@@ -186,7 +192,8 @@ export function IphonePhoneApp(props: IphonePhoneAppProps) {
 
       {showActiveOverlay ? (
         <ActiveCallScreen
-          displayNumber={displayNumber}
+          callerName={liveIdentity.name}
+          callerNumber={liveIdentity.number}
           callState={callState}
           onHold={onHold}
           callSeconds={callSeconds}
@@ -209,12 +216,13 @@ export function IphonePhoneApp(props: IphonePhoneAppProps) {
 
       {!hasLiveCall ? (
         <>
-          <main className="mx-auto flex w-full max-w-md flex-1 flex-col overflow-hidden">
+          <main className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
             {activeTab === 'recents' ? (
               <RecentsTab
                 records={callHistory}
                 search={recentsSearch}
                 filter={recentsFilter}
+                contacts={contacts}
                 onSearchChange={onRecentsSearchChange}
                 onFilterChange={onRecentsFilterChange}
                 onSelect={onRecentsSelect}
@@ -288,6 +296,7 @@ export function IphonePhoneApp(props: IphonePhoneAppProps) {
         className="sr-only"
         aria-hidden
       />
+      </div>
     </div>
   );
 }

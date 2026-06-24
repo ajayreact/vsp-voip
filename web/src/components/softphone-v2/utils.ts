@@ -1,4 +1,8 @@
-import type { CallHistoryRecord } from '@/components/softphone-v2/types';
+import type { CallHistoryRecord, ContactEntry } from '@/components/softphone-v2/types';
+
+export function normalizePhoneKey(value: string) {
+  return value.replace(/\D/g, '');
+}
 
 export function formatPhoneDisplay(value: string) {
   if (/^\d{2,6}$/.test(value.trim())) {
@@ -11,7 +15,7 @@ export function formatPhoneDisplay(value: string) {
   if (digits.length === 10) {
     return `+1 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
   }
-  return value || 'Unknown';
+  return value || 'Unknown Caller';
 }
 
 export function formatCallTimer(totalSeconds: number) {
@@ -36,8 +40,50 @@ export function formatHistoryTimestamp(iso: string) {
 }
 
 export function callerInitials(number: string) {
+  const words = number.trim().split(/\s+/).filter(Boolean);
+  if (words.length > 1) {
+    return words.slice(0, 2).map((word) => word[0]?.toUpperCase()).join('');
+  }
+  if (words[0] && /[a-z]/i.test(words[0])) {
+    return words[0].slice(0, 2).toUpperCase();
+  }
   const digits = number.replace(/\D/g, '').slice(-4);
-  return digits.slice(0, 2) || '??';
+  return digits.slice(0, 2) || 'UC';
+}
+
+export function resolveCallerIdentity(
+  value: string,
+  contacts: ContactEntry[] = [],
+) {
+  const trimmed = value.trim();
+  const key = normalizePhoneKey(trimmed);
+  const match = contacts.find((contact) => {
+    const extKey = normalizePhoneKey(contact.extensionNumber);
+    const numberKey = normalizePhoneKey(contact.number || '');
+    return Boolean(
+      key
+      && (
+        key === extKey
+        || key === numberKey
+        || (key.length >= 10 && numberKey.endsWith(key.slice(-10)))
+        || (numberKey.length >= 10 && key.endsWith(numberKey.slice(-10)))
+      ),
+    );
+  });
+
+  if (match) {
+    return {
+      name: match.name || `Ext ${match.extensionNumber}`,
+      number: match.number || `Ext ${match.extensionNumber}`,
+      initials: callerInitials(match.name || match.extensionNumber),
+    };
+  }
+
+  return {
+    name: trimmed ? formatPhoneDisplay(trimmed) : 'Unknown Caller',
+    number: trimmed ? formatPhoneDisplay(trimmed) : 'Unknown Caller',
+    initials: callerInitials(trimmed),
+  };
 }
 
 export function callStatusLabel(state: string) {

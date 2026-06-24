@@ -34,6 +34,11 @@ const {
 } = require('../lib/adminModules');
 const { getVoiceTelemetrySummary } = require('../lib/voiceTelemetry');
 const { getExecutiveDashboard, getOperationsDashboard } = require('../lib/adminDashboard');
+const { getCallControlSessionStats } = require('../lib/callControlSession');
+const {
+  getRaceConditionPreventedCount,
+  getTelemetryFeed,
+} = require('../lib/telephonyHealth');
 const { getRevenueProtectionDashboard, runBillingIntegrityChecks } = require('../lib/revenueProtection');
 const { reconcileLegacyRevenueRecords } = require('../lib/revenueReconcile');
 const {
@@ -902,6 +907,148 @@ router.get('/voice-quality', async (req, res) => {
   } catch (error) {
     console.error('❌ Voice quality report error:', error.message);
     res.status(500).json({ error: 'Failed to load voice quality report' });
+  }
+});
+
+router.get('/telephony-health', async (req, res) => {
+  try {
+    const prisma = await getPrisma();
+    const now = new Date();
+    const onlineSince = new Date(now.getTime() - 5 * 60 * 1000);
+    const callWindowStart = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const telemetryFeed = getTelemetryFeed(100);
+
+    const [
+      activeRegistrations,
+      failedRegistrations,
+      totalUsers,
+      onlineUsers,
+      callsStarted,
+      callsConnected,
+      callsFailed,
+      callsEnded,
+      unreadVoicemails,
+      totalVoicemails,
+      totalRecordings,
+      callControl,
+    ] = await Promise.all([
+      prisma.user.count({
+        where: {
+          tenantId: { not: null },
+          OR: [
+            { softphoneOnlineAt: { gte: onlineSince } },
+            { sipRegistered: true },
+          ],
+        },
+      }),
+      prisma.user.count({
+        where: {
+          tenantId: { not: null },
+          sipRegistrationResponse: { not: null },
+          sipRegistered: false,
+        },
+      }),
+      prisma.user.count({ where: { tenantId: { not: null } } }),
+      prisma.user.count({
+        where: {
+          tenantId: { not: null },
+          softphoneOnlineAt: { gte: onlineSince },
+        },
+      }),
+      prisma.callLog.count({
+        where: {
+          createdAt: { gte: callWindowStart },
+          status: { in: ['started', 'ringing'] },
+        },
+      }),
+      prisma.callLog.count({
+        where: {
+          createdAt: { gte: callWindowStart },
+          status: { in: ['connected', 'answered'] },
+        },
+      }),
+      prisma.callLog.count({
+        where: {
+          createdAt: { gte: callWindowStart },
+          status: { in: ['failed', 'rejected', 'missed', 'no-answer', 'cancelled'] },
+        },
+      }),
+      prisma.callLog.count({
+        where: {
+          createdAt: { gte: callWindowStart },
+          OR: [
+            { status: { in: ['ended', 'completed'] } },
+            { endedAt: { not: null } },
+          ],
+        },
+      }),
+      prisma.voicemail.count({ where: { isRead: false } }),
+      prisma.voicemail.count(),
+      prisma.callRecording.count(),
+      getCallControlSessionStats(),
+    ]);
+
+    const reconnectCount = telemetryFeed.filter((event) => event.event === 'Reconnect Attempt').length;
+
+    res.json({
+      success: true,
+      generatedAt: now.toISOString(),
+      windows: {
+        calls: '24h',
+        presenceOnlineMinutes: 5,
+        telemetryFeedLimit: 100,
+      },
+      registrations: {
+        activeRegistrations,
+        failedRegistrations,
+        reconnectCount,
+      },
+      calls: {
+        callsStarted,
+        callsConnected,
+        callsFailed,
+        callsEnded,
+      },
+      presence: {
+        onlineUsers,
+        offlineUsers: Math.max(0, totalUsers - onlineUsers),
+      },
+      voicemail: {
+        unreadVoicemails,
+        totalVoicemails,
+      },
+      recordings: {
+        totalRecordings,
+      },
+      callControl: {
+        activeSessions: callControl.activeSessions,
+        winnerClaims: callControl.winnerClaims,
+        raceConditionPreventedCount: getRaceConditionPreventedCount(),
+        source: callControl.source,
+      },
+      telemetryFeed,
+      queries: [
+        'User.count where tenantId != null and (softphoneOnlineAt >= now - 5m OR sipRegistered = true)',
+        'User.count where sipRegistrationResponse != null and sipRegistered = false',
+        'CallLog.count by status over last 24h',
+        'User.count where softphoneOnlineAt >= now - 5m',
+        'Voicemail.count total and unread',
+        'CallRecording.count total',
+        'CallControlSessionStore active session and winner claim counters',
+        'In-memory Softphone telemetry feed last 100 events',
+      ],
+      endpoints: [
+        'GET /api/admin/telephony-health',
+        'POST /api/softphone/telemetry',
+        'POST /api/softphone/presence',
+        'POST /api/softphone/call-log',
+        'GET /api/tenant/voicemails',
+        'GET /api/tenant/recordings',
+      ],
+    });
+  } catch (error) {
+    console.error('❌ Telephony health dashboard error:', error.message);
+    res.status(500).json({ error: 'Failed to load telephony health dashboard' });
   }
 });
 

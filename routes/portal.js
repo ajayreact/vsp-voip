@@ -58,6 +58,7 @@ const {
 const { getCallControlSetupStatus, ensureTelnyxCallControlSetup } = require('../lib/telnyxCallControlSetup');
 const { startOutboundCallRecording } = require('../lib/outboundRecording');
 const { syncCallRecordingsFromTelnyx, refreshCallRecordingUrls, streamTelnyxRecording } = require('../lib/recordingSync');
+const { recordTelemetryEvent } = require('../lib/telephonyHealth');
 const { getRecordingSetupStatus, ensureTelnyxRecordingSetup } = require('../lib/telnyxRecordingSetup');
 const { resolveSoftphoneInboundRoutingDiagnostics } = require('../lib/softphoneInboundDiagnostics');
 const { getCredentialConnectionPushStatus } = require('../lib/telnyxPushSetup');
@@ -845,6 +846,12 @@ router.post('/softphone/telemetry', authMiddleware, async (req, res) => {
       event,
       properties,
       at: new Date().toISOString(),
+    });
+    recordTelemetryEvent({
+      event,
+      properties,
+      tenantId: req.user.tenantId,
+      userId: req.user.sub,
     });
 
     res.json({ success: true });

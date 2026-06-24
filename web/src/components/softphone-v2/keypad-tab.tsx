@@ -30,11 +30,13 @@ export function KeypadTab({
   onCallerIdChange,
   onCall,
 }: KeypadTabProps) {
+  const statusLabel = displayStatus.includes('DevTools') ? 'Ready' : displayStatus;
+
   return (
     <div className="flex h-full flex-col px-4 pb-6 pt-2">
       <header className="text-center">
         <h1 className="text-[34px] font-bold tracking-tight text-[#1D1D1F]">Keypad</h1>
-        <p className="mt-1 text-sm text-[#8E8E93]">{displayStatus}</p>
+        <p className="mt-1 text-sm text-[#8E8E93]">{statusLabel}</p>
       </header>
 
       <div className="mt-6 min-h-[3rem] text-center">

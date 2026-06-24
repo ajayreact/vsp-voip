@@ -12,6 +12,7 @@ import {
 import { getCallRecordings, isUnauthorizedError, type CallRecordingRecord } from '@/lib/api';
 import { RecordingsList } from '@/components/recordings-list';
 import { SoftphoneV2ValidationDashboard } from '@/components/softphone-v2-validation-dashboard';
+import { formatPhoneDisplay } from '@/components/softphone-v2/utils';
 import type { SoftphonePresenceStatus } from '@/lib/softphone-presence';
 import type { SoftphoneTelemetrySnapshot } from '@/lib/softphone-telemetry';
 
@@ -64,6 +65,12 @@ export function MoreTab({
     void load();
   }, []);
 
+  const registrationLabel = reconnecting
+    ? 'Reconnecting'
+    : telnyxRegistered
+      ? 'Registered'
+      : 'Not registered';
+
   const rows = [
     { href: '/settings', label: 'Settings', icon: Settings },
     { href: '/recordings', label: 'Recordings', icon: Mic },
@@ -98,6 +105,17 @@ export function MoreTab({
         </button>
       </div>
 
+      <section className="mt-4 overflow-hidden rounded-3xl bg-white shadow-[0_2px_16px_rgba(0,0,0,0.06)]">
+        <div className="flex items-center justify-between border-b border-[#E5E5EA]/80 px-4 py-3.5">
+          <span className="text-base text-[#1D1D1F]">Caller ID</span>
+          <span className="text-sm text-[#8E8E93]">{formatPhoneDisplay(callerId)}</span>
+        </div>
+        <div className="flex items-center justify-between px-4 py-3.5">
+          <span className="text-base text-[#1D1D1F]">Registration Status</span>
+          <span className="text-sm text-[#8E8E93]">{registrationLabel}</span>
+        </div>
+      </section>
+
       {showDiagnostics ? (
         <div className="mt-4">
           <SoftphoneV2ValidationDashboard
@@ -131,12 +149,9 @@ export function MoreTab({
       <section className="mt-6 rounded-3xl bg-white p-4 shadow-[0_2px_16px_rgba(0,0,0,0.06)]">
         <div className="flex items-center gap-2 text-sm font-semibold text-[#1D1D1F]">
           <Activity className="h-4 w-4 text-[#007AFF]" />
-          Telemetry Status
+          Version
         </div>
-        <p className="mt-2 text-sm text-[#8E8E93]">{displayStatus}</p>
-        <p className="mt-1 text-xs text-[#8E8E93]">
-          Events post to <code className="text-[#636366]">/api/softphone/telemetry</code>
-        </p>
+        <p className="mt-2 text-sm text-[#8E8E93]">{displayStatus.includes('DevTools') ? 'Ready' : displayStatus}</p>
         <p className="mt-4 text-xs text-[#C7C7CC]">Softphone V2 · VSP-VOIP</p>
       </section>
     </div>
