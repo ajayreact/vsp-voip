@@ -1295,15 +1295,34 @@ function SoftphoneV2Content() {
     onCallWithDestination(destination);
   };
 
-  const onAnswer = () => {
+  const onAnswer = async () => {
     const call = callRef.current;
     logTelnyx('answer.click', call ? { id: call.id, state: call.state } : null);
     if (!call) return;
     stopIncomingRingtone();
-    if (callSessionRef.current?.direction === 'inbound') {
+    const isInbound = callSessionRef.current?.direction === 'inbound';
+    if (isInbound && callSessionRef.current) {
       callSessionRef.current.acceptedByUser = true;
     }
     try {
+      // Arm bridge grace on the API before WebRTC answer so stale call.dial.ended
+      // webhooks cannot trigger voicemail/no-answer fallback during bridge completion.
+      if (isInbound) {
+        const acceptRes = await postCallAccepted();
+        logTelnyx('answer.callAccepted', acceptRes);
+        const pstnCaller = acceptRes?.pstnCaller;
+        if (pstnCaller && callSessionRef.current) {
+          callSessionRef.current.pstnCaller = pstnCaller;
+          const normalized = normalizeDialNumber(pstnCaller) || pstnCaller;
+          callSessionRef.current.number = normalized;
+          const parties = resolveCallLogParties('inbound', normalized, callerNumberRef.current);
+          callSessionRef.current.logFrom = parties.from;
+          callSessionRef.current.logTo = parties.to;
+          displayNumberRef.current = normalized;
+          setDisplayNumber(normalized);
+          logTelnyx('answer.pstnCaller', { pstnCaller: normalized });
+        }
+      }
       call.answer();
       setCallState('answering');
       setDisplayNumber((prev) => resolveCallDisplayNumber(
@@ -1314,18 +1333,6 @@ function SoftphoneV2Content() {
         callSessionRef.current?.pstnCaller || '',
       ));
       logTelnyx('answer.invoked');
-      void postCallAccepted().then((res) => {
-        const pstnCaller = res?.pstnCaller;
-        if (!pstnCaller || !callSessionRef.current) return;
-        callSessionRef.current.pstnCaller = pstnCaller;
-        const normalized = normalizeDialNumber(pstnCaller) || pstnCaller;
-        callSessionRef.current.number = normalized;
-        const parties = resolveCallLogParties('inbound', normalized, callerNumberRef.current);
-        callSessionRef.current.logFrom = parties.from;
-        displayNumberRef.current = normalized;
-        setDisplayNumber(normalized);
-        logTelnyx('answer.pstnCaller', { pstnCaller: normalized });
-      });
     } catch (err) {
       logTelnyx('answer.error', err);
     }
