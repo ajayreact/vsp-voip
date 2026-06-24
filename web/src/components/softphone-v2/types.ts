@@ -1,6 +1,8 @@
 export type CallHistoryRecord = {
   id: string;
   number: string;
+  phoneNumber?: string;
+  remotePartyNumber?: string;
   direction: 'inbound' | 'outbound';
   duration: number;
   status: 'completed' | 'missed' | 'rejected';

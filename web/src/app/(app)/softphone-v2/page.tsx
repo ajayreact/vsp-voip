@@ -473,6 +473,7 @@ function SoftphoneV2Content() {
   const callSessionRef = useRef<ActiveCallSession | null>(null);
   const callerNumberRef = useRef('');
   const callDirectionRef = useRef<'inbound' | 'outbound' | ''>('');
+  const displayNumberRef = useRef('');
   const tenantNumbersRef = useRef<string[]>([]);
   const saveCallToHistoryRef = useRef<() => void>(() => {});
   const incomingRingtoneRef = useRef<IncomingRingtoneHandle | null>(null);
@@ -610,9 +611,15 @@ function SoftphoneV2Content() {
       status = 'rejected';
     }
 
+    const historyNumber = session.number && session.number !== 'Unknown'
+      ? session.number
+      : displayNumberRef.current || 'Unknown';
+
     const record: CallHistoryRecord = {
       id: crypto.randomUUID(),
-      number: session.number,
+      number: historyNumber,
+      phoneNumber: historyNumber,
+      remotePartyNumber: historyNumber,
       direction: session.direction,
       duration: session.reachedActive ? callSecondsRef.current : 0,
       status,
@@ -622,7 +629,7 @@ function SoftphoneV2Content() {
     logTelnyx('history.saved', record);
 
     if (status === 'completed') {
-      trackCallEnded(session.callId, session.number, session.direction, record.duration);
+      trackCallEnded(session.callId, historyNumber, session.direction, record.duration);
       postServerCallLog({
         callSid: session.callId,
         from: session.logFrom,
@@ -632,7 +639,7 @@ function SoftphoneV2Content() {
         durationSeconds: record.duration,
       });
     } else {
-      trackCallFailed(session.callId, session.number, session.direction, status);
+      trackCallFailed(session.callId, historyNumber, session.direction, status);
       postServerCallLog({
         callSid: session.callId,
         from: session.logFrom,
@@ -722,6 +729,10 @@ function SoftphoneV2Content() {
   useEffect(() => {
     callerNumberRef.current = callerNumber;
   }, [callerNumber]);
+
+  useEffect(() => {
+    displayNumberRef.current = displayNumber;
+  }, [displayNumber]);
 
   useEffect(() => {
     tenantNumbersRef.current = tenantNumbers.map((entry) => entry.number);
@@ -927,9 +938,17 @@ function SoftphoneV2Content() {
               setDisplayNumber((prev) => {
                 const resolved = resolveCallDisplayNumber(payload.call!, prev, payload, ownedInboundNumbers);
                 if (isInboundCall(payload.call!)) {
-                  return resolved !== 'Unknown' ? resolved : '';
+                  const retained = prev
+                    || callSessionRef.current?.number
+                    || displayNumberRef.current
+                    || '';
+                  const next = resolved !== 'Unknown' ? resolved : retained;
+                  displayNumberRef.current = next;
+                  return next;
                 }
-                return resolved !== 'Unknown' ? resolved : prev;
+                const next = resolved !== 'Unknown' ? resolved : prev;
+                displayNumberRef.current = next;
+                return next;
               });
 
               const existingSession = callSessionRef.current;
@@ -1178,13 +1197,14 @@ function SoftphoneV2Content() {
   };
 
   const onCallBack = (record: CallHistoryRecord) => {
-    setDestination(record.number);
-    logTelnyx('history.callback', { number: record.number });
+    const callbackNumber = record.number || record.phoneNumber || record.remotePartyNumber || '';
+    setDestination(callbackNumber);
+    logTelnyx('history.callback', { number: callbackNumber });
     const live = Boolean(
       callRef.current && callState && !isTerminalCallState(callState),
     );
     if (!live) {
-      onCallWithDestination(record.number);
+      onCallWithDestination(callbackNumber);
     }
   };
 

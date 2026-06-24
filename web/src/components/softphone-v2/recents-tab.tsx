@@ -39,6 +39,10 @@ function DirectionIcon({ record }: { record: CallHistoryRecord }) {
   return <ArrowDownLeft className="h-4 w-4 text-[#8E8E93]" />;
 }
 
+function getLogDisplayNumber(item: CallHistoryRecord) {
+  return item.number || item.phoneNumber || item.remotePartyNumber || 'Unknown';
+}
+
 export function RecentsTab({
   records,
   search,
@@ -52,11 +56,12 @@ export function RecentsTab({
 }: RecentsTabProps) {
   const query = search.trim().toLowerCase();
   const filtered = records.filter((record) => {
+    const logDisplayNumber = getLogDisplayNumber(record);
     if (filter === 'missed' && record.status !== 'missed') return false;
     if (!query) return true;
     return (
-      record.number.toLowerCase().includes(query)
-      || formatPhoneDisplay(record.number).toLowerCase().includes(query)
+      logDisplayNumber.toLowerCase().includes(query)
+      || formatPhoneDisplay(logDisplayNumber).toLowerCase().includes(query)
     );
   });
 
@@ -98,7 +103,8 @@ export function RecentsTab({
           <li className="px-4 py-16 text-center text-sm text-[#8E8E93]">No recent calls</li>
         ) : (
           filtered.map((record) => {
-            const identity = resolveCallerIdentity(record.number, contacts);
+            const logDisplayNumber = getLogDisplayNumber(record);
+            const identity = resolveCallerIdentity(logDisplayNumber, contacts);
             return (
               <li
                 key={record.id}
@@ -123,7 +129,7 @@ export function RecentsTab({
                   <p className="mt-0.5 flex items-center gap-1.5 text-sm text-[#8E8E93]">
                     <DirectionIcon record={record} />
                     <span>{historyStatusLabel(record)}</span>
-                    <span className="truncate">{identity.number !== identity.name ? identity.number : formatPhoneDisplay(record.number)}</span>
+                    <span className="truncate">{identity.number !== identity.name ? identity.number : formatPhoneDisplay(logDisplayNumber)}</span>
                   </p>
                 </div>
                 <span className="shrink-0 text-sm text-[#8E8E93]">
@@ -157,12 +163,13 @@ export function RecentsDetailSheet({
   onCallBack: (record: CallHistoryRecord) => void;
 }) {
   if (!record) return null;
+  const logDisplayNumber = getLogDisplayNumber(record);
 
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/30 backdrop-blur-sm">
       <div className="w-full max-w-md rounded-t-[28px] bg-white p-6 shadow-2xl">
         <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-[#E5E5EA]" />
-        <h2 className="text-2xl font-semibold text-[#1D1D1F]">{formatPhoneDisplay(record.number)}</h2>
+        <h2 className="text-2xl font-semibold text-[#1D1D1F]">{formatPhoneDisplay(logDisplayNumber)}</h2>
         <p className="mt-1 text-sm text-[#8E8E93]">{historyStatusLabel(record)}</p>
         <p className="mt-1 text-sm text-[#8E8E93]">{formatHistoryTimestamp(record.timestamp)}</p>
         <div className="mt-6 flex gap-3">
