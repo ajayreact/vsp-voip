@@ -168,8 +168,8 @@ export function IphonePhoneApp(props: IphonePhoneAppProps) {
   const liveIdentity = resolveCallerIdentity(displayNumber, contacts);
 
   return (
-    <div className="fixed inset-0 z-0 flex min-h-[100dvh] items-center justify-center overflow-hidden bg-[#E9E9EE] text-[#1D1D1F] sm:p-4 lg:bg-[radial-gradient(circle_at_top,#ffffff_0%,#E5E5EA_45%,#D1D1D6_100%)]">
-      <div className="relative flex h-[100dvh] w-full flex-col overflow-hidden bg-[#F5F5F7] shadow-2xl sm:h-[min(860px,calc(100dvh-2rem))] sm:max-w-[430px] sm:rounded-[3rem] sm:border-[10px] sm:border-[#111]">
+    <div className="fixed inset-0 z-0 flex min-h-[100dvh] items-center justify-center overflow-hidden bg-[#F5F7FA] text-[#1D1D1F] sm:p-3 lg:bg-[linear-gradient(145deg,#F5F7FA_0%,#E9EEF5_100%)]">
+      <div className="relative flex h-[100dvh] w-full flex-col overflow-hidden bg-[#F5F5F7] shadow-2xl sm:h-[min(860px,calc(100dvh-1.5rem))] sm:max-w-[490px] sm:rounded-[3rem] sm:border-[10px] sm:border-[#111] sm:shadow-[0_28px_70px_rgba(15,23,42,0.24),0_8px_22px_rgba(15,23,42,0.12)]">
         <div className="pointer-events-none absolute left-1/2 top-2 z-[80] hidden h-6 w-32 -translate-x-1/2 rounded-full bg-black sm:block" />
       {showIncomingOverlay ? (
         <IncomingCallScreen

@@ -1,6 +1,6 @@
 'use client';
 
-import { Delete } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 import { KEYPAD_DIGITS, KEYPAD_LETTERS, formatPhoneDisplay } from '@/components/softphone-v2/utils';
 import { PhoneAcceptIcon } from '@/components/softphone-v2/icons';
 import { cn } from '@/lib/utils';
@@ -31,29 +31,56 @@ export function KeypadTab({
   onCall,
 }: KeypadTabProps) {
   const statusLabel = displayStatus.includes('DevTools') ? 'Ready' : displayStatus;
+  const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressClearedRef = useRef(false);
+
+  useEffect(() => cancelClearTimer, []);
+
+  function cancelClearTimer() {
+    if (clearTimerRef.current) {
+      clearTimeout(clearTimerRef.current);
+      clearTimerRef.current = null;
+    }
+  }
+
+  function startClearTimer() {
+    cancelClearTimer();
+    longPressClearedRef.current = false;
+    clearTimerRef.current = setTimeout(() => {
+      longPressClearedRef.current = true;
+      onDestinationChange('');
+      clearTimerRef.current = null;
+    }, 500);
+  }
+
+  function handleBackspaceClick() {
+    if (longPressClearedRef.current) {
+      longPressClearedRef.current = false;
+      return;
+    }
+    onBackspace();
+  }
 
   return (
-    <div className="flex h-full flex-col px-4 pb-6 pt-2">
+    <div className="flex h-full flex-col px-4 pb-6 pt-[56px]">
       <header className="text-center">
         <h1 className="text-[34px] font-bold tracking-tight text-[#1D1D1F]">Keypad</h1>
         <p className="mt-1 text-sm text-[#8E8E93]">{statusLabel}</p>
       </header>
 
-      <div className="mt-6 min-h-[3rem] text-center">
+      <div className="mt-7 min-h-[4.25rem] text-center">
         <input
           type="tel"
           value={destination}
           onChange={(e) => onDestinationChange(e.target.value)}
-          placeholder="Enter number"
-          className="w-full bg-transparent text-center text-3xl font-light tracking-wide text-[#1D1D1F] outline-none placeholder:text-[#C7C7CC]"
+          inputMode="tel"
+          aria-label="Entered phone number"
+          className="w-full bg-transparent text-center text-[32px] font-light leading-tight tracking-wide text-[#1D1D1F] outline-none placeholder:text-[#C7C7CC]"
         />
-        {destination ? (
-          <p className="mt-1 text-sm text-[#8E8E93]">{formatPhoneDisplay(destination)}</p>
-        ) : null}
       </div>
 
       {tenantNumbers.length > 0 ? (
-        <div className="mx-auto mt-4 w-full max-w-xs">
+        <div className="mx-auto mt-2 w-full max-w-xs">
           <label htmlFor="softphone-v2-caller-id" className="sr-only">Outbound caller ID</label>
           <select
             id="softphone-v2-caller-id"
@@ -70,7 +97,7 @@ export function KeypadTab({
         </div>
       ) : null}
 
-      <div className="mx-auto mt-auto grid w-full max-w-[300px] grid-cols-3 gap-x-6 gap-y-4">
+      <div className="mx-auto mt-7 grid w-full max-w-[300px] grid-cols-3 gap-x-6 gap-y-4">
         {KEYPAD_DIGITS.flat().map((digit) => (
           <button
             key={digit}
@@ -90,14 +117,14 @@ export function KeypadTab({
         ))}
       </div>
 
-      <div className="mx-auto mt-6 flex w-full max-w-[300px] items-center justify-center gap-8">
+      <div className="mx-auto mt-6 grid w-full max-w-[300px] grid-cols-3 items-center gap-x-6">
         <div className="w-[4.75rem]" />
         <button
           type="button"
           disabled={!canPlaceCall}
-          onClick={onCall}
+          onClick={() => onCall()}
           className={cn(
-            'flex h-[4.75rem] w-[4.75rem] items-center justify-center rounded-full bg-[#34C759] text-white shadow-[0_8px_24px_rgba(52,199,89,0.45)] transition-transform hover:scale-105 active:scale-95',
+            'mx-auto flex h-[4.75rem] w-[4.75rem] items-center justify-center rounded-full bg-[#34C759] text-white shadow-[0_8px_24px_rgba(52,199,89,0.45)] transition-transform hover:scale-105 active:scale-95',
             !canPlaceCall && 'cursor-not-allowed opacity-40 hover:scale-100',
           )}
           aria-label="Call"
@@ -106,12 +133,17 @@ export function KeypadTab({
         </button>
         <button
           type="button"
-          onClick={onBackspace}
+          onClick={handleBackspaceClick}
+          onPointerDown={destination ? startClearTimer : undefined}
+          onPointerUp={cancelClearTimer}
+          onPointerCancel={cancelClearTimer}
+          onPointerLeave={cancelClearTimer}
           disabled={!destination}
-          className="flex h-[4.75rem] w-[4.75rem] items-center justify-center rounded-full text-[#007AFF] disabled:opacity-30"
+          className="mx-auto flex h-[4.75rem] w-[4.75rem] items-center justify-center rounded-full text-[#8E8E93] transition-transform active:scale-95 disabled:opacity-30"
           aria-label="Delete"
+          title="Delete. Press and hold to clear."
         >
-          <Delete className="h-7 w-7" />
+          <span className="text-3xl font-light leading-none">⌫</span>
         </button>
       </div>
     </div>
