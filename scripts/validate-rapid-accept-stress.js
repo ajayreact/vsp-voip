@@ -191,6 +191,12 @@ async function runStressTest() {
     call_session_id: CALL_SESSION_ID,
   }));
 
+  // Inbound PSTN hangup during connecting must not tear down the session (bridge grace).
+  await handleInboundCallControlEvent(prisma, webhook('call.hangup', {
+    call_control_id: INBOUND_ID,
+    call_session_id: CALL_SESSION_ID,
+  }));
+
   const preDelaySession = await getSession(INBOUND_ID);
   if (!preDelaySession) {
     fail('Session survives stale hangup during grace', 'session deleted');
@@ -215,6 +221,12 @@ async function runStressTest() {
     call_session_id: CALL_SESSION_ID,
   }));
 
+  // Telnyx also emits call.bridged for the inbound PSTN leg — must not hang up the agent leg.
+  await handleInboundCallControlEvent(prisma, webhook('call.bridged', {
+    call_control_id: INBOUND_ID,
+    call_session_id: CALL_SESSION_ID,
+  }));
+
   restoreLog();
   tcc.speakCall = originalSpeak;
 
@@ -233,8 +245,11 @@ async function runStressTest() {
   const ignoredDialEnded = bridgeEvents.some(
     (e) => e.label === 'CALL_DIAL_ENDED' && e.meta?.ignored === true,
   );
-  const ignoredHangup = bridgeEvents.some(
+  const ignoredHangups = bridgeEvents.filter(
     (e) => e.label === 'CALL_HANGUP' && e.meta?.ignored === true,
+  );
+  const ignoredInboundHangupDuringGrace = ignoredHangups.some(
+    (e) => e.meta?.isInboundLeg === true,
   );
 
   console.log('\n--- Bridge event timeline ---');
@@ -281,13 +296,29 @@ async function runStressTest() {
 
   if (blockedVm.length > 0) {
     pass('VM_ROUTE_ATTEMPT blocked during grace', `count=${blockedVm.length}`);
-  } else if (ignoredDialEnded && ignoredHangup && unblockedVm.length === 0) {
+  } else if (ignoredDialEnded && ignoredHangups.length > 0 && unblockedVm.length === 0) {
     pass(
       'Voicemail routing suppressed during grace (stale leg events ignored)',
-      'CALL_DIAL_ENDED + CALL_HANGUP ignored before bridge',
+      `CALL_DIAL_ENDED + ${ignoredHangups.length} CALL_HANGUP ignored before bridge`,
     );
   } else {
     fail('Voicemail routing suppressed during grace', 'no blocked VM or ignored stale events');
+  }
+
+  if (ignoredInboundHangupDuringGrace) {
+    pass('Inbound PSTN hangup ignored during connecting grace');
+  } else {
+    fail('Inbound PSTN hangup ignored during connecting grace');
+  }
+
+  const bridgedLogs = bridgeEvents.filter((e) => e.label === 'CALL_BRIDGED');
+  const prematureBridged = bridgedLogs.some((e) => e.meta?.stage === 'connecting');
+  if (prematureBridged) {
+    fail('CALL_BRIDGED logged only after bridged state', 'found CALL_BRIDGED with stage=connecting');
+  } else if (bridgedLogs.length > 0) {
+    pass('CALL_BRIDGED logged with stage=bridged', `count=${bridgedLogs.length}`);
+  } else {
+    fail('CALL_BRIDGED logged with stage=bridged');
   }
 
   if (!voicemailSpeakInvoked) pass('No voicemail speak prompt invoked');
