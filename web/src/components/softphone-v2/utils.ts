@@ -113,6 +113,14 @@ export function historyDirectionLabel(direction: CallHistoryRecord['direction'])
   return direction === 'outbound' ? 'Outgoing' : 'Incoming';
 }
 
+export function historyStatusLabel(record: CallHistoryRecord) {
+  if (record.status === 'missed') return 'Missed';
+  if (record.status === 'rejected') {
+    return record.direction === 'outbound' ? 'Unanswered' : 'Rejected';
+  }
+  return historyDirectionLabel(record.direction);
+}
+
 export const KEYPAD_DIGITS = [
   ['1', '2', '3'],
   ['4', '5', '6'],

@@ -12,7 +12,7 @@ import {
   callerInitials,
   formatHistoryTimestamp,
   formatPhoneDisplay,
-  historyDirectionLabel,
+  historyStatusLabel,
   resolveCallerIdentity,
 } from '@/components/softphone-v2/utils';
 import { cn } from '@/lib/utils';
@@ -122,7 +122,7 @@ export function RecentsTab({
                   </p>
                   <p className="mt-0.5 flex items-center gap-1.5 text-sm text-[#8E8E93]">
                     <DirectionIcon record={record} />
-                    <span>{historyDirectionLabel(record.direction)}</span>
+                    <span>{historyStatusLabel(record)}</span>
                     <span className="truncate">{identity.number !== identity.name ? identity.number : formatPhoneDisplay(record.number)}</span>
                   </p>
                 </div>
@@ -163,7 +163,7 @@ export function RecentsDetailSheet({
       <div className="w-full max-w-md rounded-t-[28px] bg-white p-6 shadow-2xl">
         <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-[#E5E5EA]" />
         <h2 className="text-2xl font-semibold text-[#1D1D1F]">{formatPhoneDisplay(record.number)}</h2>
-        <p className="mt-1 text-sm text-[#8E8E93]">{historyDirectionLabel(record.direction)}</p>
+        <p className="mt-1 text-sm text-[#8E8E93]">{historyStatusLabel(record)}</p>
         <p className="mt-1 text-sm text-[#8E8E93]">{formatHistoryTimestamp(record.timestamp)}</p>
         <div className="mt-6 flex gap-3">
           <button

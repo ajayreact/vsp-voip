@@ -44,6 +44,7 @@ type ActiveCallSession = {
   reachedActive: boolean;
   saved: boolean;
   userDeclined?: boolean;
+  acceptedByUser?: boolean;
   receivedAt?: string;
 };
 
@@ -134,10 +135,19 @@ type CallDisplayFields = Call & {
   remoteCallerNumber?: string;
   remotePartyNumber?: string;
   remotePartyName?: string;
+  remoteIdentity?: {
+    displayName?: string;
+    uri?: {
+      user?: string;
+      raw?: string;
+      toString?: () => string;
+    };
+  };
   options?: {
     destinationNumber?: string;
     remoteCallerNumber?: string;
     remotePartyNumber?: string;
+    remoteCallerName?: string;
     callerNumber?: string;
   };
 };
@@ -162,6 +172,12 @@ function extractPhoneDisplayValue(value?: string | null, ownNumbers: string[] = 
   if (!value) return '';
   let candidate = String(value).trim();
   if (!candidate) return '';
+  if (/^anonymous$/i.test(candidate)) return '';
+
+  const sipMatch = candidate.match(/(?:sip|tel):([^@;>\s]+)/i);
+  if (sipMatch?.[1]) {
+    candidate = sipMatch[1];
+  }
 
   candidate = candidate.replace(/^sip:/i, '').replace(/^tel:/i, '');
   candidate = candidate.split('@')[0] || candidate;
@@ -178,6 +194,19 @@ function extractPhoneDisplayValue(value?: string | null, ownNumbers: string[] = 
   if (/^\d{2,6}$/.test(digits)) return digits;
   if (candidate.startsWith('+') && digits.length >= 10) return `+${digits}`;
   return '';
+}
+
+function resolveRemoteIdentityNumber(call: CallDisplayFields, ownNumbers: string[]) {
+  const displayName = call.remoteIdentity?.displayName || call.remotePartyName || call.options?.remoteCallerName;
+  const displayNumber = extractPhoneDisplayValue(displayName, ownNumbers);
+  if (displayNumber) return displayNumber;
+
+  const uri = call.remoteIdentity?.uri;
+  return (
+    extractPhoneDisplayValue(uri?.user, ownNumbers)
+    || extractPhoneDisplayValue(uri?.raw, ownNumbers)
+    || extractPhoneDisplayValue(uri?.toString?.(), ownNumbers)
+  );
 }
 
 function findPhoneDisplayValueInPayload(
@@ -227,7 +256,8 @@ function resolveCallDisplayNumber(
 
   if (isInboundCall(call)) {
     return (
-      extractPhoneDisplayValue(extended.remotePartyNumber, ownNumbers)
+      resolveRemoteIdentityNumber(extended, ownNumbers)
+      || extractPhoneDisplayValue(extended.remotePartyNumber, ownNumbers)
       || extractPhoneDisplayValue(options?.remotePartyNumber, ownNumbers)
       || findPhoneDisplayValueInPayload(notification?.payload, ownNumbers)
       || extractPhoneDisplayValue(options?.remoteCallerNumber, ownNumbers)
@@ -442,6 +472,7 @@ function SoftphoneV2Content() {
   const callSecondsRef = useRef(0);
   const callSessionRef = useRef<ActiveCallSession | null>(null);
   const callerNumberRef = useRef('');
+  const callDirectionRef = useRef<'inbound' | 'outbound' | ''>('');
   const tenantNumbersRef = useRef<string[]>([]);
   const saveCallToHistoryRef = useRef<() => void>(() => {});
   const incomingRingtoneRef = useRef<IncomingRingtoneHandle | null>(null);
@@ -574,7 +605,7 @@ function SoftphoneV2Content() {
     if (session.reachedActive) {
       status = 'completed';
     } else if (session.direction === 'inbound') {
-      status = session.userDeclined ? 'rejected' : 'missed';
+      status = session.userDeclined || session.acceptedByUser ? 'rejected' : 'missed';
     } else {
       status = 'rejected';
     }
@@ -643,9 +674,11 @@ function SoftphoneV2Content() {
       reachedActive: false,
       saved: false,
       userDeclined: false,
+      acceptedByUser: false,
       receivedAt,
     };
     setCallDirection(direction);
+    callDirectionRef.current = direction;
     if (receivedAt) {
       setIncomingReceivedAt(receivedAt);
     }
@@ -682,6 +715,7 @@ function SoftphoneV2Content() {
     resetCallTelemetry();
     callSessionRef.current = null;
     setCallDirection('');
+    callDirectionRef.current = '';
     setIncomingReceivedAt('');
   };
 
@@ -898,7 +932,12 @@ function SoftphoneV2Content() {
                 return resolved !== 'Unknown' ? resolved : prev;
               });
 
-              if (isInboundCall(payload.call) && payload.call.id) {
+              const existingSession = callSessionRef.current;
+              const notificationIsInbound = isInboundCall(payload.call)
+                && existingSession?.direction !== 'outbound'
+                && callDirectionRef.current !== 'outbound';
+
+              if (notificationIsInbound && payload.call.id) {
                 const inboundNumber = resolveCallDisplayNumber(payload.call, '', payload, ownedInboundNumbers);
                 if (
                   !callSessionRef.current
@@ -932,6 +971,7 @@ function SoftphoneV2Content() {
                 resetCallTelemetry();
                 callSessionRef.current = null;
                 setCallDirection('');
+                callDirectionRef.current = '';
                 setIncomingReceivedAt('');
                 setLastDtmf('');
                 setMuted(false);
@@ -1075,8 +1115,12 @@ function SoftphoneV2Content() {
     logTelnyx('answer.click', call ? { id: call.id, state: call.state } : null);
     if (!call) return;
     stopIncomingRingtone();
+    if (callSessionRef.current?.direction === 'inbound') {
+      callSessionRef.current.acceptedByUser = true;
+    }
     try {
       call.answer();
+      setCallState('answering');
       setDisplayNumber((prev) => resolveCallDisplayNumber(call, prev, undefined, getOwnedInboundNumbers()));
       logTelnyx('answer.invoked');
     } catch (err) {
