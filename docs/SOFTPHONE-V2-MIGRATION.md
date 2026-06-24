@@ -1,166 +1,160 @@
-# Softphone v2 Migration Report
+# Softphone v2 — Legacy Parity Migration Report
 
 **Date:** 2026-06-21  
-**Goal:** Make `/softphone-v2` the default production softphone and retire `/softphone` safely.
+**Status:** Business-critical legacy features ported to `/softphone-v2`
 
 ---
 
-## 1. Feature comparison
+## Features ported (this release)
 
-| Feature | Legacy `/softphone` | V2 `/softphone-v2` | Missing in V2 |
-|--------|---------------------|--------------------|---------------|
-| JWT authentication | ✅ | ✅ | — |
-| Telnyx WebRTC registration | ✅ | ✅ | — |
-| Outbound PSTN calling | ✅ | ✅ | — |
-| Inbound calling | ✅ | ✅ | — |
-| Two-way audio | ✅ | ✅ | — |
-| Hangup | ✅ | ✅ | — |
-| Call timer | ✅ | ✅ | — |
-| DTMF (in-call keypad) | ✅ | ✅ | — |
-| Mute / Unmute | ✅ | ✅ | — |
-| Hold / Resume | ✅ | ✅ | — |
-| Recent calls (local) | ❌ | ✅ | — |
-| Call history (localStorage) | ❌ | ✅ | — |
-| Call back | ❌ | ✅ | — |
-| Full-screen incoming call UI | Partial | ✅ | — |
-| Missed call tracking + toast | ❌ | ✅ | — |
-| Voicemail center (in-app) | ❌ | ✅ | — |
-| Recordings center (in-app) | ❌ | ✅ | — |
-| Modern iPhone-style UI | ❌ | ✅ | — |
-| Dark mode | ❌ | ✅ | — |
-| Extension dialing (2–6 digits) | ✅ | ❌ | **Yes** |
-| Caller ID picker (tenant numbers) | ✅ | ❌ (first/default only) | **Yes** |
-| Visual dial pad (append digits) | ✅ | ❌ (text input + in-call DTMF) | Partial |
-| Outbound ringback tones | ✅ | ❌ | **Yes** |
-| Outbound readiness gate | ✅ | ❌ | **Yes** |
-| Inbound routing readiness warnings | ✅ | ❌ | **Yes** |
-| Server diagnostics panel | ✅ | ❌ | **Yes** |
-| Deep call trace / debug instrumentation | ✅ | ❌ | Intentional |
-| Telnyx socket auto-reconnect | ✅ | ❌ | **Yes** |
-| Softphone presence heartbeat | ✅ | ❌ | **Yes** |
-| Server-side call logging (`/call-log`) | ✅ | ❌ | **Yes** |
-| Live call recording start | ✅ | ❌ | **Yes** |
-| Microphone priming / permission UX | ✅ | ❌ | Partial |
-| Internal transfer UI | ❌ | ❌ | — |
-| Ring group configuration UI | ❌ (in Greeting) | ❌ (in Greeting) | — |
-| CRM integrations | ❌ | ❌ | — |
-| Call notes | ❌ | ❌ | — |
-| Contacts directory | ❌ | ❌ | — |
-| Production telemetry | ❌ | ✅ | — |
-| Error boundary + legacy fallback link | ❌ | ✅ | — |
+| Feature | Status | Implementation |
+|---------|--------|----------------|
+| Extension dialing (2–6 digits) | ✅ | `web/src/lib/softphone-dial.ts` + v2 outbound dial |
+| Caller ID picker | ✅ | Tenant numbers from config + `softphone-caller-id.ts` persistence |
+| Server call logging | ✅ | `softphone-call-log-client.ts` → `POST /api/softphone/call-log` |
+| Presence heartbeat (30s) | ✅ | `softphone-presence.ts` → `POST /api/softphone/presence` |
+
+### Server call log lifecycle
+
+Same `callSid` is upserted through phases:
+
+| Phase | `status` value | When |
+|-------|----------------|------|
+| Started | `started` | Outbound `newCall` or inbound ring session |
+| Connected | `connected` | Telnyx state → `active` |
+| Ended | `ended` | Completed call (+ `durationSeconds`, `direction`) |
+| Failed | `failed` | Missed / rejected / unanswered |
 
 ---
 
-## 2. Legacy-only functionality (not in V2)
+## Files reused from legacy
 
-These exist in legacy and should be ported or consciously deferred before removing `/softphone`:
+| Legacy source | Reused in v2 |
+|---------------|--------------|
+| `web/src/app/(app)/softphone/page.tsx` | Extension dial pattern (`EXTENSION_DIAL_PATTERN`, PSTN vs extension routing) → extracted to `softphone-dial.ts` |
+| `web/src/lib/api.ts` | `getSoftphoneConfig`, `logSoftphoneCall`, `setSoftphonePresence` (endpoints unchanged) |
+| `routes/portal.js` | `POST /api/softphone/call-log`, `POST /api/softphone/presence` (no backend changes) |
+| `web/src/lib/softphone-call-utils.ts` | Reference only — v2 keeps inline `isInboundCall`; utils available if v2 is refactored |
 
-1. **Extension dialing** — legacy dials 2–6 digit extensions via `client.newCall({ destinationNumber: extensionDigits })`.
-2. **Caller ID selection** — legacy lets users pick from assigned tenant numbers.
-3. **Outbound readiness checks** — legacy blocks PSTN dial when Telnyx OVP / credential connection is misconfigured.
-4. **Inbound routing warnings** — legacy surfaces diagnostics when inbound PSTN → WebRTC may fail.
-5. **Softphone presence** — legacy sends `POST /api/softphone/presence` heartbeat (used for extension reachability).
-6. **Server-side call logging** — legacy posts completed calls to `POST /api/softphone/call-log` (platform Call History).
-7. **Live call recording** — legacy starts recording via `POST /api/softphone/record-start` when call becomes active.
-8. **Telnyx reconnect** — legacy schedules reconnect on disconnect.
-9. **Outbound ringback** — legacy plays ringback while outbound is ringing.
-10. **Debug / diagnostics panel** — legacy shows SIP username, invite timestamps, PC stats (ops tooling).
+**Not imported from legacy page** (intentionally avoided):
 
-**Not implemented in either softphone:** internal blind/warm transfer UI, CRM, call notes, contacts (platform may add these separately).
+- `telnyx-debug.ts`, `softphone-call-trace.ts`, `telnyx-softphone-session.ts` (v2 uses `softphone-v2-reconnect.ts` instead)
 
----
+**Reused from legacy libs:**
 
-## 3. Migration checklist
-
-### Pre-deploy
-
-- [x] Feature flag: `SOFTPHONE_V2_ENABLED` / `NEXT_PUBLIC_SOFTPHONE_V2_ENABLED`
-- [x] Navigation → `/softphone-v2` when flag enabled
-- [x] `/softphone` redirects to v2 when flag enabled
-- [x] `/softphone-v2` redirects to legacy when flag disabled (rollback)
-- [x] Error boundary with legacy fallback link
-- [x] Production telemetry (`POST /api/softphone/telemetry`)
-- [ ] Port extension dialing to v2 (recommended before legacy removal)
-- [ ] Port presence heartbeat to v2 (recommended for extension routing)
-- [ ] Port server call-log to v2 (recommended for `/calls` history parity)
-
-### Deploy
-
-```bash
-# On EC2
-export SOFTPHONE_V2_ENABLED=true
-bash deploy/deploy-web.sh
-```
-
-Rollback:
-
-```bash
-export SOFTPHONE_V2_ENABLED=false
-bash deploy/deploy-web.sh
-```
-
-### Post-deploy validation
-
-- [ ] Menu **Softphone** opens `/softphone-v2`
-- [ ] Outbound call to test DID (+13099880196 ecosystem)
-- [ ] Inbound call to tenant DID → full-screen incoming UI → answer → audio
-- [ ] Mute, hold, DTMF, hangup
-- [ ] Voicemail play → telemetry in API logs `[softphone-telemetry]`
-- [ ] Recording play → telemetry event
-- [ ] Force React error → error boundary → legacy link works
-- [ ] Set `SOFTPHONE_V2_ENABLED=false` → menu opens `/softphone`
-
-### Retire legacy (future)
-
-- [ ] Port remaining gap features above
-- [ ] 2-week stable telemetry review
-- [ ] Remove `/softphone` route and legacy libs (`telnyx-debug`, `softphone-call-trace`, etc.)
-- [ ] Rename `/softphone-v2` → `/softphone` (optional clean URL)
+- `call-sounds.ts` — outbound ringback (via `softphone-v2-ringback.ts`)
 
 ---
 
-## 4. Feature flag
+## New files added
 
-| Variable | Where | Default | Purpose |
-|----------|-------|---------|---------|
-| `SOFTPHONE_V2_ENABLED` | EC2 / deploy shell | `true` | Passed to Next.js build |
-| `NEXT_PUBLIC_SOFTPHONE_V2_ENABLED` | Next.js build | from above | Client-side routing |
+| File | Purpose |
+|------|---------|
+| `web/src/lib/softphone-dial.ts` | Extension vs PSTN destination resolution |
+| `web/src/lib/softphone-caller-id.ts` | Load/persist last caller ID (`localStorage`) |
+| `web/src/lib/softphone-call-log-client.ts` | Server call log wrapper |
+| `web/src/lib/softphone-presence.ts` | 30s presence heartbeat + offline on unload |
 
-Implementation: `web/src/lib/softphone-config.ts`
+**Previously added (production default rollout):**
 
----
-
-## 5. Production telemetry
-
-Events tracked from v2:
-
-| Event | Trigger |
-|-------|---------|
-| Call Started | Outbound `newCall` or inbound ring session |
-| Call Connected | Telnyx state → `active` |
-| Call Failed | Unanswered / rejected / Telnyx error |
-| Call Ended | Completed call with duration |
-| Voicemail Played | Voicemail stream play |
-| Recording Played | Recording stream play |
-
-Backend: `POST /api/softphone/telemetry` (structured console log; extend to DB/analytics later).
-
-Client: `web/src/lib/softphone-telemetry.ts`
+| File | Purpose |
+|------|---------|
+| `web/src/lib/softphone-config.ts` | Feature flag + route helpers |
+| `web/src/lib/softphone-telemetry.ts` | Production telemetry client |
+| `web/src/components/softphone-v2-error-boundary.tsx` | Runtime error recovery |
 
 ---
 
-## 6. Build validation
+## Modified files
 
-Run before deploy:
-
-```bash
-cd web
-npx tsc --noEmit
-npm run build
-```
+| File | Change |
+|------|--------|
+| `web/src/app/(app)/softphone-v2/page.tsx` | Extension dial, caller ID picker, server logs, presence |
+| `web/src/lib/api.ts` | `logSoftphoneCall` accepts `direction`, `durationSeconds` |
 
 ---
 
-## 7. Recommendation
+## Operational hardening (2026-06-21)
 
-**Ship v2 as default now** with the feature flag for instant rollback. Keep legacy at `/softphone` for 30 days while porting extension dialing, presence, and server call-log. Remove legacy only after telemetry shows stable call success rates and gap features are addressed or accepted as deferred.
+| Feature | Status | Implementation |
+|---------|--------|----------------|
+| Telnyx auto-reconnect (exponential backoff) | ✅ | `softphone-v2-reconnect.ts` + `telnyx.socket.close` handler |
+| Outbound ringback tone | ✅ | `softphone-v2-ringback.ts` → reuses `call-sounds.ts` |
+| Production monitoring telemetry | ✅ | `Reconnect Attempt`, `Registration Failed`, `Registration Restored`, `Call Failed` |
+| Validation dashboard | ✅ | `softphone-v2-validation-dashboard.tsx` |
+
+### Telemetry events
+
+| Event | When |
+|-------|------|
+| Reconnect Attempt | WebSocket disconnect / error triggers backoff retry |
+| Registration Failed | Boot error, empty token, or `telnyx.error` |
+| Registration Restored | `telnyx.ready` after one or more reconnect attempts |
+| Call Failed | Existing call failure paths (unchanged) |
+
+### New hardening files
+
+| File | Purpose |
+|------|---------|
+| `web/src/lib/softphone-v2-reconnect.ts` | Exponential backoff reconnect controller |
+| `web/src/lib/softphone-v2-ringback.ts` | Outbound ringback sync wrapper |
+| `web/src/components/softphone-v2-validation-dashboard.tsx` | Ops validation panel |
+
+### Reused from legacy (hardening)
+
+| Legacy | Reused |
+|--------|--------|
+| `web/src/lib/call-sounds.ts` | `playOutboundRingback`, `stopLocalRingback` |
+| `telnyx-softphone-session.ts` pattern | Backoff reconnect (v2 uses exponential backoff vs fixed 1.5s) |
+
+---
+
+## Remaining blockers before legacy removal
+
+| Item | Legacy | V2 | Blocker? |
+|------|--------|-----|----------|
+| Outbound readiness gate (OVP check) | ✅ | ❌ | Low — misconfig shows as failed call |
+| Inbound routing diagnostics panel | ✅ | ❌ | Low — ops/debug only |
+| Live call recording start | ✅ | ❌ | **Medium** — if tenants rely on in-call record-start |
+| Visual pre-call dial pad | ✅ | ❌ | Low — text input works |
+| Deep debug / trace instrumentation | ✅ | ❌ | Low — ops only |
+| Microphone priming UX | ✅ | ❌ | Low |
+
+**Recommendation:** Legacy `/softphone` can be **retired after**:
+
+1. 1–2 weeks production validation including reconnect + ringback on v2  
+2. Decision on **live call recording start** (port or defer)
+
+---
+
+## Validation checklist
+
+- [ ] Dial extension `101` (or tenant extension) — no `+` prefix applied  
+- [ ] Dial PSTN `+1309…` — E.164 normalization preserved  
+- [ ] Change caller ID → reload page → last selection restored  
+- [ ] Platform **Call History** (`/calls`) shows started → connected → ended  
+- [ ] Failed outbound appears with `status: failed`  
+- [ ] Presence: extension/user shows online in phone system while softphone open  
+- [ ] Close tab → presence marks offline within ~30s  
+- [ ] Kill WebSocket → status shows `Reconnecting…` and registration restores  
+- [ ] Outbound call plays ringback until answered  
+- [ ] Validation dashboard reflects connection / registration / presence state  
+
+---
+
+## Rollback
+
+Set `SOFTPHONE_V2_ENABLED=false` and redeploy — menu returns to legacy `/softphone`.
+
+---
+
+## iPhone UI redesign (2026-06-21)
+
+Presentation moved to `web/src/components/softphone-v2/`. Business logic remains in `page.tsx`.
+
+See **[SOFTPHONE-V2-PRODUCTION-AUDIT.md](./SOFTPHONE-V2-PRODUCTION-AUDIT.md)** for:
+
+- Full API / lifecycle / telemetry audit
+- Legacy retirement checklist
+- Component architecture & route map
+- Deployment smoke tests

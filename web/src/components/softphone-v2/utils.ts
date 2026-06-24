@@ -1,0 +1,82 @@
+import type { CallHistoryRecord } from '@/components/softphone-v2/types';
+
+export function formatPhoneDisplay(value: string) {
+  if (/^\d{2,6}$/.test(value.trim())) {
+    return `Ext ${value.trim()}`;
+  }
+  const digits = value.replace(/\D/g, '');
+  if (digits.length === 11 && digits.startsWith('1')) {
+    return `+1 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+  }
+  if (digits.length === 10) {
+    return `+1 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  return value || 'Unknown';
+}
+
+export function formatCallTimer(totalSeconds: number) {
+  const mins = Math.floor(totalSeconds / 60);
+  const secs = totalSeconds % 60;
+  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
+
+export function formatHistoryTimestamp(iso: string) {
+  const date = new Date(iso);
+  const now = new Date();
+  const time = date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  if (date.toDateString() === now.toDateString()) {
+    return time;
+  }
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (date.toDateString() === yesterday.toDateString()) {
+    return 'Yesterday';
+  }
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+export function callerInitials(number: string) {
+  const digits = number.replace(/\D/g, '').slice(-4);
+  return digits.slice(0, 2) || '??';
+}
+
+export function callStatusLabel(state: string) {
+  switch (state) {
+    case 'active':
+      return 'Connected';
+    case 'held':
+      return 'On Hold';
+    case 'ringing':
+    case 'trying':
+    case 'early':
+    case 'answering':
+      return 'Calling…';
+    case 'requesting':
+    case 'new':
+      return 'Connecting…';
+    default:
+      return state ? state.charAt(0).toUpperCase() + state.slice(1) : 'Ready';
+  }
+}
+
+export function historyDirectionLabel(direction: CallHistoryRecord['direction']) {
+  return direction === 'outbound' ? 'Outgoing' : 'Incoming';
+}
+
+export const KEYPAD_DIGITS = [
+  ['1', '2', '3'],
+  ['4', '5', '6'],
+  ['7', '8', '9'],
+  ['*', '0', '#'],
+] as const;
+
+export const KEYPAD_LETTERS: Record<string, string> = {
+  '2': 'ABC',
+  '3': 'DEF',
+  '4': 'GHI',
+  '5': 'JKL',
+  '6': 'MNO',
+  '7': 'PQRS',
+  '8': 'TUV',
+  '9': 'WXYZ',
+};

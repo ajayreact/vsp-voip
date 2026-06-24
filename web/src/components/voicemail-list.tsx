@@ -14,9 +14,15 @@ type VoicemailListProps = {
   voicemails: VoicemailRecord[];
   onChange: () => void;
   onError?: (message: string) => void;
+  canDelete?: boolean;
 };
 
-export function VoicemailList({ voicemails, onChange, onError }: VoicemailListProps) {
+export function VoicemailList({
+  voicemails,
+  onChange,
+  onError,
+  canDelete = false,
+}: VoicemailListProps) {
   const [busyId, setBusyId] = useState<string | null>(null);
 
   async function onMarkRead(vm: VoicemailRecord) {
@@ -75,15 +81,17 @@ export function VoicemailList({ voicemails, onChange, onError }: VoicemailListPr
                 {!vm.isRead ? ' · Unread' : ' · Read'}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => void onDelete(vm.id)}
-              disabled={busyId === vm.id}
-              className="rounded-full px-2 py-1 text-sm transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-50"
-              aria-label="Delete voicemail"
-            >
-              🗑
-            </button>
+            {canDelete ? (
+              <button
+                type="button"
+                onClick={() => void onDelete(vm.id)}
+                disabled={busyId === vm.id}
+                className="rounded-full px-2 py-1 text-sm transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-50"
+                aria-label="Delete voicemail"
+              >
+                🗑
+              </button>
+            ) : null}
           </div>
 
           <LazyStreamPlayer

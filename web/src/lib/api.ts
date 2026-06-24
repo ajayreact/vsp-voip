@@ -369,6 +369,7 @@ export type SoftphoneConfig = {
           extensionId: string;
           extensionNumber: string;
           displayName: string | null;
+          extensionUserId?: string | null;
         }>;
       };
       entityRingGroup: {
@@ -497,6 +498,8 @@ export async function logSoftphoneCall(data: {
   from: string;
   to: string;
   status?: string;
+  direction?: 'inbound' | 'outbound';
+  durationSeconds?: number;
 }) {
   return apiFetch<{ success: boolean }>('/api/softphone/call-log', {
     method: 'POST',
