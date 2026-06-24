@@ -1,4 +1,4 @@
-import { logSoftphoneCall, notifySoftphoneCallAccepted } from '@/lib/api';
+import { API_URL, getToken, logSoftphoneCall } from '@/lib/api';
 
 export type ServerCallLogStatus =
   | 'started'
@@ -9,6 +9,31 @@ export type ServerCallLogStatus =
   | 'busy'
   | 'cancelled'
   | 'rejected';
+
+export type CallAcceptedDiagnostic = {
+  ok: boolean;
+  pstnCaller?: string | null;
+  reason?: string;
+  inboundCallControlId?: string;
+  request: {
+    url: string;
+    method: string;
+    hasToken: boolean;
+  };
+  response?: {
+    status: number;
+    statusText: string;
+    body: unknown;
+  };
+  error?: string;
+  networkError?: string;
+};
+
+const CALL_ACCEPTED_PATH = '/api/softphone/call-accepted';
+
+function logCallAcceptedDiagnostic(label: string, detail: unknown) {
+  console.error(`[softphone-v2] postCallAccepted.${label}`, detail);
+}
 
 export function postServerCallLog(params: {
   callSid: string;
@@ -35,11 +60,99 @@ export function postServerCallLog(params: {
     userDeclined: params.userDeclined,
     acceptedByUser: params.acceptedByUser,
     userCancelled: params.userCancelled,
-  }).catch(() => {
-    /* call logging must not break the softphone */
+  }).catch((err) => {
+    console.error('[softphone-v2] postServerCallLog.error', err);
   });
 }
 
-export function postCallAccepted() {
-  return notifySoftphoneCallAccepted().catch(() => null);
+export async function postCallAccepted(): Promise<CallAcceptedDiagnostic> {
+  const url = `${API_URL}${CALL_ACCEPTED_PATH}`;
+  const method = 'POST';
+  const token = getToken();
+  const request = { url, method, hasToken: Boolean(token) };
+
+  logCallAcceptedDiagnostic('request', request);
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({}),
+    });
+  } catch (err) {
+    const networkError = err instanceof Error ? err.message : String(err);
+    const diagnostic: CallAcceptedDiagnostic = {
+      ok: false,
+      request,
+      networkError,
+      error: `Network error reaching ${url}: ${networkError}`,
+    };
+    logCallAcceptedDiagnostic('networkError', diagnostic);
+    return diagnostic;
+  }
+
+  const raw = await res.text();
+  let body: unknown = null;
+  try {
+    body = raw ? JSON.parse(raw) : null;
+  } catch {
+    body = { raw };
+  }
+
+  const response = {
+    status: res.status,
+    statusText: res.statusText,
+    body,
+  };
+
+  logCallAcceptedDiagnostic('response', { request, response });
+
+  if (!res.ok) {
+    const apiError = typeof body === 'object' && body && 'error' in body
+      ? String((body as { error: unknown }).error)
+      : `HTTP ${res.status} ${res.statusText}`;
+    const diagnostic: CallAcceptedDiagnostic = {
+      ok: false,
+      request,
+      response,
+      error: apiError,
+    };
+    logCallAcceptedDiagnostic('httpError', diagnostic);
+    return diagnostic;
+  }
+
+  const payload = body as {
+    success?: boolean;
+    ok?: boolean;
+    reason?: string;
+    pstnCaller?: string | null;
+    inboundCallControlId?: string;
+  };
+
+  const accepted = payload.ok === true || payload.success === true;
+  const diagnostic: CallAcceptedDiagnostic = {
+    ok: accepted,
+    pstnCaller: payload.pstnCaller ?? null,
+    reason: payload.reason,
+    inboundCallControlId: payload.inboundCallControlId,
+    request,
+    response,
+    ...(accepted
+      ? {}
+      : {
+          error: payload.reason
+            ? `Backend rejected accept: ${payload.reason}`
+            : 'Backend returned ok:false without a reason',
+        }),
+  };
+
+  if (!accepted) {
+    logCallAcceptedDiagnostic('backendRejected', diagnostic);
+  }
+
+  return diagnostic;
 }

@@ -21,6 +21,15 @@ import {
 } from '@/lib/softphone-v2-reconnect';
 import { stopOutboundRingback, syncOutboundRingback } from '@/lib/softphone-v2-ringback';
 import { trackSoftphoneEvent, subscribeSoftphoneTelemetry, type SoftphoneTelemetrySnapshot } from '@/lib/softphone-telemetry';
+import {
+  buildTelnyxClientOptions,
+  bindRemoteAudioTarget,
+} from '@/lib/telnyx-softphone-session';
+import { logPeerConnectionDiagnostics } from '@/lib/telnyx-debug';
+import {
+  detachRemoteCallAudio,
+  wireWebCallAudio,
+} from '@/lib/webrtc-audio';
 import { IphonePhoneApp } from '@/components/softphone-v2/iphone-phone-app';
 import type {
   CallHistoryRecord,
@@ -59,6 +68,18 @@ const DTMF_ROWS = [
   ['7', '8', '9'],
   ['*', '0', '#'],
 ] as const;
+
+async function ensureMicrophoneAccess() {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    throw new Error('Microphone access is not available in this browser');
+  }
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  stream.getTracks().forEach((track) => track.stop());
+}
+
+function getRemoteAudioElement() {
+  return document.getElementById(REMOTE_AUDIO_ID) as HTMLAudioElement | null;
+}
 
 function logTelnyx(event: string, payload?: unknown) {
   if (payload === undefined) {
@@ -629,6 +650,7 @@ function SoftphoneV2Content() {
   const tearingDownRef = useRef(false);
   const reconnectControllerRef = useRef<TelnyxReconnectController | null>(null);
   const registrationSuccessEmittedRef = useRef(false);
+  const unwireCallAudioRef = useRef<(() => void) | null>(null);
   const telemetryRef = useRef<{
     started?: string;
     connected?: string;
@@ -638,6 +660,42 @@ function SoftphoneV2Content() {
 
   const resetCallTelemetry = () => {
     telemetryRef.current = {};
+  };
+
+  const clearCallMedia = () => {
+    unwireCallAudioRef.current?.();
+    unwireCallAudioRef.current = null;
+    detachRemoteCallAudio(getRemoteAudioElement());
+  };
+
+  const attachCallMedia = (call: Call, label: string) => {
+    const audioEl = getRemoteAudioElement();
+
+    const wireOnce = () => {
+      if (unwireCallAudioRef.current) return true;
+      const pc = (call as Call & { peer?: { peerConnection?: RTCPeerConnection } }).peer?.peerConnection;
+      if (!pc) return false;
+      unwireCallAudioRef.current = wireWebCallAudio(call, audioEl, () => {
+        logTelnyx('media.playback-blocked', { label });
+      });
+      void logPeerConnectionDiagnostics(call, label).then(() => {
+        logTelnyx('media.diagnostics', { label });
+      });
+      return true;
+    };
+
+    if (wireOnce()) return;
+
+    let attempts = 0;
+    const pollId = window.setInterval(() => {
+      attempts += 1;
+      if (wireOnce() || attempts >= 75) {
+        window.clearInterval(pollId);
+        if (attempts >= 75 && !unwireCallAudioRef.current) {
+          logTelnyx('media.peer-timeout', { label });
+        }
+      }
+    }, 200);
   };
 
   const trackCallStarted = (
@@ -998,15 +1056,11 @@ function SoftphoneV2Content() {
           return;
         }
 
-        client = new TelnyxRTC({
-          login_token: tokenRes.loginToken.trim(),
-          debug: true,
-          keepConnectionAliveOnSocketClose: true,
-        });
+        client = new TelnyxRTC(buildTelnyxClientOptions(tokenRes.loginToken));
 
-        const audioEl = document.getElementById(REMOTE_AUDIO_ID) as HTMLAudioElement | null;
+        const audioEl = getRemoteAudioElement();
         if (audioEl) {
-          (client as TelnyxRTC & { remoteElement?: HTMLMediaElement }).remoteElement = audioEl;
+          bindRemoteAudioTarget(client, audioEl);
           logTelnyx('boot.remote-audio-bound', { id: audioEl.id });
         } else {
           logTelnyx('boot.remote-audio-missing');
@@ -1141,6 +1195,10 @@ function SoftphoneV2Content() {
 
               if (normalized === 'active' && payload.call.id) {
                 markCallSessionActive(payload.call.id);
+                attachCallMedia(
+                  payload.call,
+                  notificationIsInbound ? 'inbound:active' : 'outbound:active',
+                );
                 stopIncomingRingtoneRef.current();
               }
 
@@ -1151,6 +1209,7 @@ function SoftphoneV2Content() {
                     payload,
                   );
                 }
+                clearCallMedia();
                 stopIncomingRingtoneRef.current();
                 saveCallToHistoryRef.current();
                 resetCallTelemetry();
@@ -1231,6 +1290,7 @@ function SoftphoneV2Content() {
       stopTimer();
       stopIncomingRingtoneRef.current();
       stopOutboundRingback(callRef.current);
+      clearCallMedia();
       try {
         callRef.current?.hangup();
         client?.disconnect();
@@ -1305,12 +1365,33 @@ function SoftphoneV2Content() {
       callSessionRef.current.acceptedByUser = true;
     }
     try {
+      await ensureMicrophoneAccess();
+
+      const extended = call as Call & {
+        options?: { remoteElement?: string | HTMLMediaElement; audio?: boolean };
+      };
+      const audioEl = getRemoteAudioElement();
+      if (extended.options) {
+        extended.options.remoteElement = audioEl ?? REMOTE_AUDIO_ID;
+        extended.options.audio = true;
+      }
+
       // Arm bridge grace on the API before WebRTC answer so stale call.dial.ended
       // webhooks cannot trigger voicemail/no-answer fallback during bridge completion.
       if (isInbound) {
         const acceptRes = await postCallAccepted();
         logTelnyx('answer.callAccepted', acceptRes);
-        const pstnCaller = acceptRes?.pstnCaller;
+        if (!acceptRes.ok) {
+          logTelnyx('answer.callAccepted.failed', {
+            error: acceptRes.error,
+            reason: acceptRes.reason,
+            status: acceptRes.response?.status,
+            url: acceptRes.request.url,
+            networkError: acceptRes.networkError,
+            responseBody: acceptRes.response?.body,
+          });
+        }
+        const pstnCaller = acceptRes.ok ? acceptRes.pstnCaller : null;
         if (pstnCaller && callSessionRef.current) {
           callSessionRef.current.pstnCaller = pstnCaller;
           const normalized = normalizeDialNumber(pstnCaller) || pstnCaller;
@@ -1323,7 +1404,10 @@ function SoftphoneV2Content() {
           logTelnyx('answer.pstnCaller', { pstnCaller: normalized });
         }
       }
-      call.answer();
+
+      await Promise.resolve(call.answer());
+      attachCallMedia(call, isInbound ? 'inbound:answer' : 'outbound:answer');
+      void logPeerConnectionDiagnostics(call, 'answer:after');
       setCallState('answering');
       setDisplayNumber((prev) => resolveCallDisplayNumber(
         call,
@@ -1362,6 +1446,7 @@ function SoftphoneV2Content() {
       logTelnyx('decline.error', err);
     }
 
+    clearCallMedia();
     finalizeCallSession();
     callRef.current = null;
     setCallState('');
@@ -1386,6 +1471,7 @@ function SoftphoneV2Content() {
     } catch (err) {
       logTelnyx('hangup.error', err);
     }
+    clearCallMedia();
     finalizeCallSession();
     callRef.current = null;
     setCallState('');

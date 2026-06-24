@@ -835,6 +835,7 @@ router.post('/softphone/presence', authMiddleware, async (req, res) => {
 router.post('/softphone/call-accepted', authMiddleware, async (req, res) => {
   try {
     if (!req.user.tenantId) {
+      console.warn('[call-accepted] rejected: no tenant on account', { userId: req.user.sub });
       return res.status(403).json({ error: 'No organization linked to this account' });
     }
 
@@ -844,12 +845,30 @@ router.post('/softphone/call-accepted', authMiddleware, async (req, res) => {
       select: { telnyxSipUsername: true },
     });
     if (!user?.telnyxSipUsername) {
+      console.warn('[call-accepted] rejected: no telnyxSipUsername', {
+        userId: req.user.sub,
+        tenantId: req.user.tenantId,
+      });
       return res.status(400).json({ error: 'WebRTC SIP credentials are not provisioned for this user' });
     }
 
+    console.log('[call-accepted] invoking markAgentWebRtcAccepted', {
+      userId: req.user.sub,
+      tenantId: req.user.tenantId,
+      telnyxSipUsername: user.telnyxSipUsername,
+    });
+
     const result = await markAgentWebRtcAccepted(user.telnyxSipUsername);
+
+    console.log('[call-accepted] markAgentWebRtcAccepted result', {
+      userId: req.user.sub,
+      telnyxSipUsername: user.telnyxSipUsername,
+      ...result,
+    });
+
     res.json({ success: result.ok, ...result });
   } catch (error) {
+    console.error('[call-accepted] handler error', error);
     res.status(error.status || 500).json({ error: error.message || 'Failed to mark call accepted' });
   }
 });

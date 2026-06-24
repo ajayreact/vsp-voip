@@ -16,6 +16,8 @@ COPY . .
 
 FROM base AS runner
 ENV NODE_ENV=production
+ARG GIT_COMMIT=unknown
+ENV GIT_COMMIT=$GIT_COMMIT
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=build /app/generated ./generated
 COPY --from=build /app/prisma ./prisma
