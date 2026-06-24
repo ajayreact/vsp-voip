@@ -22,7 +22,13 @@ export function IncomingCallScreen({
   onAccept,
   onDecline,
 }: IncomingCallScreenProps) {
-  const formattedNumber = callerNumber || formatPhoneDisplay('');
+  const formattedNumber = formatPhoneDisplay(callerNumber);
+  const hasCallerName = Boolean(
+    callerName
+    && callerName !== callerNumber
+    && callerName !== formattedNumber
+    && callerName !== 'Unknown Caller',
+  );
   const receivedLabel = receivedAt
     ? formatHistoryTimestamp(receivedAt)
     : 'Just now';
@@ -32,8 +38,10 @@ export function IncomingCallScreen({
       <div className="flex flex-1 flex-col items-center justify-between px-6 pb-12 pt-20">
         <div className="w-full text-center">
           <p className="text-sm font-medium text-white/45">Incoming call</p>
-          <h1 className="mt-4 text-4xl font-light tracking-tight">{callerName || 'Unknown Caller'}</h1>
-          <p className="mt-2 text-lg text-white/65">{formattedNumber}</p>
+          <h1 className="mt-4 text-4xl font-light tracking-tight">
+            {hasCallerName ? callerName : formattedNumber}
+          </h1>
+          {hasCallerName ? <p className="mt-2 text-lg text-white/65">{formattedNumber}</p> : null}
           <p className="mt-1 text-sm text-white/40">{receivedLabel}</p>
         </div>
 
@@ -41,7 +49,7 @@ export function IncomingCallScreen({
           <span className="absolute h-40 w-40 animate-ping rounded-full border border-[#34C759]/30" />
           <span className="absolute h-48 w-48 animate-ping rounded-full border border-[#34C759]/20 [animation-delay:450ms]" />
           <div className="relative flex h-40 w-40 animate-pulse items-center justify-center rounded-full bg-white/10 text-5xl font-light backdrop-blur-md">
-            {callerInitials(callerName || callerNumber)}
+            {callerInitials(hasCallerName ? callerName : formattedNumber)}
           </div>
         </div>
 

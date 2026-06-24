@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { BottomTabBar } from '@/components/softphone-v2/bottom-tab-bar';
 import { ContactsTab } from '@/components/softphone-v2/contacts-tab';
 import { KeypadTab } from '@/components/softphone-v2/keypad-tab';
@@ -169,7 +170,21 @@ export function IphonePhoneApp(props: IphonePhoneAppProps) {
 
   return (
     <div className="fixed inset-0 z-0 flex min-h-[100dvh] items-center justify-center overflow-hidden bg-[#F5F7FA] text-[#1D1D1F] sm:p-3 lg:bg-[linear-gradient(145deg,#F5F7FA_0%,#E9EEF5_100%)]">
-      <div className="relative flex h-[100dvh] w-full flex-col overflow-hidden bg-[#F5F5F7] shadow-2xl sm:h-[min(860px,calc(100dvh-1.5rem))] sm:max-w-[490px] sm:rounded-[3rem] sm:border-[10px] sm:border-[#111] sm:shadow-[0_28px_70px_rgba(15,23,42,0.24),0_8px_22px_rgba(15,23,42,0.12)]">
+      <Link
+        href="/dashboard"
+        className="absolute left-4 z-[90] inline-flex items-center rounded-full bg-white/80 px-3 py-1.5 text-sm font-medium text-[#007AFF] shadow-sm backdrop-blur-md transition hover:bg-white sm:hidden"
+        style={{ top: 'calc(env(safe-area-inset-top) + 0.75rem)' }}
+      >
+        ← Back to Portal
+      </Link>
+      <div className="flex h-[100dvh] w-full flex-col items-center justify-center sm:h-auto sm:w-auto">
+        <Link
+          href="/dashboard"
+          className="mb-2 hidden self-start rounded-full bg-white/80 px-3 py-1.5 text-sm font-medium text-[#007AFF] shadow-sm backdrop-blur-md transition hover:bg-white sm:inline-flex"
+        >
+          ← Back to Portal
+        </Link>
+      <div className="relative flex h-[100dvh] w-full flex-col overflow-hidden bg-[#F5F5F7] shadow-2xl sm:h-[min(820px,calc(100dvh-4.5rem))] sm:max-w-[490px] sm:rounded-[3rem] sm:border-[10px] sm:border-[#111] sm:shadow-[0_28px_70px_rgba(15,23,42,0.24),0_8px_22px_rgba(15,23,42,0.12)]">
         <div className="pointer-events-none absolute left-1/2 top-2 z-[80] hidden h-6 w-32 -translate-x-1/2 rounded-full bg-black sm:block" />
       {showIncomingOverlay ? (
         <IncomingCallScreen
@@ -296,6 +311,7 @@ export function IphonePhoneApp(props: IphonePhoneAppProps) {
         className="sr-only"
         aria-hidden
       />
+      </div>
       </div>
     </div>
   );

@@ -95,12 +95,23 @@ export function ActiveCallScreen({
 }: ActiveCallScreenProps) {
   const isActive = callState === 'active' || callState === 'held';
   const keypadDigits = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'];
+  const formattedNumber = formatPhoneDisplay(callerNumber);
+  const hasCallerName = Boolean(
+    callerName
+    && callerName !== callerNumber
+    && callerName !== formattedNumber
+    && callerName !== 'Unknown Caller',
+  );
 
   return (
     <div className="absolute inset-0 z-50 flex flex-col bg-[#1C1C1E] text-white">
       <div className="flex flex-1 flex-col items-center px-6 pt-16 text-center">
-        <h1 className="mt-2 max-w-full truncate text-3xl font-light tracking-tight">{callerName || 'Unknown Caller'}</h1>
-        <p className="mt-2 max-w-full truncate text-base text-white/55">{callerNumber || 'Unknown Caller'}</p>
+        <h1 className="mt-2 max-w-full truncate text-3xl font-light tracking-tight">
+          {hasCallerName ? callerName : formattedNumber}
+        </h1>
+        {hasCallerName ? (
+          <p className="mt-2 max-w-full truncate text-base text-white/55">{formattedNumber}</p>
+        ) : null}
         <p className="mt-4 text-base text-white/65">
           {callStatusLabel(onHold ? 'held' : callState)}
         </p>
