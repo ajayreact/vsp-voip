@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { Mic } from 'lucide-react';
 import { DataTable } from '@/components/data-table';
 import { getCalls } from '@/lib/api';
+import { callTypeBadgeClass, callTypeDisplayLabel } from '@/lib/call-type-labels';
 import { formatPhoneNumber } from '@/lib/phone';
 
 type CallRow = {
@@ -15,6 +16,7 @@ type CallRow = {
   direction: string;
   status: string;
   callType: string;
+  callTypeLabel?: string;
   durationSeconds: number | null;
   durationLabel: string;
   createdAt: string;
@@ -22,28 +24,8 @@ type CallRow = {
   recordingUrl: string | null;
 };
 
-function callTypeLabel(type: string) {
-  switch (type) {
-    case 'missed':
-      return 'Missed';
-    case 'outbound':
-      return 'Outbound';
-    case 'inbound':
-      return 'Inbound';
-    default:
-      return type.charAt(0).toUpperCase() + type.slice(1);
-  }
-}
-
-function callTypeBadgeClass(type: string) {
-  switch (type) {
-    case 'missed':
-      return 'bg-amber-50 text-amber-700 ring-amber-200';
-    case 'outbound':
-      return 'bg-sky-50 text-sky-700 ring-sky-200';
-    default:
-      return 'bg-emerald-50 text-emerald-700 ring-emerald-200';
-  }
+function callTypeLabel(type: string, label?: string) {
+  return label || callTypeDisplayLabel(type);
 }
 
 export default function CallsPage() {
@@ -72,7 +54,7 @@ export default function CallsPage() {
             sortable: true,
             render: (call) => (
               <span className={`rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${callTypeBadgeClass(call.callType)}`}>
-                {callTypeLabel(call.callType)}
+                {callTypeLabel(call.callType, call.callTypeLabel)}
               </span>
             ),
           },

@@ -500,11 +500,22 @@ export async function logSoftphoneCall(data: {
   status?: string;
   direction?: 'inbound' | 'outbound';
   durationSeconds?: number;
+  callType?: string;
+  userDeclined?: boolean;
+  acceptedByUser?: boolean;
+  userCancelled?: boolean;
 }) {
   return apiFetch<{ success: boolean }>('/api/softphone/call-log', {
     method: 'POST',
     body: JSON.stringify(data),
   });
+}
+
+export async function notifySoftphoneCallAccepted() {
+  return apiFetch<{ success: boolean; ok?: boolean; pstnCaller?: string | null }>(
+    '/api/softphone/call-accepted',
+    { method: 'POST', body: JSON.stringify({}) },
+  );
 }
 
 export async function startSoftphoneRecording(data: {

@@ -1,4 +1,4 @@
-import type { CallHistoryRecord, ContactEntry } from '@/components/softphone-v2/types';
+import type { CallHistoryRecord, CallHistoryStatus, ContactEntry } from '@/components/softphone-v2/types';
 
 export function normalizePhoneKey(value: string) {
   return value.replace(/\D/g, '');
@@ -114,11 +114,29 @@ export function historyDirectionLabel(direction: CallHistoryRecord['direction'])
 }
 
 export function historyStatusLabel(record: CallHistoryRecord) {
-  if (record.status === 'missed') return 'Missed';
-  if (record.status === 'rejected') {
-    return record.direction === 'outbound' ? 'Unanswered' : 'Rejected';
+  switch (record.status) {
+    case 'missed':
+      return 'Missed';
+    case 'outbound_no_answer':
+      return 'No Answer';
+    case 'busy':
+      return 'Busy';
+    case 'failed':
+      return 'Failed';
+    case 'cancelled':
+      return 'Cancelled';
+    case 'rejected':
+      return 'Rejected';
+    case 'completed':
+      return record.direction === 'outbound' ? 'Outgoing' : 'Incoming';
+    default:
+      return record.direction === 'outbound' ? 'Outgoing' : 'Incoming';
   }
-  return historyDirectionLabel(record.direction);
+}
+
+/** True for inbound missed calls only (excludes outbound no-answer). */
+export function isInboundMissedStatus(status: CallHistoryStatus) {
+  return status === 'missed';
 }
 
 export const KEYPAD_DIGITS = [

@@ -6,7 +6,7 @@ import { TelnyxRTC } from '@telnyx/webrtc';
 import type { Call } from '@telnyx/webrtc';
 import { getSoftphoneConfig, getSoftphoneToken, getExtensions, getMe, isUnauthorizedError } from '@/lib/api';
 import { persistStoredCallerId, resolveStoredCallerId } from '@/lib/softphone-caller-id';
-import { postServerCallLog } from '@/lib/softphone-call-log-client';
+import { postServerCallLog, postCallAccepted } from '@/lib/softphone-call-log-client';
 import { isSoftphoneV2Enabled } from '@/lib/softphone-config';
 import {
   isValidDialInput,
@@ -24,10 +24,12 @@ import { trackSoftphoneEvent, subscribeSoftphoneTelemetry, type SoftphoneTelemet
 import { IphonePhoneApp } from '@/components/softphone-v2/iphone-phone-app';
 import type {
   CallHistoryRecord,
+  CallHistoryStatus,
   ContactEntry,
   PhoneTab,
   RecentsFilter,
 } from '@/components/softphone-v2/types';
+import { isInboundMissedStatus } from '@/components/softphone-v2/utils';
 import { TenantOnlyGate } from '@/components/tenant-only-gate';
 import { SoftphoneV2ErrorBoundary } from '@/components/softphone-v2-error-boundary';
 
@@ -45,6 +47,9 @@ type ActiveCallSession = {
   saved: boolean;
   userDeclined?: boolean;
   acceptedByUser?: boolean;
+  userCancelled?: boolean;
+  terminationReason?: string;
+  pstnCaller?: string;
   receivedAt?: string;
 };
 
@@ -168,7 +173,11 @@ function isOwnInboundNumber(digits: string, ownNumbers: string[] = []) {
   });
 }
 
-function extractPhoneDisplayValue(value?: string | null, ownNumbers: string[] = []) {
+function extractPhoneDisplayValue(
+  value?: string | null,
+  ownNumbers: string[] = [],
+  options: { skipOwnFilter?: boolean } = {},
+) {
   if (!value) return '';
   let candidate = String(value).trim();
   if (!candidate) return '';
@@ -187,7 +196,7 @@ function extractPhoneDisplayValue(value?: string | null, ownNumbers: string[] = 
   const digits = candidate.replace(/\D/g, '');
   if (!digits) return '';
   if (/[a-z]/i.test(candidate.replace(/^sip:/i, ''))) return '';
-  if (isOwnInboundNumber(digits, ownNumbers)) return '';
+  if (!options.skipOwnFilter && isOwnInboundNumber(digits, ownNumbers)) return '';
 
   if (digits.length === 10) return `+1${digits}`;
   if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`;
@@ -196,14 +205,142 @@ function extractPhoneDisplayValue(value?: string | null, ownNumbers: string[] = 
   return '';
 }
 
+function decodePstnCallerFromClientState(raw: string): string {
+  try {
+    const parsed = JSON.parse(atob(raw)) as {
+      pstnCaller?: string;
+      pstnCallerName?: string;
+    };
+    return (
+      extractPhoneDisplayValue(parsed.pstnCaller, [], { skipOwnFilter: true })
+      || extractPhoneDisplayValue(parsed.pstnCallerName, [], { skipOwnFilter: true })
+    );
+  } catch {
+    return '';
+  }
+}
+
+function decodePstnCallerFromNotification(
+  notification?: TelnyxNotificationPayload,
+): string {
+  if (!notification) return '';
+
+  const scan = (value: unknown, depth = 0): string => {
+    if (!value || depth > 6) return '';
+    if (typeof value === 'string') {
+      if (value.length >= 16 && /^[A-Za-z0-9+/=]+$/.test(value)) {
+        const fromState = decodePstnCallerFromClientState(value);
+        if (fromState) return fromState;
+      }
+      return extractPhoneDisplayValue(value, [], { skipOwnFilter: true });
+    }
+    if (typeof value !== 'object') return '';
+
+    const record = value as Record<string, unknown>;
+    if (typeof record.client_state === 'string') {
+      const fromState = decodePstnCallerFromClientState(record.client_state);
+      if (fromState) return fromState;
+    }
+    if (record.pstnCaller) {
+      const direct = extractPhoneDisplayValue(String(record.pstnCaller), [], { skipOwnFilter: true });
+      if (direct) return direct;
+    }
+
+    for (const nested of Object.values(record)) {
+      const found = scan(nested, depth + 1);
+      if (found) return found;
+    }
+    return '';
+  };
+
+  return scan(notification.payload) || scan(notification);
+}
+
+function extractHangupCause(
+  call?: Call,
+  notification?: TelnyxNotificationPayload,
+): string {
+  const extended = call as Call & {
+    cause?: string;
+    hangupCause?: string;
+    sipCode?: number;
+    sipReason?: string;
+  };
+  const direct = [
+    extended?.cause,
+    extended?.hangupCause,
+    extended?.sipReason,
+    notification?.payload?.cause,
+    notification?.payload?.hangup_cause,
+  ]
+    .map((value) => String(value || '').toLowerCase())
+    .find(Boolean);
+  if (direct) return direct;
+  const sipCode = Number(extended?.sipCode || notification?.payload?.sip_code);
+  if (sipCode === 486) return 'busy';
+  if (sipCode === 487 || sipCode === 603) return 'cancelled';
+  if (sipCode === 408 || sipCode === 480) return 'no-answer';
+  return '';
+}
+
+function resolveTerminalHistoryStatus(session: ActiveCallSession): CallHistoryStatus {
+  if (session.reachedActive) return 'completed';
+
+  if (session.direction === 'inbound') {
+    if (session.userDeclined || session.acceptedByUser) return 'rejected';
+    return 'missed';
+  }
+
+  const reason = String(session.terminationReason || '').toLowerCase();
+  if (session.userCancelled) return 'cancelled';
+  if (reason.includes('busy')) return 'busy';
+  if (reason.includes('cancel')) return 'cancelled';
+  if (reason.includes('fail') || reason.includes('error')) return 'failed';
+  if (reason.includes('no-answer') || reason.includes('no_answer') || reason.includes('timeout')) {
+    return 'outbound_no_answer';
+  }
+  return 'outbound_no_answer';
+}
+
+function mapHistoryStatusToServerLog(
+  status: CallHistoryStatus,
+  direction: 'inbound' | 'outbound',
+): {
+  status: 'ended' | 'failed' | 'no-answer' | 'busy' | 'cancelled' | 'rejected';
+  callType: string;
+} {
+  switch (status) {
+    case 'completed':
+      return { status: 'ended', callType: direction === 'outbound' ? 'outbound' : 'answered' };
+    case 'missed':
+      return { status: 'no-answer', callType: 'missed' };
+    case 'outbound_no_answer':
+      return { status: 'no-answer', callType: 'outbound_no_answer' };
+    case 'busy':
+      return { status: 'busy', callType: 'busy' };
+    case 'failed':
+      return { status: 'failed', callType: 'failed' };
+    case 'cancelled':
+      return { status: 'cancelled', callType: 'cancelled' };
+    case 'rejected':
+      return { status: 'rejected', callType: 'rejected' };
+    default:
+      return { status: 'failed', callType: 'failed' };
+  }
+}
+
 function resolveRemoteIdentityNumber(call: CallDisplayFields, ownNumbers: string[]) {
   const displayName = call.remoteIdentity?.displayName || call.remotePartyName || call.options?.remoteCallerName;
-  const displayNumber = extractPhoneDisplayValue(displayName, ownNumbers);
+  const displayNumber = extractPhoneDisplayValue(displayName, ownNumbers, { skipOwnFilter: true })
+    || extractPhoneDisplayValue(displayName, ownNumbers);
   if (displayNumber) return displayNumber;
 
   const uri = call.remoteIdentity?.uri;
   return (
-    extractPhoneDisplayValue(uri?.user, ownNumbers)
+    extractPhoneDisplayValue(uri?.user, ownNumbers, { skipOwnFilter: true })
+    || extractPhoneDisplayValue(uri?.raw, ownNumbers, { skipOwnFilter: true })
+    || extractPhoneDisplayValue(uri?.toString?.(), ownNumbers, { skipOwnFilter: true })
+    || extractPhoneDisplayValue(uri?.user, ownNumbers)
     || extractPhoneDisplayValue(uri?.raw, ownNumbers)
     || extractPhoneDisplayValue(uri?.toString?.(), ownNumbers)
   );
@@ -220,6 +357,8 @@ function findPhoneDisplayValueInPayload(
 
   const record = value as Record<string, unknown>;
   const preferredKeys = [
+    'pstnCaller',
+    'pstnCallerName',
     'from',
     'remotePartyNumber',
     'callerNumber',
@@ -250,18 +389,26 @@ function resolveCallDisplayNumber(
   fallback = '',
   notification?: TelnyxNotificationPayload,
   ownNumbers: string[] = [],
+  pstnCallerHint = '',
 ) {
   const extended = call as CallDisplayFields;
   const options = extended.options;
 
   if (isInboundCall(call)) {
     return (
-      resolveRemoteIdentityNumber(extended, ownNumbers)
-      || extractPhoneDisplayValue(extended.remotePartyNumber, ownNumbers)
-      || extractPhoneDisplayValue(options?.remotePartyNumber, ownNumbers)
+      extractPhoneDisplayValue(pstnCallerHint, ownNumbers, { skipOwnFilter: true })
+      || decodePstnCallerFromNotification(notification)
+      || extractPhoneDisplayValue(
+        extended.remoteIdentity?.displayName || extended.remotePartyName || options?.remoteCallerName,
+        ownNumbers,
+        { skipOwnFilter: true },
+      )
+      || resolveRemoteIdentityNumber(extended, ownNumbers)
+      || extractPhoneDisplayValue(extended.remotePartyNumber, ownNumbers, { skipOwnFilter: true })
+      || extractPhoneDisplayValue(options?.remotePartyNumber, ownNumbers, { skipOwnFilter: true })
       || findPhoneDisplayValueInPayload(notification?.payload, ownNumbers)
-      || extractPhoneDisplayValue(options?.remoteCallerNumber, ownNumbers)
-      || extractPhoneDisplayValue(extended.callerNumber, ownNumbers)
+      || extractPhoneDisplayValue(options?.remoteCallerNumber, ownNumbers, { skipOwnFilter: true })
+      || extractPhoneDisplayValue(extended.callerNumber, ownNumbers, { skipOwnFilter: true })
       || findPhoneDisplayValueInPayload(notification, ownNumbers)
       || 'Unknown'
     );
@@ -602,14 +749,7 @@ function SoftphoneV2Content() {
 
     session.saved = true;
 
-    let status: CallHistoryRecord['status'];
-    if (session.reachedActive) {
-      status = 'completed';
-    } else if (session.direction === 'inbound') {
-      status = session.userDeclined || session.acceptedByUser ? 'rejected' : 'missed';
-    } else {
-      status = 'rejected';
-    }
+    const status = resolveTerminalHistoryStatus(session);
 
     const historyNumber = session.number && session.number !== 'Unknown'
       ? session.number
@@ -628,6 +768,8 @@ function SoftphoneV2Content() {
 
     logTelnyx('history.saved', record);
 
+    const serverLog = mapHistoryStatusToServerLog(status, session.direction);
+
     if (status === 'completed') {
       trackCallEnded(session.callId, historyNumber, session.direction, record.duration);
       postServerCallLog({
@@ -637,6 +779,7 @@ function SoftphoneV2Content() {
         direction: session.direction,
         status: 'ended',
         durationSeconds: record.duration,
+        callType: serverLog.callType,
       });
     } else {
       trackCallFailed(session.callId, historyNumber, session.direction, status);
@@ -645,11 +788,15 @@ function SoftphoneV2Content() {
         from: session.logFrom,
         to: session.logTo,
         direction: session.direction,
-        status: 'failed',
+        status: serverLog.status,
+        callType: serverLog.callType,
+        userDeclined: session.userDeclined,
+        acceptedByUser: session.acceptedByUser,
+        userCancelled: session.userCancelled,
       });
     }
 
-    if (status === 'missed') {
+    if (isInboundMissedStatus(status)) {
       showMissedCallToast(record.number);
     }
 
@@ -935,8 +1082,15 @@ function SoftphoneV2Content() {
             if (mounted) {
               const ownedInboundNumbers = getOwnedInboundNumbers();
               setCallState(normalized);
+              const pstnCallerHint = callSessionRef.current?.pstnCaller || '';
               setDisplayNumber((prev) => {
-                const resolved = resolveCallDisplayNumber(payload.call!, prev, payload, ownedInboundNumbers);
+                const resolved = resolveCallDisplayNumber(
+                  payload.call!,
+                  prev,
+                  payload,
+                  ownedInboundNumbers,
+                  pstnCallerHint,
+                );
                 if (isInboundCall(payload.call!)) {
                   const retained = prev
                     || callSessionRef.current?.number
@@ -957,7 +1111,13 @@ function SoftphoneV2Content() {
                 && callDirectionRef.current !== 'outbound';
 
               if (notificationIsInbound && payload.call.id) {
-                const inboundNumber = resolveCallDisplayNumber(payload.call, '', payload, ownedInboundNumbers);
+                const inboundNumber = resolveCallDisplayNumber(
+                  payload.call,
+                  '',
+                  payload,
+                  ownedInboundNumbers,
+                  pstnCallerHint,
+                );
                 if (
                   !callSessionRef.current
                   || callSessionRef.current.callId !== payload.call.id
@@ -985,6 +1145,12 @@ function SoftphoneV2Content() {
               }
 
               if (isTerminalCallState(normalized)) {
+                if (callSessionRef.current) {
+                  callSessionRef.current.terminationReason = extractHangupCause(
+                    payload.call,
+                    payload,
+                  );
+                }
                 stopIncomingRingtoneRef.current();
                 saveCallToHistoryRef.current();
                 resetCallTelemetry();
@@ -1140,8 +1306,26 @@ function SoftphoneV2Content() {
     try {
       call.answer();
       setCallState('answering');
-      setDisplayNumber((prev) => resolveCallDisplayNumber(call, prev, undefined, getOwnedInboundNumbers()));
+      setDisplayNumber((prev) => resolveCallDisplayNumber(
+        call,
+        prev,
+        undefined,
+        getOwnedInboundNumbers(),
+        callSessionRef.current?.pstnCaller || '',
+      ));
       logTelnyx('answer.invoked');
+      void postCallAccepted().then((res) => {
+        const pstnCaller = res?.pstnCaller;
+        if (!pstnCaller || !callSessionRef.current) return;
+        callSessionRef.current.pstnCaller = pstnCaller;
+        const normalized = normalizeDialNumber(pstnCaller) || pstnCaller;
+        callSessionRef.current.number = normalized;
+        const parties = resolveCallLogParties('inbound', normalized, callerNumberRef.current);
+        callSessionRef.current.logFrom = parties.from;
+        displayNumberRef.current = normalized;
+        setDisplayNumber(normalized);
+        logTelnyx('answer.pstnCaller', { pstnCaller: normalized });
+      });
     } catch (err) {
       logTelnyx('answer.error', err);
     }
@@ -1183,6 +1367,11 @@ function SoftphoneV2Content() {
     if (!call) return;
     stopIncomingRingtone();
     stopTimer();
+    if (callSessionRef.current && !callSessionRef.current.reachedActive) {
+      if (callSessionRef.current.direction === 'outbound') {
+        callSessionRef.current.userCancelled = true;
+      }
+    }
     try {
       void Promise.resolve(call.hangup()).then(() => {
         logTelnyx('hangup.resolved');
@@ -1303,7 +1492,7 @@ function SoftphoneV2Content() {
   const isCallActive = callState === 'active';
   const activeCallCount = hasLiveCall ? 1 : 0;
   const failedCallCount = callHistory.filter((record) => record.status !== 'completed').length;
-  const missedCallCount = callHistory.filter((record) => record.status === 'missed').length;
+  const missedCallCount = callHistory.filter((record) => isInboundMissedStatus(record.status)).length;
   const displayStatus = reconnecting
     ? reconnectAttempt > 0
       ? `Reconnecting… (attempt ${reconnectAttempt})`

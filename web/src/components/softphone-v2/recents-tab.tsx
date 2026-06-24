@@ -13,6 +13,7 @@ import {
   formatHistoryTimestamp,
   formatPhoneDisplay,
   historyStatusLabel,
+  isInboundMissedStatus,
   resolveCallerIdentity,
 } from '@/components/softphone-v2/utils';
 import { cn } from '@/lib/utils';
@@ -30,7 +31,7 @@ type RecentsTabProps = {
 };
 
 function DirectionIcon({ record }: { record: CallHistoryRecord }) {
-  if (record.status === 'missed') {
+  if (isInboundMissedStatus(record.status)) {
     return <PhoneMissed className="h-4 w-4 text-[#FF3B30]" />;
   }
   if (record.direction === 'outbound') {
@@ -57,7 +58,7 @@ export function RecentsTab({
   const query = search.trim().toLowerCase();
   const filtered = records.filter((record) => {
     const logDisplayNumber = getLogDisplayNumber(record);
-    if (filter === 'missed' && record.status !== 'missed') return false;
+    if (filter === 'missed' && !isInboundMissedStatus(record.status)) return false;
     if (!query) return true;
     return (
       logDisplayNumber.toLowerCase().includes(query)
@@ -121,7 +122,7 @@ export function RecentsTab({
                 <div className="min-w-0 flex-1">
                   <p className={cn(
                     'truncate text-base',
-                    record.status === 'missed' ? 'font-semibold text-[#FF3B30]' : 'font-medium text-[#1D1D1F]',
+                    isInboundMissedStatus(record.status) ? 'font-semibold text-[#FF3B30]' : 'font-medium text-[#1D1D1F]',
                   )}
                   >
                     {identity.name}

@@ -1,3 +1,13 @@
+/** Granular call history status aligned with Telnyx termination + callType taxonomy. */
+export type CallHistoryStatus =
+  | 'completed'
+  | 'missed'
+  | 'outbound_no_answer'
+  | 'busy'
+  | 'failed'
+  | 'cancelled'
+  | 'rejected';
+
 export type CallHistoryRecord = {
   id: string;
   number: string;
@@ -5,7 +15,7 @@ export type CallHistoryRecord = {
   remotePartyNumber?: string;
   direction: 'inbound' | 'outbound';
   duration: number;
-  status: 'completed' | 'missed' | 'rejected';
+  status: CallHistoryStatus;
   timestamp: string;
 };
 

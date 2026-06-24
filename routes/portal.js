@@ -27,7 +27,12 @@ const { defaultBusinessHours } = require('../lib/businessHours');
 const { mapCallRoutingResponse, normalizeIvrOptions } = require('../lib/callRouting');
 const { normalizeRingGroupMembers, normalizeRingStrategy, clampRingTimeout } = require('../lib/ringGroup');
 const { normalizePhoneNumber } = require('../lib/phone');
-const { formatCallDuration } = require('../lib/callLogMeta');
+const {
+  formatCallDuration,
+  classifyCallType,
+  normalizeSoftphoneLogStatus,
+  callTypeDisplayLabel,
+} = require('../lib/callLogMeta');
 const {
   normalizeRoutingType,
   serializeOwnedNumber,
@@ -49,6 +54,7 @@ const { assertTenantActive } = require('../lib/tenantGuard');
 const { loadPlatformSettings } = require('../lib/platformSettings');
 const { getTelnyxConnectionConfig } = require('../lib/telnyxConfig');
 const { createSoftphoneLoginToken, getOrCreateUserTelephonyCredential, setSoftphonePresence, loadCredentialConnectionId } = require('../lib/softphone');
+const { markAgentWebRtcAccepted } = require('../lib/inboundCallControl');
 const {
   registerUserDevice,
   listUserDevices,
@@ -825,6 +831,29 @@ router.post('/softphone/presence', authMiddleware, async (req, res) => {
   }
 });
 
+/** Notify Call Control that the agent accepted on WebRTC (before bridge webhooks arrive). */
+router.post('/softphone/call-accepted', authMiddleware, async (req, res) => {
+  try {
+    if (!req.user.tenantId) {
+      return res.status(403).json({ error: 'No organization linked to this account' });
+    }
+
+    const prisma = await getPrisma();
+    const user = await prisma.user.findFirst({
+      where: { id: req.user.sub, tenantId: req.user.tenantId },
+      select: { telnyxSipUsername: true },
+    });
+    if (!user?.telnyxSipUsername) {
+      return res.status(400).json({ error: 'WebRTC SIP credentials are not provisioned for this user' });
+    }
+
+    const result = await markAgentWebRtcAccepted(user.telnyxSipUsername);
+    res.json({ success: result.ok, ...result });
+  } catch (error) {
+    res.status(error.status || 500).json({ error: error.message || 'Failed to mark call accepted' });
+  }
+});
+
 router.post('/softphone/telemetry', authMiddleware, async (req, res) => {
   try {
     if (!req.user.tenantId) {
@@ -1008,6 +1037,18 @@ router.post('/softphone/call-log', authMiddleware, async (req, res) => {
 
     const sidPrefix = callDirection === 'inbound' ? 'inbound' : 'outbound';
     const sid = callSid ? String(callSid) : `${sidPrefix}-${Date.now()}-${req.user.sub}`;
+    const rawStatus = String(status || 'completed').toLowerCase();
+    const normalizedStatus = normalizeSoftphoneLogStatus(rawStatus, callDirection, {
+      userDeclined: Boolean(req.body?.userDeclined),
+      acceptedByUser: Boolean(req.body?.acceptedByUser),
+      userCancelled: Boolean(req.body?.userCancelled),
+    });
+    const callType = req.body?.callType
+      ? String(req.body.callType)
+      : classifyCallType(normalizedStatus, callDirection);
+    const terminal = ['completed', 'ended', 'connected', 'busy', 'failed', 'no-answer',
+      'canceled', 'cancelled', 'rejected', 'missed', 'outbound_no_answer'].includes(normalizedStatus);
+
     const callLog = await prisma.callLog.upsert({
       where: { callSid: sid },
       create: {
@@ -1015,19 +1056,21 @@ router.post('/softphone/call-log', authMiddleware, async (req, res) => {
         from: normalizedFrom,
         to: normalizedTo,
         direction: callDirection,
-        status: status || 'completed',
+        status: normalizedStatus,
+        callType,
         durationSeconds,
-        endedAt: durationSeconds != null ? new Date() : undefined,
+        endedAt: durationSeconds != null || terminal ? new Date() : undefined,
         tenantId: req.user.tenantId,
       },
       update: {
-        status: status || 'completed',
+        status: normalizedStatus,
+        callType,
         from: normalizedFrom,
         to: normalizedTo,
         direction: callDirection,
         ...(durationSeconds != null
           ? { durationSeconds, endedAt: new Date() }
-          : {}),
+          : terminal ? { endedAt: new Date() } : {}),
       },
     });
 
@@ -1767,6 +1810,7 @@ router.get('/calls', authMiddleware, async (req, res) => {
           direction: call.direction,
           status: call.status,
           callType: call.callType || call.direction,
+          callTypeLabel: callTypeDisplayLabel(call.callType || call.direction),
           durationSeconds: call.durationSeconds,
           durationLabel: formatCallDuration(call.durationSeconds),
           createdAt: call.createdAt,

@@ -22,6 +22,7 @@
     "validate:phase3a": "tsx scripts/validate-phase3a-razorpay.js",
     "validate:phase3b": "tsx scripts/validate-phase3b.js",
     "validate:phase3b-race": "tsx scripts/validate-phase3b-race.js",
+    "validate:rapid-accept-stress": "tsx scripts/validate-rapid-accept-stress.js",
     "validate:phase3b-sprint2": "tsx scripts/validate-phase3b-sprint2.js",
     "validate:phase3b-sprint21": "tsx scripts/validate-phase3b-sprint21.js",
     "validate:phase4a": "tsx scripts/validate-phase4a.js",
