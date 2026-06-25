@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useExclusiveAudio } from '@/hooks/use-exclusive-audio';
 import {
   fetchAuthenticatedAudioUrl,
   revokeAuthenticatedAudioUrl,
@@ -18,6 +19,9 @@ type LazyStreamPlayerProps = {
   durationSeconds?: number | null;
   onPlayStart?: () => void;
   className?: string;
+  /** When set with playerId, only one player in the group may play at a time. */
+  exclusiveGroup?: string;
+  playerId?: string;
 };
 
 export function LazyStreamPlayer({
@@ -25,6 +29,8 @@ export function LazyStreamPlayer({
   durationSeconds,
   onPlayStart,
   className,
+  exclusiveGroup,
+  playerId,
 }: LazyStreamPlayerProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [src, setSrc] = useState<string | null>(null);
@@ -33,6 +39,18 @@ export function LazyStreamPlayer({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(durationSeconds ?? 0);
   const [error, setError] = useState('');
+
+  const stopPlayback = useCallback(() => {
+    const audio = audioRef.current;
+    if (audio) {
+      audio.pause();
+      audio.currentTime = 0;
+    }
+    setPlaying(false);
+    setCurrentTime(0);
+  }, []);
+
+  const { claimPlayback } = useExclusiveAudio(exclusiveGroup, playerId, stopPlayback);
 
   useEffect(() => () => {
     revokeAuthenticatedAudioUrl(src);
@@ -64,6 +82,8 @@ export function LazyStreamPlayer({
     const wasLoaded = Boolean(src);
     const objectUrl = await ensureLoaded();
     if (!objectUrl) return;
+
+    claimPlayback();
 
     if (!wasLoaded) {
       onPlayStart?.();
@@ -112,8 +132,7 @@ export function LazyStreamPlayer({
           onPlay={() => setPlaying(true)}
           onPause={() => setPlaying(false)}
           onEnded={() => {
-            setPlaying(false);
-            setCurrentTime(0);
+            stopPlayback();
           }}
           onTimeUpdate={(event) => {
             setCurrentTime(event.currentTarget.currentTime);

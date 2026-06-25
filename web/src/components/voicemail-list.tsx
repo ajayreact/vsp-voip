@@ -8,6 +8,7 @@ import {
   formatMediaTimestamp,
   LazyStreamPlayer,
 } from '@/components/lazy-stream-player';
+import { VOICEMAIL_AUDIO_GROUP, VoicemailAudioScope } from '@/components/voicemail-audio-scope';
 import { trackSoftphoneEvent } from '@/lib/softphone-telemetry';
 
 type VoicemailListProps = {
@@ -57,12 +58,13 @@ export function VoicemailList({
   }
 
   return (
-    <ul className="space-y-3">
-      {voicemails.map((vm) => (
-        <li
-          key={vm.id}
-          className="rounded-2xl border border-white/50 bg-white/75 p-4 shadow-md backdrop-blur-md dark:border-white/10 dark:bg-white/[0.06]"
-        >
+    <VoicemailAudioScope>
+      <ul className="space-y-3">
+        {voicemails.map((vm) => (
+          <li
+            key={vm.id}
+            className="rounded-2xl border border-white/50 bg-white/75 p-4 shadow-md backdrop-blur-md dark:border-white/10 dark:bg-white/[0.06]"
+          >
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
@@ -98,6 +100,8 @@ export function VoicemailList({
             className="mt-3"
             streamPath={`/api/tenant/voicemails/${vm.id}/stream`}
             durationSeconds={vm.durationSeconds}
+            exclusiveGroup={VOICEMAIL_AUDIO_GROUP}
+            playerId={vm.id}
             onPlayStart={() => {
               void onMarkRead(vm);
               trackSoftphoneEvent('Voicemail Played', {
@@ -106,8 +110,9 @@ export function VoicemailList({
               });
             }}
           />
-        </li>
-      ))}
-    </ul>
+          </li>
+        ))}
+      </ul>
+    </VoicemailAudioScope>
   );
 }

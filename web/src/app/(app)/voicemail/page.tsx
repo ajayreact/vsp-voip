@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { AuthenticatedAudioPlayer } from '@/components/authenticated-audio-player';
+import { VOICEMAIL_AUDIO_GROUP, VoicemailAudioScope } from '@/components/voicemail-audio-scope';
 import { deleteVoicemail, getVoicemails, isUnauthorizedError, markVoicemailRead, type VoicemailRecord } from '@/lib/api';
 import { formatPhoneNumber } from '@/lib/phone';
 
@@ -74,8 +75,9 @@ export default function VoicemailPage() {
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
-      <div className="space-y-3">
-        {voicemails.map((vm) => (
+      <VoicemailAudioScope>
+        <div className="space-y-3">
+          {voicemails.map((vm) => (
           <div
             key={vm.id}
             className={`rounded-xl border p-4 ${
@@ -110,16 +112,19 @@ export default function VoicemailPage() {
             <AuthenticatedAudioPlayer
               streamPath={`/api/tenant/voicemails/${vm.id}/stream`}
               className="mt-3 w-full max-w-md"
+              exclusiveGroup={VOICEMAIL_AUDIO_GROUP}
+              playerId={vm.id}
               onPlay={() => onPlay(vm)}
             />
           </div>
         ))}
-        {!voicemails.length ? (
-          <div className="panel-card px-5 py-10 text-center text-slate-500">
-            No voicemails yet. Enable voicemail in Call routing and test by calling when no one answers.
-          </div>
-        ) : null}
-      </div>
+          {!voicemails.length ? (
+            <div className="panel-card px-5 py-10 text-center text-slate-500">
+              No voicemails yet. Enable voicemail in Call routing and test by calling when no one answers.
+            </div>
+          ) : null}
+        </div>
+      </VoicemailAudioScope>
     </div>
   );
 }
