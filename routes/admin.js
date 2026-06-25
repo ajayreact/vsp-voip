@@ -129,6 +129,67 @@ router.get('/numbers/inventory', async (req, res) => {
   }
 });
 
+router.post('/numbers/sync', async (req, res) => {
+  try {
+    const prisma = await getPrisma();
+    const { syncTelnyxDidsToInventory } = require('../lib/adminDidManagement');
+    const result = await syncTelnyxDidsToInventory(
+      prisma,
+      process.env.TELNYX_API_KEY?.trim(),
+    );
+
+    await writeAuditLog(prisma, req, {
+      action: 'admin.numbers_synced',
+      entityType: 'PhoneNumber',
+      entityId: 'inventory',
+      details: result,
+    });
+
+    res.json({ success: true, ...result });
+  } catch (error) {
+    console.error('❌ Telnyx DID sync error:', error.message);
+    res.status(error.status || 500).json({ error: error.message || 'Failed to sync Telnyx numbers' });
+  }
+});
+
+router.get('/numbers/assignment-history', async (req, res) => {
+  try {
+    const prisma = await getPrisma();
+    const { getDidAssignmentHistory } = require('../lib/adminDidManagement');
+    const limit = req.query.limit ? Math.min(500, Number(req.query.limit)) : 100;
+    const offset = req.query.offset ? Number(req.query.offset) : 0;
+    const number = req.query.number ? String(req.query.number) : undefined;
+    const tenantId = req.query.tenantId ? String(req.query.tenantId) : undefined;
+    const history = await getDidAssignmentHistory(prisma, { limit, offset, number, tenantId });
+    res.json({ success: true, ...history });
+  } catch (error) {
+    console.error('❌ DID assignment history error:', error.message);
+    res.status(500).json({ error: 'Failed to load assignment history' });
+  }
+});
+
+router.post('/numbers/:id/unassign', async (req, res) => {
+  try {
+    const prisma = await getPrisma();
+    const { unassignDidFromTenant } = require('../lib/adminDidManagement');
+    const updated = await unassignDidFromTenant(prisma, req.params.id, {
+      assignedByUserId: req.user?.sub || null,
+    });
+
+    await writeAuditLog(prisma, req, {
+      action: 'admin.number_unassigned',
+      entityType: 'PhoneNumber',
+      entityId: updated.id,
+      details: { number: updated.number },
+    });
+
+    res.json({ success: true, number: updated });
+  } catch (error) {
+    console.error('❌ Unassign number error:', error.message);
+    res.status(error.status || 500).json({ error: error.message || 'Failed to unassign number' });
+  }
+});
+
 router.post('/numbers/:id/release', async (req, res) => {
   try {
     const prisma = await getPrisma();
@@ -590,45 +651,32 @@ router.post('/tenants/:id/users', async (req, res) => {
 
 router.post('/numbers/assign', async (req, res) => {
   try {
-    const { phoneNumber, tenantId } = req.body;
+    const { phoneNumber, phoneNumberId, tenantId } = req.body;
 
-    if (!phoneNumber || !tenantId) {
-      return res.status(400).json({ error: 'phoneNumber and tenantId are required' });
-    }
-
-    const normalizedNumber = normalizePhoneNumber(phoneNumber);
-    if (!normalizedNumber) {
-      return res.status(400).json({ error: 'Invalid phoneNumber format' });
+    if ((!phoneNumber && !phoneNumberId) || !tenantId) {
+      return res.status(400).json({ error: 'phoneNumber or phoneNumberId, and tenantId are required' });
     }
 
     const prisma = await getPrisma();
-    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
-    if (!tenant) {
-      return res.status(404).json({ error: 'Tenant not found' });
-    }
-
-    const apiKey = process.env.TELNYX_API_KEY?.trim();
-    const { verifyTelnyxNumberOwnership } = require('../lib/buyNumber');
-    await verifyTelnyxNumberOwnership(normalizedNumber, apiKey);
-
-    const savedNumber = await prisma.phoneNumber.upsert({
-      where: { number: normalizedNumber },
-      create: { number: normalizedNumber, tenantId, source: 'ADMIN_ASSIGN' },
-      update: { tenantId, source: 'ADMIN_ASSIGN' },
+    const { assignDidToTenant } = require('../lib/adminDidManagement');
+    const savedNumber = await assignDidToTenant(prisma, {
+      phoneNumber,
+      phoneNumberId,
+      tenantId,
+      assignedByUserId: req.user?.sub || null,
+      apiKey: process.env.TELNYX_API_KEY?.trim(),
     });
-
-    await setCachedTenant(normalizedNumber, tenant);
 
     await writeAuditLog(prisma, req, {
       action: 'admin.number_assigned',
       entityType: 'PhoneNumber',
       entityId: savedNumber.id,
-      details: { number: normalizedNumber, tenantId, telnyxVerified: true },
+      details: { number: savedNumber.number, tenantId, telnyxVerified: true },
     });
 
     res.json({
       success: true,
-      message: 'Number linked to tenant',
+      message: 'Number assigned to tenant',
       data: savedNumber,
     });
   } catch (error) {

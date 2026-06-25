@@ -1744,9 +1744,9 @@ export type NumberInventoryRow = {
   id: string;
   number: string;
   label: string | null;
-  status: 'ASSIGNED' | 'AVAILABLE' | 'PORTING' | 'RELEASED';
+  status: 'ASSIGNED' | 'UNASSIGNED' | 'AVAILABLE' | 'PORTING' | 'RELEASED';
   isActive: boolean;
-  tenantId: string;
+  tenantId: string | null;
   tenantName: string | null;
   assignedUserName: string | null;
   assignedUserEmail: string | null;
@@ -1758,10 +1758,25 @@ export type NumberInventoryRow = {
 export type NumberInventorySummary = {
   purchased: number;
   assigned: number;
+  unassigned?: number;
   available: number;
   availableSynced?: boolean;
   porting: number;
   released: number;
+};
+
+export type DidAssignmentHistoryRow = {
+  id: string;
+  phoneNumberId: string;
+  number: string;
+  tenantId: string | null;
+  previousTenantId: string | null;
+  action: string;
+  assignedByUserId: string | null;
+  notes: string | null;
+  createdAt: string;
+  tenant?: { id: string; name: string } | null;
+  phoneNumber?: { id: string; number: string; isActive: boolean; tenantId: string | null } | null;
 };
 
 export async function getAdminNumberInventory(params?: {
@@ -1787,6 +1802,54 @@ export async function releaseAdminNumber(id: string) {
   return apiFetch<{ success: boolean; number: { id: string; number: string } }>(
     `/api/admin/numbers/${id}/release`,
     { method: 'POST' },
+  );
+}
+
+export async function syncAdminTelnyxNumbers() {
+  return apiFetch<{
+    success: boolean;
+    telnyxTotal: number;
+    created: number;
+    dbTotal: number;
+    assigned: number;
+    unassigned: number;
+    released: number;
+    notInTelnyx: number;
+  }>('/api/admin/numbers/sync', { method: 'POST' });
+}
+
+export async function assignAdminNumber(data: {
+  tenantId: string;
+  phoneNumberId?: string;
+  phoneNumber?: string;
+}) {
+  return apiFetch<{ success: boolean; message: string; data: { id: string; number: string; tenantId: string } }>(
+    '/api/admin/numbers/assign',
+    { method: 'POST', body: JSON.stringify(data) },
+  );
+}
+
+export async function unassignAdminNumber(id: string) {
+  return apiFetch<{ success: boolean; number: { id: string; number: string; tenantId: string | null } }>(
+    `/api/admin/numbers/${id}/unassign`,
+    { method: 'POST' },
+  );
+}
+
+export async function getAdminDidAssignmentHistory(params?: {
+  limit?: number;
+  offset?: number;
+  number?: string;
+  tenantId?: string;
+}) {
+  const q = new URLSearchParams();
+  if (params?.limit) q.set('limit', String(params.limit));
+  if (params?.offset) q.set('offset', String(params.offset));
+  if (params?.number) q.set('number', params.number);
+  if (params?.tenantId) q.set('tenantId', params.tenantId);
+  const suffix = q.toString() ? `?${q.toString()}` : '';
+  return apiFetch<{ success: boolean; rows: DidAssignmentHistoryRow[]; total: number }>(
+    `/api/admin/numbers/assignment-history${suffix}`,
   );
 }
 

@@ -156,6 +156,7 @@ model Tenant {
   extensions            Extension[]
   ringGroups              RingGroup[]
   extensionProvisioningTokens ExtensionProvisioningToken[]
+  didAssignmentHistory      DidAssignmentHistory[]
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt
 
@@ -445,8 +446,8 @@ model Voicemail {
 model PhoneNumber {
   id                       String   @id @default(uuid())
   number                   String   @unique
-  tenantId                 String
-  tenant                   Tenant   @relation(fields: [tenantId], references: [id])
+  tenantId                 String?
+  tenant                   Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   orderId                  String?
   order                    NumberOrder? @relation(fields: [orderId], references: [id], onDelete: SetNull)
   source                   String?
@@ -476,11 +477,30 @@ model PhoneNumber {
   grossProfitMonthly       Decimal? @db.Decimal(10, 2)
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
+  assignmentHistory        DidAssignmentHistory[]
 
   @@index([tenantId])
   @@index([assignedUserId])
   @@index([orderId])
   @@index([ringGroupId])
+}
+
+model DidAssignmentHistory {
+  id               String      @id @default(uuid())
+  phoneNumberId    String
+  phoneNumber      PhoneNumber @relation(fields: [phoneNumberId], references: [id], onDelete: Cascade)
+  number           String
+  tenantId         String?
+  tenant           Tenant?     @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  previousTenantId String?
+  action           String
+  assignedByUserId String?
+  notes            String?
+  createdAt        DateTime    @default(now())
+
+  @@index([phoneNumberId, createdAt])
+  @@index([number, createdAt])
+  @@index([tenantId, createdAt])
 }
 
 model RingGroup {

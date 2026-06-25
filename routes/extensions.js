@@ -705,6 +705,13 @@ router.delete(
       res.json({ success: true, ...result });
     } catch (error) {
       if (error.status === 404) return res.status(404).json({ error: error.message });
+      if (error.status === 409 && error.code === 'EXTENSION_HAS_DEPENDENCIES') {
+        return res.status(409).json({
+          error: error.message,
+          code: error.code,
+          dependencies: error.dependencies || [],
+        });
+      }
       res.status(500).json({ error: 'Failed to delete extension' });
     }
   },
