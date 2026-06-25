@@ -6,6 +6,7 @@ import {
   Activity,
   ChevronRight,
   Mic,
+  Radio,
   Settings,
   ShieldCheck,
 } from 'lucide-react';
@@ -72,6 +73,7 @@ export function MoreTab({
       : 'Not registered';
 
   const rows = [
+    { href: '/softphone-v2/diagnostics', label: 'WebRTC Diagnostics', icon: Radio },
     { href: '/settings', label: 'Settings', icon: Settings },
     { href: '/recordings', label: 'Recordings', icon: Mic },
   ];

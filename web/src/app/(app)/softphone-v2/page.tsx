@@ -30,6 +30,10 @@ import {
   detachRemoteCallAudio,
   wireWebCallAudio,
 } from '@/lib/webrtc-audio';
+import {
+  clearWebRtcDiagnosticsSnapshot,
+  registerWebRtcDiagnosticsSnapshot,
+} from '@/lib/webrtc-diagnostics-registry';
 import { IphonePhoneApp } from '@/components/softphone-v2/iphone-phone-app';
 import type {
   CallHistoryRecord,
@@ -678,6 +682,7 @@ function SoftphoneV2Content() {
   };
 
   const clearCallMedia = () => {
+    clearWebRtcDiagnosticsSnapshot();
     unwireCallAudioRef.current?.();
     unwireCallAudioRef.current = null;
     detachRemoteCallAudio(getRemoteAudioElement());
@@ -693,6 +698,7 @@ function SoftphoneV2Content() {
       unwireCallAudioRef.current = wireWebCallAudio(call, audioEl, () => {
         logTelnyx('media.playback-blocked', { label });
       });
+      registerWebRtcDiagnosticsSnapshot(call, pc);
       void logPeerConnectionDiagnostics(call, label).then(() => {
         logTelnyx('media.diagnostics', { label });
       });
