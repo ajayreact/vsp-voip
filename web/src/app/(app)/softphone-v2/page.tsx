@@ -519,7 +519,20 @@ function isInboundCall(call: Call) {
 }
 
 function isTerminalCallState(state: string) {
-  return state === 'hangup' || state === 'destroy' || state === 'purge' || state === 'error';
+  return state === 'hangup' || state === 'destroy' || state === 'destroyed' || state === 'purge' || state === 'error';
+}
+
+function rememberFinalizedCallId(
+  finalizedCallIds: Set<string>,
+  callId: string,
+  maxEntries = MAX_CALL_HISTORY,
+) {
+  finalizedCallIds.add(callId);
+  while (finalizedCallIds.size > maxEntries) {
+    const oldest = finalizedCallIds.values().next().value;
+    if (!oldest) break;
+    finalizedCallIds.delete(oldest);
+  }
 }
 
 type CallWithControls = Call & {
@@ -644,6 +657,8 @@ function SoftphoneV2Content() {
   const displayNumberRef = useRef('');
   const tenantNumbersRef = useRef<string[]>([]);
   const saveCallToHistoryRef = useRef<() => void>(() => {});
+  /** Telnyx SDK may emit hangup → destroy/purge for one call; block duplicate history saves. */
+  const finalizedCallIdsRef = useRef<Set<string>>(new Set());
   const incomingRingtoneRef = useRef<IncomingRingtoneHandle | null>(null);
   const missedToastTimerRef = useRef<number | null>(null);
   const stopIncomingRingtoneRef = useRef<() => void>(() => {});
@@ -804,8 +819,10 @@ function SoftphoneV2Content() {
   const saveCallToHistory = () => {
     const session = callSessionRef.current;
     if (!session || session.saved) return;
+    if (finalizedCallIdsRef.current.has(session.callId)) return;
 
     session.saved = true;
+    rememberFinalizedCallId(finalizedCallIdsRef.current, session.callId);
 
     const status = resolveTerminalHistoryStatus(session);
 
@@ -1160,11 +1177,23 @@ function SoftphoneV2Content() {
               });
 
               const existingSession = callSessionRef.current;
+              const callId = payload.call.id ?? '';
+              const terminal = isTerminalCallState(normalized);
+              const callAlreadyFinalized = Boolean(
+                callId && finalizedCallIdsRef.current.has(callId),
+              );
               const notificationIsInbound = isInboundCall(payload.call)
                 && existingSession?.direction !== 'outbound'
                 && callDirectionRef.current !== 'outbound';
 
-              if (notificationIsInbound && payload.call.id) {
+              // Telnyx callUpdate may emit hangup/destroy/purge sequentially — never
+              // start a new session on a terminal notification (see SDK State enum).
+              if (
+                notificationIsInbound
+                && callId
+                && !terminal
+                && !callAlreadyFinalized
+              ) {
                 const inboundNumber = resolveCallDisplayNumber(
                   payload.call,
                   '',
@@ -1174,10 +1203,10 @@ function SoftphoneV2Content() {
                 );
                 if (
                   !callSessionRef.current
-                  || callSessionRef.current.callId !== payload.call.id
+                  || callSessionRef.current.callId !== callId
                 ) {
                   beginCallSession(
-                    payload.call.id,
+                    callId,
                     inboundNumber,
                     'inbound',
                   );
@@ -1193,8 +1222,8 @@ function SoftphoneV2Content() {
                 }
               }
 
-              if (normalized === 'active' && payload.call.id) {
-                markCallSessionActive(payload.call.id);
+              if (normalized === 'active' && callId) {
+                markCallSessionActive(callId);
                 attachCallMedia(
                   payload.call,
                   notificationIsInbound ? 'inbound:active' : 'outbound:active',
@@ -1202,7 +1231,7 @@ function SoftphoneV2Content() {
                 stopIncomingRingtoneRef.current();
               }
 
-              if (isTerminalCallState(normalized)) {
+              if (terminal) {
                 if (callSessionRef.current) {
                   callSessionRef.current.terminationReason = extractHangupCause(
                     payload.call,
@@ -1211,7 +1240,19 @@ function SoftphoneV2Content() {
                 }
                 clearCallMedia();
                 stopIncomingRingtoneRef.current();
-                saveCallToHistoryRef.current();
+
+                const canSaveHistory = Boolean(
+                  callSessionRef.current
+                  && !callSessionRef.current.saved
+                  && callId
+                  && !callAlreadyFinalized,
+                );
+                if (canSaveHistory) {
+                  saveCallToHistoryRef.current();
+                } else if (callAlreadyFinalized) {
+                  logTelnyx('history.duplicate-terminal-ignored', { callId, state: normalized });
+                }
+
                 resetCallTelemetry();
                 callSessionRef.current = null;
                 setCallDirection('');
@@ -1581,7 +1622,7 @@ function SoftphoneV2Content() {
   };
 
   const canPlaceCall = isValidDialInput(destination) && Boolean(callerNumber);
-  const hasLiveCall = Boolean(callRef.current && callState && !['hangup', 'destroy', 'purge', 'error', ''].includes(callState));
+  const hasLiveCall = Boolean(callRef.current && callState && !['hangup', 'destroy', 'destroyed', 'purge', 'error', ''].includes(callState));
   const isCallActive = callState === 'active';
   const activeCallCount = hasLiveCall ? 1 : 0;
   const failedCallCount = callHistory.filter((record) => record.status !== 'completed').length;
