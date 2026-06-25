@@ -16,7 +16,14 @@ export async function fetchAuthenticatedAudioUrl(path: string): Promise<string> 
 
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
-    throw new Error(detail || `Failed to load audio (${res.status})`);
+    let message = detail || `Failed to load audio (${res.status})`;
+    try {
+      const parsed = JSON.parse(detail) as { error?: string };
+      if (parsed.error) message = parsed.error;
+    } catch {
+      /* use raw detail */
+    }
+    throw new Error(message);
   }
 
   const blob = await res.blob();

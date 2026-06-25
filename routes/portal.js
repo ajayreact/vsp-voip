@@ -63,7 +63,13 @@ const {
 } = require('../lib/userDevices');
 const { getCallControlSetupStatus, ensureTelnyxCallControlSetup } = require('../lib/telnyxCallControlSetup');
 const { startOutboundCallRecording } = require('../lib/outboundRecording');
-const { syncCallRecordingsFromTelnyx, refreshCallRecordingUrls, streamTelnyxRecording } = require('../lib/recordingSync');
+const {
+  syncCallRecordingsFromTelnyx,
+  refreshCallRecordingUrls,
+  streamTelnyxRecording,
+  pipeRecordingStreamToResponse,
+  toRecordingStreamHttpError,
+} = require('../lib/recordingSync');
 const { recordTelemetryEvent } = require('../lib/telephonyHealth');
 const { getRecordingSetupStatus, ensureTelnyxRecordingSetup } = require('../lib/telnyxRecordingSetup');
 const { resolveSoftphoneInboundRoutingDiagnostics } = require('../lib/softphoneInboundDiagnostics');
@@ -1403,21 +1409,30 @@ router.get('/tenant/voicemails/:id/stream', authMiddleware, async (req, res) => 
       return res.status(404).json({ error: 'Voicemail file not available' });
     }
 
-    const { stream, contentType, contentLength } = await streamTelnyxRecording(record.recordingSid);
-    res.setHeader('Content-Type', contentType);
-    if (contentLength) {
-      res.setHeader('Content-Length', contentLength);
+    const { stream, contentType, contentLength, freshRecordingUrl } = await streamTelnyxRecording(
+      record.recordingSid,
+      {
+        fallbackRecordingUrl: record.recordingUrl,
+        logContext: {
+          mediaType: 'voicemail',
+          mediaId: record.id,
+          callSid: record.callSid,
+          recordingUrl: record.recordingUrl,
+        },
+      },
+    );
+
+    if (freshRecordingUrl && freshRecordingUrl !== record.recordingUrl) {
+      await prisma.voicemail.update({
+        where: { id: record.id },
+        data: { recordingUrl: String(freshRecordingUrl) },
+      });
     }
-    res.setHeader('Accept-Ranges', 'bytes');
-    stream.on('error', () => {
-      if (!res.headersSent) {
-        res.status(502).json({ error: 'Failed to stream voicemail' });
-      }
-    });
-    stream.pipe(res);
+
+    pipeRecordingStreamToResponse(res, { stream, contentType, contentLength });
   } catch (error) {
-    const status = error.status || 502;
-    res.status(status).json({ error: error.message || 'Failed to stream voicemail' });
+    const { status, error: message } = toRecordingStreamHttpError(error, 'voicemail');
+    res.status(status).json({ error: message });
   }
 });
 
@@ -1515,21 +1530,30 @@ router.get('/tenant/recordings/:id/stream', authMiddleware, async (req, res) => 
       return res.status(404).json({ error: 'Recording file not available' });
     }
 
-    const { stream, contentType, contentLength } = await streamTelnyxRecording(record.recordingSid);
-    res.setHeader('Content-Type', contentType);
-    if (contentLength) {
-      res.setHeader('Content-Length', contentLength);
+    const { stream, contentType, contentLength, freshRecordingUrl } = await streamTelnyxRecording(
+      record.recordingSid,
+      {
+        fallbackRecordingUrl: record.recordingUrl,
+        logContext: {
+          mediaType: 'call_recording',
+          mediaId: record.id,
+          callSid: record.callSid,
+          recordingUrl: record.recordingUrl,
+        },
+      },
+    );
+
+    if (freshRecordingUrl && freshRecordingUrl !== record.recordingUrl) {
+      await prisma.callRecording.update({
+        where: { id: record.id },
+        data: { recordingUrl: String(freshRecordingUrl) },
+      });
     }
-    res.setHeader('Accept-Ranges', 'bytes');
-    stream.on('error', () => {
-      if (!res.headersSent) {
-        res.status(502).json({ error: 'Failed to stream recording' });
-      }
-    });
-    stream.pipe(res);
+
+    pipeRecordingStreamToResponse(res, { stream, contentType, contentLength });
   } catch (error) {
-    const status = error.status || 502;
-    res.status(status).json({ error: error.message || 'Failed to stream recording' });
+    const { status, error: message } = toRecordingStreamHttpError(error, 'recording');
+    res.status(status).json({ error: message });
   }
 });
 
