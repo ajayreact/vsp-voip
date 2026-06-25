@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useExclusiveAudio } from '@/hooks/use-exclusive-audio';
+import { useVoicemailPlayback } from '@/hooks/use-voicemail-playback';
 import {
   fetchAuthenticatedAudioUrl,
   revokeAuthenticatedAudioUrl,
@@ -19,18 +19,63 @@ type LazyStreamPlayerProps = {
   durationSeconds?: number | null;
   onPlayStart?: () => void;
   className?: string;
-  /** When set with playerId, only one player in the group may play at a time. */
-  exclusiveGroup?: string;
+  /** When set, uses the app-wide singleton voicemail playback manager (one HTMLAudioElement). */
   playerId?: string;
 };
 
-export function LazyStreamPlayer({
+function ManagedLazyStreamPlayer({
   streamPath,
   durationSeconds,
   onPlayStart,
   className,
-  exclusiveGroup,
   playerId,
+}: Required<Pick<LazyStreamPlayerProps, 'streamPath' | 'playerId'>> & LazyStreamPlayerProps) {
+  const {
+    isPlaying,
+    isLoading,
+    currentTime,
+    duration,
+    error,
+    togglePlay,
+  } = useVoicemailPlayback(playerId, streamPath, durationSeconds);
+
+  const progress = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
+
+  return (
+    <div className={className}>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => void togglePlay(onPlayStart)}
+          disabled={isLoading}
+          className="rounded-full border border-white/50 bg-white/80 px-3 py-1.5 text-xs font-semibold text-[#007AFF] shadow-sm backdrop-blur-md transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-50 dark:border-white/10 dark:bg-white/10 dark:text-[#0A84FF]"
+        >
+          {isLoading ? 'Loading…' : isPlaying ? '⏸ Pause' : '▶ Play'}
+        </button>
+        <span className="text-xs tabular-nums text-[#1D1D1F]/55 dark:text-white/55">
+          {formatMediaTime(currentTime)} / {formatMediaTime(duration)}
+        </span>
+      </div>
+
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-black/5 dark:bg-white/10">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-[#007AFF] to-[#34C759] transition-all duration-150"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+
+      {error ? (
+        <p className="mt-2 text-xs text-red-500">{error}</p>
+      ) : null}
+    </div>
+  );
+}
+
+function StandaloneLazyStreamPlayer({
+  streamPath,
+  durationSeconds,
+  onPlayStart,
+  className,
 }: LazyStreamPlayerProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [src, setSrc] = useState<string | null>(null);
@@ -39,18 +84,6 @@ export function LazyStreamPlayer({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(durationSeconds ?? 0);
   const [error, setError] = useState('');
-
-  const stopPlayback = useCallback(() => {
-    const audio = audioRef.current;
-    if (audio) {
-      audio.pause();
-      audio.currentTime = 0;
-    }
-    setPlaying(false);
-    setCurrentTime(0);
-  }, []);
-
-  const { claimPlayback } = useExclusiveAudio(exclusiveGroup, playerId, stopPlayback);
 
   useEffect(() => () => {
     revokeAuthenticatedAudioUrl(src);
@@ -72,6 +105,16 @@ export function LazyStreamPlayer({
     }
   }, [src, streamPath]);
 
+  const stopPlayback = useCallback(() => {
+    const audio = audioRef.current;
+    if (audio) {
+      audio.pause();
+      audio.currentTime = 0;
+    }
+    setPlaying(false);
+    setCurrentTime(0);
+  }, []);
+
   const onTogglePlay = async () => {
     const audio = audioRef.current;
     if (playing && audio) {
@@ -82,8 +125,6 @@ export function LazyStreamPlayer({
     const wasLoaded = Boolean(src);
     const objectUrl = await ensureLoaded();
     if (!objectUrl) return;
-
-    claimPlayback();
 
     if (!wasLoaded) {
       onPlayStart?.();
@@ -131,9 +172,7 @@ export function LazyStreamPlayer({
           className="sr-only"
           onPlay={() => setPlaying(true)}
           onPause={() => setPlaying(false)}
-          onEnded={() => {
-            stopPlayback();
-          }}
+          onEnded={stopPlayback}
           onTimeUpdate={(event) => {
             setCurrentTime(event.currentTarget.currentTime);
           }}
@@ -146,6 +185,19 @@ export function LazyStreamPlayer({
       ) : null}
     </div>
   );
+}
+
+export function LazyStreamPlayer(props: LazyStreamPlayerProps) {
+  if (props.playerId) {
+    return (
+      <ManagedLazyStreamPlayer
+        {...props}
+        playerId={props.playerId}
+        streamPath={props.streamPath}
+      />
+    );
+  }
+  return <StandaloneLazyStreamPlayer {...props} />;
 }
 
 export async function downloadAuthenticatedStream(

@@ -33,6 +33,63 @@ function enableReceiverTracks(pc: RTCPeerConnection | undefined) {
   return enabled;
 }
 
+function enableSenderTracks(pc: RTCPeerConnection | undefined) {
+  if (!pc) return 0;
+  let enabled = 0;
+  for (const sender of pc.getSenders()) {
+    const track = sender.track;
+    if (track?.kind === 'audio') {
+      if (!track.enabled) track.enabled = true;
+      enabled += 1;
+    }
+  }
+  return enabled;
+}
+
+export type LocalAudioSenderStatus = {
+  senderCount: number;
+  liveEnabledCount: number;
+  senders: Array<{
+    enabled: boolean;
+    readyState: MediaStreamTrackState;
+    muted: boolean;
+  }>;
+};
+
+/** Enable and verify local microphone send path (inbound + outbound). */
+export function verifyLocalAudioSenders(
+  call: Call,
+  pc?: RTCPeerConnection,
+): LocalAudioSenderStatus {
+  const peerPc = pc ?? getPeer(call)?.peerConnection;
+  enableStreamTracks((call as Call & { localStream?: MediaStream }).localStream);
+  enableSenderTracks(peerPc);
+
+  const extended = call as Call & {
+    unmuteAudio?: () => void;
+    isAudioMuted?: boolean;
+  };
+  if (extended.isAudioMuted) {
+    extended.unmuteAudio?.();
+  }
+
+  const senders = (peerPc?.getSenders() ?? [])
+    .filter((sender) => sender.track?.kind === 'audio')
+    .map((sender) => ({
+      enabled: sender.track!.enabled,
+      readyState: sender.track!.readyState,
+      muted: sender.track!.muted,
+    }));
+
+  return {
+    senderCount: senders.length,
+    liveEnabledCount: senders.filter(
+      (sender) => sender.enabled && sender.readyState === 'live' && !sender.muted,
+    ).length,
+    senders,
+  };
+}
+
 export function collectRemoteStream(pc: RTCPeerConnection | undefined): MediaStream | null {
   if (!pc) return null;
 
@@ -60,6 +117,7 @@ export async function attachRemoteCallAudio(
   if (!audioEl) return false;
 
   const pc = getPeer(call)?.peerConnection;
+  verifyLocalAudioSenders(call, pc);
   enableReceiverTracks(pc);
   enableStreamTracks(call.remoteStream);
 
@@ -92,6 +150,7 @@ export function wireWebCallAudio(
   const pc = peer?.peerConnection;
 
   const refresh = () => {
+    verifyLocalAudioSenders(call, pc ?? undefined);
     attachRemoteCallAudio(call, audioEl).then((playing) => {
       if (!playing) onPlaybackBlocked?.();
     });

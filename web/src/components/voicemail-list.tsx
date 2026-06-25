@@ -8,7 +8,7 @@ import {
   formatMediaTimestamp,
   LazyStreamPlayer,
 } from '@/components/lazy-stream-player';
-import { VOICEMAIL_AUDIO_GROUP, VoicemailAudioScope } from '@/components/voicemail-audio-scope';
+import { VoicemailAudioScope } from '@/components/voicemail-audio-scope';
 import { trackSoftphoneEvent } from '@/lib/softphone-telemetry';
 
 type VoicemailListProps = {
@@ -100,7 +100,6 @@ export function VoicemailList({
             className="mt-3"
             streamPath={`/api/tenant/voicemails/${vm.id}/stream`}
             durationSeconds={vm.durationSeconds}
-            exclusiveGroup={VOICEMAIL_AUDIO_GROUP}
             playerId={vm.id}
             onPlayStart={() => {
               void onMarkRead(vm);

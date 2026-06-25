@@ -69,12 +69,11 @@ const DTMF_ROWS = [
   ['*', '0', '#'],
 ] as const;
 
-async function ensureMicrophoneAccess() {
+async function acquireMicrophoneStream(): Promise<MediaStream> {
   if (!navigator.mediaDevices?.getUserMedia) {
     throw new Error('Microphone access is not available in this browser');
   }
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  stream.getTracks().forEach((track) => track.stop());
+  return navigator.mediaDevices.getUserMedia({ audio: true });
 }
 
 function getRemoteAudioElement() {
@@ -1406,47 +1405,54 @@ function SoftphoneV2Content() {
       callSessionRef.current.acceptedByUser = true;
     }
     try {
-      await ensureMicrophoneAccess();
-
       const extended = call as Call & {
-        options?: { remoteElement?: string | HTMLMediaElement; audio?: boolean };
+        options?: {
+          remoteElement?: string | HTMLMediaElement;
+          localStream?: MediaStream;
+          audio?: boolean;
+        };
       };
       const audioEl = getRemoteAudioElement();
+      const localStream = await acquireMicrophoneStream();
+
       if (extended.options) {
+        extended.options.localStream = localStream;
         extended.options.remoteElement = audioEl ?? REMOTE_AUDIO_ID;
         extended.options.audio = true;
       }
 
-      // Arm bridge grace on the API before WebRTC answer so stale call.dial.ended
-      // webhooks cannot trigger voicemail/no-answer fallback during bridge completion.
+      // Bridge grace signal — fire-and-forget so call.answer() is not delayed (Telnyx media path).
       if (isInbound) {
-        const acceptRes = await postCallAccepted();
-        logTelnyx('answer.callAccepted', acceptRes);
-        if (!acceptRes.ok) {
-          logTelnyx('answer.callAccepted.failed', {
-            error: acceptRes.error,
-            reason: acceptRes.reason,
-            status: acceptRes.response?.status,
-            url: acceptRes.request.url,
-            networkError: acceptRes.networkError,
-            responseBody: acceptRes.response?.body,
-          });
-        }
-        const pstnCaller = acceptRes.ok ? acceptRes.pstnCaller : null;
-        if (pstnCaller && callSessionRef.current) {
-          callSessionRef.current.pstnCaller = pstnCaller;
-          const normalized = normalizeDialNumber(pstnCaller) || pstnCaller;
-          callSessionRef.current.number = normalized;
-          const parties = resolveCallLogParties('inbound', normalized, callerNumberRef.current);
-          callSessionRef.current.logFrom = parties.from;
-          callSessionRef.current.logTo = parties.to;
-          displayNumberRef.current = normalized;
-          setDisplayNumber(normalized);
-          logTelnyx('answer.pstnCaller', { pstnCaller: normalized });
-        }
+        void postCallAccepted().then((acceptRes) => {
+          logTelnyx('answer.callAccepted', acceptRes);
+          if (!acceptRes.ok) {
+            logTelnyx('answer.callAccepted.failed', {
+              error: acceptRes.error,
+              reason: acceptRes.reason,
+              status: acceptRes.response?.status,
+              url: acceptRes.request.url,
+              networkError: acceptRes.networkError,
+              responseBody: acceptRes.response?.body,
+            });
+          }
+          const pstnCaller = acceptRes.ok ? acceptRes.pstnCaller : null;
+          if (pstnCaller && callSessionRef.current) {
+            callSessionRef.current.pstnCaller = pstnCaller;
+            const normalized = normalizeDialNumber(pstnCaller) || pstnCaller;
+            callSessionRef.current.number = normalized;
+            const parties = resolveCallLogParties('inbound', normalized, callerNumberRef.current);
+            callSessionRef.current.logFrom = parties.from;
+            callSessionRef.current.logTo = parties.to;
+            displayNumberRef.current = normalized;
+            setDisplayNumber(normalized);
+            logTelnyx('answer.pstnCaller', { pstnCaller: normalized });
+          }
+        }).catch((err) => {
+          logTelnyx('answer.callAccepted.error', err);
+        });
       }
 
-      await Promise.resolve(call.answer());
+      await call.answer();
       attachCallMedia(call, isInbound ? 'inbound:answer' : 'outbound:answer');
       void logPeerConnectionDiagnostics(call, 'answer:after');
       setCallState('answering');

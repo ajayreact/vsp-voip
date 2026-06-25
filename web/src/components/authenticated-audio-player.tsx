@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useExclusiveAudio } from '@/hooks/use-exclusive-audio';
+import { useEffect, useRef, useState } from 'react';
+import { useVoicemailPlayback } from '@/hooks/use-voicemail-playback';
 import {
   fetchAuthenticatedAudioUrl,
   revokeAuthenticatedAudioUrl,
@@ -11,32 +11,51 @@ type AuthenticatedAudioPlayerProps = {
   streamPath: string;
   className?: string;
   onPlay?: () => void;
-  /** When set with playerId, only one player in the group may play at a time. */
-  exclusiveGroup?: string;
+  /** When set, uses the app-wide singleton voicemail playback manager (one HTMLAudioElement). */
   playerId?: string;
 };
 
-export function AuthenticatedAudioPlayer({
+function ManagedAuthenticatedAudioPlayer({
   streamPath,
   className,
   onPlay,
-  exclusiveGroup,
   playerId,
+}: Required<Pick<AuthenticatedAudioPlayerProps, 'streamPath' | 'playerId'>> &
+  AuthenticatedAudioPlayerProps) {
+  const { isPlaying, isLoading, error, togglePlay } = useVoicemailPlayback(
+    playerId,
+    streamPath,
+  );
+
+  return (
+    <div className={className ?? 'mt-3 w-full max-w-md'}>
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => void togglePlay(onPlay)}
+          disabled={isLoading}
+          className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+        >
+          {isLoading ? 'Loading…' : isPlaying ? 'Pause' : 'Play'}
+        </button>
+        {isPlaying ? (
+          <span className="text-xs text-slate-500">Playing…</span>
+        ) : null}
+      </div>
+      {error ? <p className="mt-2 text-xs text-red-600">{error}</p> : null}
+    </div>
+  );
+}
+
+function StandaloneAuthenticatedAudioPlayer({
+  streamPath,
+  className,
+  onPlay,
 }: AuthenticatedAudioPlayerProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [src, setSrc] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-
-  const stopPlayback = useCallback(() => {
-    const audio = audioRef.current;
-    if (audio) {
-      audio.pause();
-      audio.currentTime = 0;
-    }
-  }, []);
-
-  const { claimPlayback } = useExclusiveAudio(exclusiveGroup, playerId, stopPlayback);
 
   useEffect(() => {
     let active = true;
@@ -89,13 +108,20 @@ export function AuthenticatedAudioPlayer({
       preload="none"
       src={src}
       className={className ?? 'mt-3 w-full max-w-md'}
-      onPlay={() => {
-        claimPlayback();
-        onPlay?.();
-      }}
-      onEnded={() => {
-        stopPlayback();
-      }}
+      onPlay={onPlay}
     />
   );
+}
+
+export function AuthenticatedAudioPlayer(props: AuthenticatedAudioPlayerProps) {
+  if (props.playerId) {
+    return (
+      <ManagedAuthenticatedAudioPlayer
+        {...props}
+        playerId={props.playerId}
+        streamPath={props.streamPath}
+      />
+    );
+  }
+  return <StandaloneAuthenticatedAudioPlayer {...props} />;
 }

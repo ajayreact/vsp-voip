@@ -1,16 +1,14 @@
 'use client';
 
 import { useEffect } from 'react';
-import { clearExclusiveAudioGroup } from '@/lib/exclusive-audio-session';
-
-export const VOICEMAIL_AUDIO_GROUP = 'voicemail';
+import { voicemailPlaybackManager } from '@/lib/voicemail-playback-manager';
 
 type VoicemailAudioScopeProps = {
   children: React.ReactNode;
 };
 
-/** Clears the voicemail exclusive-audio session when the screen unmounts. */
+/** Stops shared voicemail playback when leaving the voicemail screen. */
 export function VoicemailAudioScope({ children }: VoicemailAudioScopeProps) {
-  useEffect(() => () => clearExclusiveAudioGroup(VOICEMAIL_AUDIO_GROUP), []);
+  useEffect(() => () => voicemailPlaybackManager.reset(), []);
   return children;
 }
