@@ -1,4 +1,5 @@
 import type { Call } from '@telnyx/webrtc';
+import { resolvePeerConnection } from '@/lib/webrtc-audio';
 
 const LOG_PREFIX = '[VSP Softphone]';
 
@@ -80,8 +81,7 @@ export function summarizeNotification(notification: unknown) {
 }
 
 export async function logPeerConnectionDiagnostics(call: Call, label: string) {
-  const peer = (call as Call & { peer?: { peerConnection?: RTCPeerConnection } }).peer;
-  const pc = peer?.peerConnection;
+  const pc = resolvePeerConnection(call);
 
   if (!pc) {
     warnSoftphone(`${label}: peerConnection not available yet`);

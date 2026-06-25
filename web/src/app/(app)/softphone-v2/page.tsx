@@ -28,6 +28,7 @@ import {
 import { logPeerConnectionDiagnostics } from '@/lib/telnyx-debug';
 import {
   detachRemoteCallAudio,
+  resolvePeerConnection,
   wireWebCallAudio,
 } from '@/lib/webrtc-audio';
 import {
@@ -693,7 +694,7 @@ function SoftphoneV2Content() {
 
     const wireOnce = () => {
       if (unwireCallAudioRef.current) return true;
-      const pc = (call as Call & { peer?: { peerConnection?: RTCPeerConnection } }).peer?.peerConnection;
+      const pc = resolvePeerConnection(call);
       if (!pc) return false;
       unwireCallAudioRef.current = wireWebCallAudio(call, audioEl, () => {
         logTelnyx('media.playback-blocked', { label });

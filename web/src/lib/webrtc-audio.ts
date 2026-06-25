@@ -1,9 +1,20 @@
 import type { Call } from '@telnyx/webrtc';
 
 type PeerLike = {
+  instance?: RTCPeerConnection;
   peerConnection?: RTCPeerConnection;
   onAddRemoteStream?: (session: unknown, stream: MediaStream) => void;
 };
+
+/** Telnyx SDK 2.27.x stores RTCPeerConnection on call.peer.instance (see Peer.d.ts). */
+export function resolvePeerConnection(call: Call): RTCPeerConnection | null {
+  const extended = call as Call & {
+    peer?: PeerLike | null;
+    peerConnection?: RTCPeerConnection | null;
+  };
+  const peer = extended.peer;
+  return peer?.instance ?? peer?.peerConnection ?? extended.peerConnection ?? null;
+}
 
 function getPeer(call: Call): PeerLike | null {
   const peer = (call as Call & { peer?: PeerLike }).peer;
@@ -61,7 +72,7 @@ export function verifyLocalAudioSenders(
   call: Call,
   pc?: RTCPeerConnection,
 ): LocalAudioSenderStatus {
-  const peerPc = pc ?? getPeer(call)?.peerConnection;
+  const peerPc = pc ?? resolvePeerConnection(call) ?? undefined;
   enableStreamTracks((call as Call & { localStream?: MediaStream }).localStream);
   enableSenderTracks(peerPc);
 
@@ -116,7 +127,7 @@ export async function attachRemoteCallAudio(
 ): Promise<boolean> {
   if (!audioEl) return false;
 
-  const pc = getPeer(call)?.peerConnection;
+  const pc = resolvePeerConnection(call) ?? undefined;
   verifyLocalAudioSenders(call, pc);
   enableReceiverTracks(pc);
   enableStreamTracks(call.remoteStream);
@@ -147,7 +158,7 @@ export function wireWebCallAudio(
   onPlaybackBlocked?: () => void,
 ): () => void {
   const peer = getPeer(call);
-  const pc = peer?.peerConnection;
+  const pc = resolvePeerConnection(call);
 
   const refresh = () => {
     verifyLocalAudioSenders(call, pc ?? undefined);
