@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Call Transfer — Implementation Plan | VSP VoIP</title>
+  <style>
+    :root {
+      --bg: #f8f9fb;
+      --surface: #ffffff;
+      --text: #1a1d26;
+      --muted: #5c6370;
+      --border: #e2e6ed;
+      --accent: #2563eb;
+      --accent-soft: #eff6ff;
+      --warn: #b45309;
+      --warn-bg: #fffbeb;
+      --ok: #047857;
+      --ok-bg: #ecfdf5;
+      --code-bg: #f1f5f9;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      font-size: 16px;
+      line-height: 1.6;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    .page {
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 2.5rem 1.5rem 4rem;
+    }
+
+    header {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 2rem 2.25rem;
+      margin-bottom: 2rem;
+    }
+
+    header h1 {
+      margin: 0 0 0.5rem;
+      font-size: 1.75rem;
+      font-weight: 650;
+      letter-spacing: -0.02em;
+    }
+
+    header .meta {
+      color: var(--muted);
+      font-size: 0.925rem;
+    }
+
+    header .meta span + span::before {
+      content: " · ";
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 0.2rem 0.55rem;
+      border-radius: 4px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      margin-top: 0.75rem;
+    }
+
+    section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.75rem 2rem;
+      margin-bottom: 1.25rem;
+    }
+
+    h2 {
+      margin: 0 0 1rem;
+      font-size: 1.25rem;
+      font-weight: 650;
+      letter-spacing: -0.01em;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h3 {
+      margin: 1.5rem 0 0.75rem;
+      font-size: 1.05rem;
+      font-weight: 600;
+    }
+
+    h4 {
+      margin: 1.25rem 0 0.5rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--muted);
+    }
+
+    p { margin: 0.75rem 0; }
+
+    ul, ol { margin: 0.5rem 0 1rem; padding-left: 1.35rem; }
+    li { margin: 0.35rem 0; }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    a:hover { text-decoration: underline; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      margin: 1rem 0;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 0.65rem 0.85rem;
+      border: 1px solid var(--border);
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--code-bg);
+      font-weight: 600;
+    }
+
+    tr:nth-child(even) td { background: #fafbfc; }
+
+    code, pre {
+      font-family: "Cascadia Code", "Consolas", monospace;
+      font-size: 0.85rem;
+    }
+
+    code {
+      background: var(--code-bg);
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+    }
+
+    pre {
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 1rem 1.15rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin: 1rem 0;
+      line-height: 1.5;
+    }
+
+    .callout {
+      border-radius: 8px;
+      padding: 1rem 1.15rem;
+      margin: 1rem 0;
+      font-size: 0.925rem;
+    }
+
+    .callout-warn {
+      background: var(--warn-bg);
+      border-left: 4px solid var(--warn);
+    }
+
+    .callout-ok {
+      background: var(--ok-bg);
+      border-left: 4px solid var(--ok);
+    }
+
+    .callout-info {
+      background: var(--accent-soft);
+      border-left: 4px solid var(--accent);
+    }
+
+    .toc {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      columns: 2;
+      column-gap: 2rem;
+    }
+
+    .toc li { margin: 0.4rem 0; }
+    .toc a { font-size: 0.925rem; }
+
+    .diagram {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      font-family: "Cascadia Code", "Consolas", monospace;
+      font-size: 0.8rem;
+      line-height: 1.45;
+      overflow-x: auto;
+      white-space: pre;
+      margin: 1rem 0;
+    }
+
+    .phase-list {
+      list-style: none;
+      padding: 0;
+    }
+
+    .phase-list li {
+      padding: 0.75rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .phase-list li:last-child { border-bottom: none; }
+
+    .phase-list strong { color: var(--accent); }
+
+    footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-top: 2rem;
+    }
+
+    @media (max-width: 640px) {
+      .toc { columns: 1; }
+      header, section { padding: 1.25rem; }
+    }
+
+    @media print {
+      body { background: white; }
+      section, header { break-inside: avoid; box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Call Transfer — Implementation Plan</h1>
+      <p class="meta">
+        <span>Branch: <code>feature/call-transfer</code></span>
+        <span>Status: Planning only (no code implemented)</span>
+        <span>Baseline: <code>v1.0-telephony-stable</code></span>
+      </p>
+      <span class="badge">Telnyx Call Control verified</span>
+      <p style="margin-top: 1rem; margin-bottom: 0; color: var(--muted); font-size: 0.925rem;">
+        This document compares official Telnyx Voice API / Call Control documentation with the current VSP architecture
+        and defines a phased implementation plan. SIP REFER behavior is not assumed.
+      </p>
+    </header>
+
+    <section id="toc">
+      <h2>Contents</h2>
+      <ol class="toc">
+        <li><a href="#telnyx-findings">Telnyx documentation findings</a></li>
+        <li><a href="#architecture-gap">Current architecture vs requirements</a></li>
+        <li><a href="#recommended-architecture">Recommended architecture</a></li>
+        <li><a href="#backend">Required backend changes</a></li>
+        <li><a href="#frontend">Required frontend changes</a></li>
+        <li><a href="#api">API design</a></li>
+        <li><a href="#database">Database changes</a></li>
+        <li><a href="#state">State management changes</a></li>
+        <li><a href="#webrtc">WebRTC implications</a></li>
+        <li><a href="#testing">Testing strategy</a></li>
+        <li><a href="#phases">Phased implementation plan</a></li>
+        <li><a href="#decisions">Decisions to confirm</a></li>
+        <li><a href="#summary">Summary</a></li>
+      </ol>
+    </section>
+
+    <section id="telnyx-findings">
+      <h2>1. Telnyx documentation findings</h2>
+
+      <h3>1.1 Blind transfer</h3>
+      <p>
+        <strong>Mechanism:</strong>
+        <a href="https://developers.telnyx.com/api-reference/call-commands/transfer-call">Transfer call</a>
+        — <code>POST /v2/calls/{call_control_id}/actions/transfer</code>
+      </p>
+      <pre>POST /v2/calls/{call_control_id}/actions/transfer
+{ "to": "+E164 or sip:...", "from": "...", ... }</pre>
+      <p><strong>Expected webhooks:</strong> <code>call.initiated</code> → <code>call.bridged</code> (to Leg B) → <code>call.answered</code> or <code>call.hangup</code></p>
+      <ul>
+        <li>Commands are scoped to a <strong><code>call_control_id</code></strong> (one controllable leg).</li>
+        <li>If transfer fails, the <strong>original leg stays active</strong> and can receive other commands.</li>
+        <li>Supports <code>audio_url</code>, <code>timeout_secs</code>, <code>from</code> / <code>from_display_name</code>, <code>park_after_unbridge</code>, etc.</li>
+        <li>This is <strong>not</strong> SIP REFER — it is a Call Control command.</li>
+      </ul>
+
+      <h3>1.2 Attended (warm) transfer</h3>
+      <p>Telnyx does <strong>not</strong> expose a single “warm transfer” primitive. Official patterns:</p>
+      <table>
+        <thead>
+          <tr><th>Pattern</th><th>Telnyx mechanism</th><th>Source</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Cold / blind</td>
+            <td><code>actions/transfer</code></td>
+            <td><a href="https://developers.telnyx.com/docs/voice/programmable-voice/sending-commands">Sending commands</a></td>
+          </tr>
+          <tr>
+            <td>Private warm</td>
+            <td><strong>Dial + Bridge</strong> composition</td>
+            <td><a href="https://telnyx.com/resources/ai-to-human-handoff-voice-ai">AI handoff guide</a></td>
+          </tr>
+          <tr>
+            <td>3-way / supervisor</td>
+            <td><strong>Conference</strong> (join, hold, unhold, supervisor roles)</td>
+            <td><a href="https://developers.telnyx.com/docs/voice/programmable-voice/conferencing-demo">Conferencing demo</a></td>
+          </tr>
+          <tr>
+            <td>Contact-center style</td>
+            <td><code>park_after_unbridge: self</code> on bridge/transfer</td>
+            <td><a href="https://developers.telnyx.com/api-reference/call-commands/bridge-calls">Bridge calls</a></td>
+          </tr>
+        </tbody>
+      </table>
+      <p><strong>Documented attended sequence:</strong></p>
+      <ol>
+        <li>Hold original caller</li>
+        <li>Dial transfer destination</li>
+        <li>Announce (optional)</li>
+        <li>Complete (bridge or transfer)</li>
+        <li>Hang up agent leg</li>
+      </ol>
+
+      <h3>1.3 Conference calling</h3>
+      <p>
+        <strong>Mechanism:</strong>
+        <a href="https://developers.telnyx.com/docs/voice/programmable-voice/voice-api-commands-and-resources">Conference Commands</a>
+      </p>
+      <ul>
+        <li><code>POST /v2/conferences</code> — create from an existing <code>call_control_id</code> (call auto-joins)</li>
+        <li><code>POST /v2/conferences/{id}/actions/join</code> — add legs</li>
+        <li><code>hold</code> / <code>unhold</code> / <code>mute</code> / <code>leave</code> per participant</li>
+        <li><code>supervisor_role</code>: <code>barge</code>, <code>monitor</code>, <code>whisper</code></li>
+        <li>Expires when empty or after <strong>4 hours</strong></li>
+      </ul>
+      <div class="callout callout-warn">
+        <strong>Hold is conference-scoped.</strong> There is no documented per-call <code>actions/hold</code> on a bare leg.
+        Caller hold during warm transfer requires <strong>conference join + conference hold</strong>, or bridge options like <code>hold_after_unbridge</code>.
+      </div>
+
+      <h3>1.4 SIP REFER support</h3>
+      <p>Three distinct surfaces — <strong>do not conflate:</strong></p>
+      <table>
+        <thead>
+          <tr><th>Surface</th><th>API</th><th>Webhooks</th><th>Use case</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Call Control Refer</td>
+            <td><code>POST /calls/{id}/actions/refer</code> + <code>sip_address</code></td>
+            <td><code>call.refer.started</code>, <code>.completed</code>, <code>.failed</code></td>
+            <td><a href="https://developers.telnyx.com/api-reference/call-commands/sip-refer-a-call">SIP Refer a call</a></td>
+          </tr>
+          <tr>
+            <td>Transfer command</td>
+            <td><code>POST /calls/{id}/actions/transfer</code> + <code>to</code></td>
+            <td><code>call.initiated</code>, <code>call.bridged</code>, …</td>
+            <td>PSTN/SIP URI dial-out transfer</td>
+          </tr>
+          <tr>
+            <td>SIP Trunking REFER</td>
+            <td>SIP-level REFER + <strong>Diversion header</strong></td>
+            <td>Trunk validation rules</td>
+            <td><a href="https://developers.telnyx.com/docs/voice/sip-trunking/features/external-transfers">External transfers</a></td>
+          </tr>
+          <tr>
+            <td>TeXML Refer</td>
+            <td><code>&lt;Refer&gt;&lt;Sip&gt;…&lt;/Sip&gt;&lt;/Refer&gt;</code></td>
+            <td>TeXML callbacks</td>
+            <td>TeXML apps only</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="callout callout-info">
+        <strong>Recommendation for VSP v1:</strong> use <code>transfer</code> + <code>bridge</code> + <code>conference</code>, not REFER.
+        Reserve REFER for a later phase if external SIP handoff with REFER-specific semantics is required.
+      </div>
+
+      <h3>1.5 Bridge lifecycle</h3>
+      <table>
+        <thead>
+          <tr><th>Command</th><th>Expected webhooks</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>Dial</strong> (<code>POST /v2/calls</code>)</td><td><code>call.initiated</code>, <code>call.answered</code> or <code>call.hangup</code></td></tr>
+          <tr><td><strong>Bridge</strong></td><td><code>call.bridged</code> on <strong>both</strong> legs</td></tr>
+          <tr><td><strong>Transfer</strong></td><td><code>call.initiated</code>, <code>call.bridged</code> to B, <code>call.answered</code> or <code>call.hangup</code></td></tr>
+        </tbody>
+      </table>
+      <p><strong>Bridge options relevant to transfer:</strong></p>
+      <ul>
+        <li><code>park_after_unbridge: self</code> — leg survives when bridge ends (parked, not hung up)</li>
+        <li><code>hold_after_unbridge: true</code> — leg put on hold after unbridge</li>
+        <li><code>prevent_double_bridge: true</code> — reject if target already bridged</li>
+      </ul>
+      <p>Queueing doc: issuing <code>bridge</code>, <code>transfer</code>, <code>conference join</code>, or <code>refer</code> dequeues a call and changes its media path.</p>
+
+      <h3>1.6 Call leg ownership</h3>
+      <p><strong>Telnyx model:</strong></p>
+      <ul>
+        <li>Each leg has its own <code>call_control_id</code>.</li>
+        <li><code>call_session_id</code> may group related legs.</li>
+        <li><code>Dial</code> creates a <strong>new</strong> leg with a new ID.</li>
+        <li><code>link_to</code> + <code>bridge_on_answer</code> (used today) ties legs and auto-bridges on answer.</li>
+      </ul>
+      <p><strong>VSP model today</strong> (<code>lib/telnyxCallControl.js</code>):</p>
+      <pre>POST /v2/calls
+  link_to: inboundCallControlId
+  bridge_on_answer: true</pre>
+      <table>
+        <thead>
+          <tr><th>Leg</th><th>ID in our system</th><th>Role</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>PSTN caller</td><td><code>session.callControlId</code> / <code>inboundCallControlId</code></td><td>Session key, recording target</td></tr>
+          <tr><td>Agent WebRTC</td><td><code>session.winnerLeg</code> / <code>outboundLegs[]</code></td><td>Bridged agent</td></tr>
+          <tr><td>WebRTC SDK</td><td><code>call.telnyxIDs.telnyxCallControlId</code></td><td>Usually <strong>agent leg</strong>, not PSTN</td></tr>
+        </tbody>
+      </table>
+      <div class="callout callout-warn">
+        <strong>Gap:</strong> we track inbound routing sessions (<code>inboundCallControl.js</code> + Redis <code>ccs:*</code>)
+        but have <strong>no active-call / transfer session</strong> for agent-initiated operations after bridge.
+      </div>
+
+      <h3>1.7 Recommended Telnyx implementation for VSP</h3>
+      <table>
+        <thead>
+          <tr><th>Feature</th><th>Telnyx approach</th><th>Avoid</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Blind transfer (MVP)</td><td><code>transfer</code> on <strong>caller PSTN leg</strong></td><td>SDK-only transfer; assuming REFER</td></tr>
+          <tr><td>Attended transfer</td><td>Conference hold <strong>or</strong> bridge unbridge + dial + bridge</td><td>WebRTC <code>hold()</code> alone for PSTN callers</td></tr>
+          <tr><td>3-way / consult stay</td><td>Conference join + optional supervisor role</td><td>Manual media wiring</td></tr>
+          <tr><td>Extension target</td><td><code>to: sip:{username}@sip.telnyx.com</code></td><td>—</td></tr>
+          <tr><td>External SIP handoff (later)</td><td><code>actions/refer</code> with explicit webhook handling</td><td>Mixing with transfer API</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="architecture-gap">
+      <h2>2. Current architecture vs requirements</h2>
+      <table>
+        <thead>
+          <tr><th>Component</th><th>Transfer readiness</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>lib/telnyxCallControl.js</code></td><td><code>dial</code>, <code>answer</code>, <code>hangup</code>, <code>record_start</code> only — <strong>no transfer/bridge/conference/refer</strong></td></tr>
+          <tr><td><code>lib/inboundCallControl.js</code></td><td>Bridge-grace FSM (<code>connecting</code> → <code>bridged</code>); <strong>no transfer stages</strong></td></tr>
+          <tr><td><code>lib/callControlSessionStore.js</code></td><td>Inbound session + leg index; <strong>no transfer session</strong></td></tr>
+          <tr><td>Web softphone v2</td><td>Hold/mute via <strong>WebRTC SDK only</strong>; “Add Call” UI <strong>disabled</strong></td></tr>
+          <tr><td><code>CallLog</code></td><td>No transfer metadata</td></tr>
+          <tr><td>Recording</td><td>Started on <strong>PSTN leg</strong> after bridge — transfer must preserve or stop recording explicitly</td></tr>
+        </tbody>
+      </table>
+      <div class="callout callout-warn">
+        <strong>Critical mismatch:</strong> Inbound PSTN ↔ WebRTC agent calls are Call-Control-bridged, not peer-only WebRTC.
+        WebRTC <code>call.hold()</code> sets SDK <code>held</code> = sendonly on the <strong>agent leg</strong> only.
+        That does <strong>not</strong> reliably hold the PSTN caller on the CC side.
+        Warm transfer must be orchestrated on Call Control.
+      </div>
+    </section>
+
+    <section id="recommended-architecture">
+      <h2>3. Recommended architecture</h2>
+
+      <h3>3.1 Design principles</h3>
+      <ol>
+        <li><strong>Backend-orchestrated Call Control</strong> — all transfer state in API + webhooks, not browser SDP tricks.</li>
+        <li><strong>Separate transfer session</strong> from inbound <em>routing</em> session — extend, don’t rewrite, <code>inboundCallControl.js</code> bridge-grace logic.</li>
+        <li><strong>Explicit leg registry</strong> per active call: <code>callerLegId</code>, <code>agentLegId</code>, optional <code>consultLegId</code>, <code>conferenceId</code>.</li>
+        <li><strong>Phase delivery</strong> — blind first, then attended, then conference/3-way.</li>
+        <li><strong>No REFER in v1</strong> unless product explicitly requires external SIP REFER handoff.</li>
+      </ol>
+
+      <h3>3.2 High-level flow</h3>
+      <h4>Blind transfer</h4>
+      <div class="diagram">Agent (WebRTC)  →  POST /softphone/transfer/blind  →  VSP API
+VSP API         →  transfer(callerLegId, to=target)     →  Telnyx CC
+Telnyx CC       →  New outbound leg                     →  Transfer Target
+Telnyx CC       →  call.bridged / call.answered         →  VSP API (webhooks)
+Telnyx CC       →  hangup                               →  Agent WebRTC leg
+VSP API         →  transfer.completed                   →  Agent UI</div>
+
+      <h4>Attended transfer</h4>
+      <div class="diagram">Agent  →  POST /transfer/consult/start
+API    →  conference.create(callerLeg) + hold(caller)
+API    →  dial(consult)  [CC-dialed consult leg — recommended]
+Agent  →  Consult with target (via CC bridge/conference)
+Agent  →  POST /transfer/consult/complete
+API    →  bridge/join caller to consult + hangup(agentLeg)</div>
+
+      <h3>3.3 Transfer session (Redis)</h3>
+      <p>New keys: <code>cts:{transferId}</code> (Call Transfer Session), TTL 1 hour.</p>
+      <pre>type TransferSession = {
+  transferId: string;
+  tenantId: string;
+  agentUserId: string;
+  mode: 'blind' | 'attended';
+  stage: 'idle' | 'holding' | 'consulting' | 'completing'
+       | 'completed' | 'failed' | 'cancelled';
+  callerLegId: string;       // PSTN or remote party
+  agentLegId: string;        // WebRTC CC leg
+  consultLegId?: string;
+  conferenceId?: string;
+  inboundSessionId?: string; // link to ccs:{inboundCallControlId}
+  callSessionId: string;
+  target: { type: 'pstn' | 'extension' | 'sip'; value: string };
+  webrtcCallId?: string;
+  createdAt: string;
+};</pre>
+    </section>
+
+    <section id="backend">
+      <h2>4. Required backend changes</h2>
+
+      <h3>4.1 <code>lib/telnyxCallControl.js</code> — new command wrappers</h3>
+      <table>
+        <thead>
+          <tr><th>Function</th><th>Telnyx endpoint</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>transferCall(callControlId, body)</code></td><td><code>actions/transfer</code></td></tr>
+          <tr><td><code>bridgeCalls(fromId, opts)</code></td><td><code>actions/bridge</code></td></tr>
+          <tr><td><code>createConference(callControlId, name, opts)</code></td><td><code>POST /conferences</code></td></tr>
+          <tr><td><code>joinConference(conferenceId, callControlId, opts)</code></td><td><code>conferences/{id}/actions/join</code></td></tr>
+          <tr><td><code>holdConferenceParticipants(...)</code></td><td><code>actions/hold</code></td></tr>
+          <tr><td><code>unholdConferenceParticipants(...)</code></td><td><code>actions/unhold</code></td></tr>
+          <tr><td><code>leaveConference(...)</code></td><td><code>actions/leave</code></td></tr>
+          <tr><td><code>referCall(...)</code></td><td><strong>Phase 4+ only</strong></td></tr>
+        </tbody>
+      </table>
+
+      <h3>4.2 New <code>lib/callTransferControl.js</code></h3>
+      <ul>
+        <li>Resolve <strong>caller vs agent leg</strong> from <code>TransferSession</code> + inbound session</li>
+        <li>Map agent SIP username → active inbound session (new <strong>active-call index</strong>)</li>
+        <li>Execute blind / attended state transitions</li>
+        <li>Handle webhooks: <code>call.bridged</code>, <code>call.hangup</code>, <code>conference.participant.*</code></li>
+        <li><strong>Do not modify</strong> bridge-grace winner-claim logic — transfer runs after <code>stage === 'bridged'</code></li>
+      </ul>
+
+      <h3>4.3 Webhook routing</h3>
+      <p>Use base64 <code>client_state</code> (existing pattern): <code>{ v: 1, kind: 'transfer', transferId, stage }</code></p>
+
+      <h3>4.4 Active-call index</h3>
+      <p>Extend <code>callControlSessionStore.js</code>:</p>
+      <ul>
+        <li><code>indexActiveAgentCall(sipUsername, { inboundCallControlId, agentLegId, callSessionId })</code> on <code>CALL_BRIDGED</code></li>
+        <li>Clear on hangup / transfer complete</li>
+      </ul>
+
+      <h3>4.5 Recording &amp; CDR</h3>
+      <ul>
+        <li>Define recording behavior on transfer complete (stop vs continue)</li>
+        <li>Update <code>CallLog</code> with transfer outcome</li>
+        <li>Ensure inbound cleanup doesn’t treat transfer hangup as “missed call”</li>
+      </ul>
+    </section>
+
+    <section id="frontend">
+      <h2>5. Required frontend changes</h2>
+
+      <h3>5.1 Softphone v2 UI</h3>
+      <ul>
+        <li>Enable <strong>Transfer</strong> (replace disabled “Add Call” or split Transfer / Add Call)</li>
+        <li>Transfer sheet: blind vs attended, destination input (number / extension / contact)</li>
+        <li>Attended flow: “Consulting…” → Complete / Cancel</li>
+        <li>Progress from API + <code>telnyx.notification</code> terminal states</li>
+      </ul>
+
+      <h3>5.2 State management</h3>
+      <pre>transferSession: { transferId, stage, mode, target } | null</pre>
+      <p>On transfer complete / agent leg hangup: clear <code>callRef</code>, stop media wiring, save CDR with transfer metadata.</p>
+
+      <h3>5.3 Hold behavior (coordinated)</h3>
+      <table>
+        <thead>
+          <tr><th>Call type</th><th>Current hold</th><th>Target hold</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Outbound WebRTC-only</td><td>SDK <code>hold()</code> OK</td><td>Keep SDK hold</td></tr>
+          <tr><td>Inbound bridged PSTN</td><td>SDK hold only (insufficient)</td><td>CC conference hold or attended-transfer API hold</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="api">
+      <h2>6. API design</h2>
+      <table>
+        <thead>
+          <tr><th>Method</th><th>Path</th><th>Purpose</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>POST</code></td><td><code>/api/softphone/transfer/blind</code></td><td>Blind transfer to E.164 / extension / SIP</td></tr>
+          <tr><td><code>POST</code></td><td><code>/api/softphone/transfer/consult/start</code></td><td>Hold caller + dial consult</td></tr>
+          <tr><td><code>POST</code></td><td><code>/api/softphone/transfer/consult/complete</code></td><td>Bridge caller to consult, release agent</td></tr>
+          <tr><td><code>POST</code></td><td><code>/api/softphone/transfer/consult/cancel</code></td><td>Unhold + re-bridge agent, hang up consult</td></tr>
+          <tr><td><code>GET</code></td><td><code>/api/softphone/transfer/:id</code></td><td>Poll transfer status (optional)</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Blind transfer request</h3>
+      <pre>POST /api/softphone/transfer/blind
+{
+  "webrtcCallId": "uuid",
+  "telnyxCallControlId": "v3:…",
+  "telnyxSessionId": "…",
+  "destination": "+15551234567",
+  "destinationType": "pstn"
+}</pre>
+      <p><strong>Leg rule:</strong> call <code>transfer</code> on <strong><code>callerLegId</code></strong> (PSTN / remote party), not the agent leg.</p>
+
+      <h3>Consult leg strategy (attended)</h3>
+      <table>
+        <thead>
+          <tr><th>Option</th><th>Pros</th><th>Cons</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>A. CC dial consult</strong> (recommended v1)</td>
+            <td>Full CC control; matches Telnyx Dial + Bridge guidance</td>
+            <td>More webhook complexity</td>
+          </tr>
+          <tr>
+            <td>B. Agent WebRTC <code>newCall</code></td>
+            <td>Reuses softphone</td>
+            <td>Must correlate two WebRTC/CC legs</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="database">
+      <h2>7. Database changes</h2>
+      <div class="callout callout-ok">
+        <strong>Minimum (v1):</strong> No schema migration required if transfer state lives in Redis during the call.
+      </div>
+      <p><strong>Optional CallLog columns (Phase 2, reporting):</strong></p>
+      <table>
+        <thead>
+          <tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>transferredTo</code></td><td>String?</td><td>E.164 / extension</td></tr>
+          <tr><td><code>transferType</code></td><td>String?</td><td><code>blind</code> | <code>attended</code> | null</td></tr>
+          <tr><td><code>transferCompletedAt</code></td><td>DateTime?</td><td>—</td></tr>
+          <tr><td><code>parentCallSid</code></td><td>String?</td><td>Consult leg linkage</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="state">
+      <h2>8. State management changes</h2>
+      <h3>Backend (<code>inboundCallControl.js</code>)</h3>
+      <table>
+        <thead>
+          <tr><th>Area</th><th>Change</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Bridge-grace (<code>connecting</code>, <code>WEBRTC_ACCEPTED</code>)</td><td><strong>Leave unchanged</strong></td></tr>
+          <tr><td><code>stage === 'bridged'</code></td><td>Set active-call index for transfer lookup</td></tr>
+          <tr><td>Hangup handler</td><td>If transfer active, delegate to <code>callTransferControl</code> before missed-call logic</td></tr>
+          <tr><td>Simultaneous ring</td><td>Transfer only when <code>winnerLeg</code> is stable</td></tr>
+        </tbody>
+      </table>
+      <h3>Frontend</h3>
+      <ul>
+        <li><code>transferSession</code> — API-driven transfer FSM</li>
+        <li><code>callSessionRef</code> — add <code>transferId</code>, <code>callerLegId</code> when known</li>
+        <li>Disable transfer until <code>active</code>; disable blind during <code>connecting</code></li>
+      </ul>
+    </section>
+
+    <section id="webrtc">
+      <h2>9. WebRTC implications</h2>
+      <table>
+        <thead>
+          <tr><th>Topic</th><th>Implication</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Blind transfer complete</td><td>Agent WebRTC call receives <code>hangup</code> — UI must reset</td></tr>
+          <tr><td>Media</td><td>Caller media moves on CC side; agent browser does not “transfer audio”</td></tr>
+          <tr><td>Second call (attended)</td><td>CC consult leg recommended for v1</td></tr>
+          <tr><td><code>telnyxCallControlId</code></td><td>Agent leg — <strong>do not</strong> transfer PSTN caller via agent leg ID</td></tr>
+          <tr><td>Recording</td><td>PSTN leg recording may stop on transfer — document behavior</td></tr>
+          <tr><td>Internal extension</td><td><code>sip:user@sip.telnyx.com</code> via transfer <code>to</code></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="testing">
+      <h2>10. Testing strategy</h2>
+
+      <h3>Automated (CI)</h3>
+      <ul>
+        <li>Extend <code>validate:rapid-accept-stress</code> — no bridge-grace regression</li>
+        <li>New <code>validate:call-transfer-blind.js</code> — mock CC + webhook FSM</li>
+        <li>New <code>validate:call-transfer-legs.js</code> — caller vs agent leg resolution</li>
+        <li>Keep <code>validate:inbound-media-phase1</code> passing</li>
+      </ul>
+
+      <h3>Integration (staging + Telnyx)</h3>
+      <ol>
+        <li>Blind PSTN → agent → blind to mobile</li>
+        <li>Blind to extension (<code>sip:ext@sip.telnyx.com</code>)</li>
+        <li>Failed transfer — caller stays with agent</li>
+        <li>Attended — hold → consult → complete → agent out</li>
+        <li>Cancel consult — caller reconnected to agent</li>
+        <li>Outbound WebRTC-only blind transfer</li>
+        <li>Recording + CDR after transfer</li>
+        <li>Regression: inbound accept, bridge grace, voicemail fallback unchanged</li>
+      </ol>
+    </section>
+
+    <section id="phases">
+      <h2>11. Phased implementation plan</h2>
+      <ul class="phase-list">
+        <li>
+          <strong>Phase 1 — Blind transfer (MVP)</strong><br />
+          <code>transferCall</code>, <code>bridgeCalls</code>; <code>callTransferControl.js</code>; active-call index;
+          <code>POST /transfer/blind</code>; webhook handling; frontend blind UI; optional CallLog metadata.
+          <br /><em>Leg rule: transfer on <code>callerLegId</code>, not agent leg.</em>
+        </li>
+        <li>
+          <strong>Phase 2 — Attended transfer</strong><br />
+          Conference create/join/hold/unhold; consult start / complete / cancel APIs; frontend attended UX; recording cleanup.
+        </li>
+        <li>
+          <strong>Phase 3 — Conference / 3-way (optional)</strong><br />
+          Supervisor roles; “Add Call” as conference join without completing transfer.
+        </li>
+        <li>
+          <strong>Phase 4 — SIP REFER (only if required)</strong><br />
+          <code>referCall</code> + <code>call.refer.*</code> webhooks; external SIP policy. Not a substitute for Phase 1 <code>transfer</code>.
+        </li>
+      </ul>
+    </section>
+
+    <section id="decisions">
+      <h2>12. Decisions to confirm before coding</h2>
+      <ol>
+        <li><strong>Blind transfer scope v1:</strong> PSTN + extensions only, or internal ring groups too?</li>
+        <li><strong>Attended consult:</strong> CC-dialed consult (recommended) vs agent second WebRTC call?</li>
+        <li><strong>Caller ID on transfer:</strong> Always tenant DID vs original PSTN ANI (<code>from_display_name</code>)?</li>
+        <li><strong>Recording:</strong> Stop on transfer vs continue on caller leg?</li>
+        <li><strong>Agent UX after blind transfer:</strong> Auto-ready vs wrap-up timer?</li>
+      </ol>
+    </section>
+
+    <section id="summary">
+      <h2>13. Summary</h2>
+      <table>
+        <thead>
+          <tr><th>Item</th><th>Recommendation</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Blind transfer</td><td>Telnyx <code>actions/transfer</code> on <strong>caller PSTN leg</strong></td></tr>
+          <tr><td>Attended transfer</td><td>Conference hold + Dial consult + Bridge/complete (not REFER)</td></tr>
+          <tr><td>Conference</td><td>Use for hold + 3-way; required for CC-level hold</td></tr>
+          <tr><td>SIP REFER</td><td>Separate API; <strong>not v1</strong>; do not assume REFER behavior</td></tr>
+          <tr><td>Our gap</td><td>No CC transfer/bridge/conference; WebRTC-only hold; no transfer session</td></tr>
+          <tr><td>Bridge-grace</td><td>Keep <code>inboundCallControl.js</code> logic; add parallel transfer FSM post-bridge</td></tr>
+          <tr><td>Database</td><td>Redis transfer session v1; optional CallLog columns later</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="references">
+      <h2>Official Telnyx references</h2>
+      <ul>
+        <li><a href="https://developers.telnyx.com/api-reference/call-commands/transfer-call">Transfer call</a></li>
+        <li><a href="https://developers.telnyx.com/api-reference/call-commands/bridge-calls">Bridge calls</a></li>
+        <li><a href="https://developers.telnyx.com/api-reference/call-commands/sip-refer-a-call">SIP Refer a call</a></li>
+        <li><a href="https://developers.telnyx.com/docs/voice/programmable-voice/sending-commands">Sending Commands for Programmable Voice</a></li>
+        <li><a href="https://developers.telnyx.com/docs/voice/programmable-voice/conferencing-demo">Conferencing demo</a></li>
+        <li><a href="https://developers.telnyx.com/docs/voice/sip-trunking/features/external-transfers">External Call Transfers (SIP Trunking)</a></li>
+        <li><a href="https://developers.telnyx.com/development/webrtc/js-sdk/explanation/call-state-lifecycle">WebRTC call state lifecycle (held = sendonly)</a></li>
+      </ul>
+    </section>
+
+    <footer>
+      VSP VoIP · Call Transfer Implementation Plan · Generated for <code>feature/call-transfer</code>
+    </footer>
+  </div>
+</body>
+</html>

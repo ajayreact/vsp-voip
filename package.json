@@ -23,6 +23,8 @@
     "validate:phase3b": "tsx scripts/validate-phase3b.js",
     "validate:phase3b-race": "tsx scripts/validate-phase3b-race.js",
     "validate:rapid-accept-stress": "tsx scripts/validate-rapid-accept-stress.js",
+    "validate:call-transfer-session": "tsx scripts/validate-call-transfer-session.js",
+    "validate:blind-transfer": "tsx scripts/validate-blind-transfer.js",
     "validate:recording-stream": "node scripts/validate-recording-stream.js",
     "validate:exclusive-voicemail-audio": "tsx --tsconfig web/tsconfig.json scripts/validate-exclusive-voicemail-audio.ts",
     "validate:inbound-media-phase1": "tsx --tsconfig web/tsconfig.json scripts/validate-inbound-media-phase1.ts",

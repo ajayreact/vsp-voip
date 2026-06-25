@@ -879,6 +879,57 @@ router.post('/softphone/call-accepted', authMiddleware, async (req, res) => {
   }
 });
 
+/** Blind transfer — Telnyx transfer on PSTN caller leg (not agent WebRTC leg). */
+router.post('/softphone/transfer/blind', authMiddleware, async (req, res) => {
+  try {
+    if (!req.user.tenantId) {
+      return res.status(403).json({ error: 'No organization linked to this account' });
+    }
+
+    const destination = req.body?.destination ? String(req.body.destination).trim() : '';
+    if (!destination) {
+      return res.status(400).json({ error: 'destination is required' });
+    }
+
+    const destinationType = req.body?.destinationType
+      ? String(req.body.destinationType).trim().toLowerCase()
+      : undefined;
+
+    const prisma = await getPrisma();
+    await assertTenantActive(prisma, req.user.tenantId);
+    const platform = await loadPlatformSettings(prisma);
+
+    const user = await prisma.user.findFirst({
+      where: { id: req.user.sub, tenantId: req.user.tenantId },
+      select: { telnyxSipUsername: true },
+    });
+    if (!user?.telnyxSipUsername) {
+      return res.status(400).json({ error: 'WebRTC SIP credentials are not provisioned for this user' });
+    }
+
+    const { initiateBlindTransfer } = require('../lib/callTransferControl');
+    const result = await initiateBlindTransfer(prisma, {
+      tenantId: req.user.tenantId,
+      agentUserId: req.user.sub,
+      agentSipUsername: user.telnyxSipUsername,
+      destination,
+      destinationType,
+      webrtcCallId: req.body?.webrtcCallId ? String(req.body.webrtcCallId) : null,
+      platform,
+    });
+
+    res.json({ success: true, ...result });
+  } catch (error) {
+    console.error('[transfer/blind] error', error.response?.data || error.message);
+    res.status(error.status || 500).json({
+      success: false,
+      error: error.message || 'Blind transfer failed',
+      transferId: error.transferId || null,
+      detail: error.response?.data?.errors?.[0]?.detail || error.telnyx?.errors?.[0]?.detail || null,
+    });
+  }
+});
+
 router.post('/softphone/telemetry', authMiddleware, async (req, res) => {
   try {
     if (!req.user.tenantId) {

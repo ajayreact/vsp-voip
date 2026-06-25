@@ -156,3 +156,56 @@ export async function postCallAccepted(): Promise<CallAcceptedDiagnostic> {
 
   return diagnostic;
 }
+
+export type BlindTransferResult = {
+  success: boolean;
+  transferId?: string;
+  stage?: string;
+  error?: string;
+};
+
+export async function postBlindTransfer(
+  destination: string,
+  destinationType?: 'pstn' | 'extension' | 'sip',
+): Promise<BlindTransferResult> {
+  const token = getToken();
+  const url = `${API_URL}/api/softphone/transfer/blind`;
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({
+        destination,
+        ...(destinationType ? { destinationType } : {}),
+      }),
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[softphone-v2] postBlindTransfer.networkError', message);
+    return { success: false, error: message };
+  }
+
+  const body = await res.json().catch(() => ({})) as {
+    success?: boolean;
+    transferId?: string;
+    stage?: string;
+    error?: string;
+  };
+
+  if (!res.ok || body.success === false) {
+    const error = body.error || `HTTP ${res.status}`;
+    console.error('[softphone-v2] postBlindTransfer.error', error);
+    return { success: false, error, transferId: body.transferId };
+  }
+
+  return {
+    success: true,
+    transferId: body.transferId,
+    stage: body.stage,
+  };
+}

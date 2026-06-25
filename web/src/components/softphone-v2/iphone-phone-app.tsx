@@ -90,6 +90,8 @@ type IphonePhoneAppProps = {
   onToggleInCallKeypad: () => void;
   onDtmf: (digit: string) => void;
   onDismissMissedToast: () => void;
+  onTransfer?: () => void;
+  transferBusy?: boolean;
 };
 
 export function IphonePhoneApp(props: IphonePhoneAppProps) {
@@ -158,6 +160,8 @@ export function IphonePhoneApp(props: IphonePhoneAppProps) {
     onToggleInCallKeypad,
     onDtmf,
     onDismissMissedToast,
+    onTransfer,
+    transferBusy,
   } = props;
 
   const showOutgoingOverlay = hasLiveCall
@@ -222,6 +226,9 @@ export function IphonePhoneApp(props: IphonePhoneAppProps) {
           onToggleKeypad={onToggleInCallKeypad}
           onDtmf={onDtmf}
           onHangup={onHangup}
+          onTransfer={onTransfer}
+          transferEnabled={callDirection === 'inbound'}
+          transferBusy={transferBusy}
         />
       ) : null}
 

@@ -6,7 +6,7 @@ import {
   Mic,
   MicOff,
   Phone,
-  UserPlus,
+  PhoneForwarded,
   Volume2,
 } from 'lucide-react';
 import {
@@ -36,6 +36,9 @@ type ActiveCallScreenProps = {
   onToggleKeypad: () => void;
   onDtmf: (digit: string) => void;
   onHangup: () => void;
+  onTransfer?: () => void;
+  transferEnabled?: boolean;
+  transferBusy?: boolean;
 };
 
 function CallAction({
@@ -92,6 +95,9 @@ export function ActiveCallScreen({
   onToggleKeypad,
   onDtmf,
   onHangup,
+  onTransfer,
+  transferEnabled = false,
+  transferBusy = false,
 }: ActiveCallScreenProps) {
   const isActive = callState === 'active' || callState === 'held';
   const keypadDigits = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'];
@@ -172,10 +178,10 @@ export function ActiveCallScreen({
             onClick={onToggleHold}
           />
           <CallAction
-            label="Add Call"
-            icon={<UserPlus className="h-7 w-7 opacity-40" />}
-            disabled
-            badge="Off"
+            label="Transfer"
+            icon={<PhoneForwarded className="h-7 w-7" />}
+            disabled={!transferEnabled || transferBusy || !isActive}
+            onClick={onTransfer}
           />
           <CallAction
             label="Record"

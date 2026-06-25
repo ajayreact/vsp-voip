@@ -6,7 +6,7 @@ import { TelnyxRTC } from '@telnyx/webrtc';
 import type { Call } from '@telnyx/webrtc';
 import { getSoftphoneConfig, getSoftphoneToken, getExtensions, getMe, isUnauthorizedError } from '@/lib/api';
 import { persistStoredCallerId, resolveStoredCallerId } from '@/lib/softphone-caller-id';
-import { postServerCallLog, postCallAccepted } from '@/lib/softphone-call-log-client';
+import { postServerCallLog, postCallAccepted, postBlindTransfer } from '@/lib/softphone-call-log-client';
 import { isSoftphoneV2Enabled } from '@/lib/softphone-config';
 import {
   isValidDialInput,
@@ -644,6 +644,7 @@ function SoftphoneV2Content() {
   const [contactsSearch, setContactsSearch] = useState('');
   const [selectedRecent, setSelectedRecent] = useState<CallHistoryRecord | null>(null);
   const [showInCallKeypad, setShowInCallKeypad] = useState(false);
+  const [transferBusy, setTransferBusy] = useState(false);
   const [voicemailBadge, setVoicemailBadge] = useState(0);
   const [reconnectCount, setReconnectCount] = useState(0);
   const [lastTelemetryEvent, setLastTelemetryEvent] = useState<SoftphoneTelemetrySnapshot | null>(null);
@@ -1620,6 +1621,34 @@ function SoftphoneV2Content() {
     logTelnyx('speaker.toggle', { speakerOn: next });
   };
 
+  const onTransfer = async () => {
+    if (transferBusy || callDirection !== 'inbound' || callState !== 'active') return;
+
+    const destination = window.prompt('Transfer to (extension or phone number):');
+    if (!destination?.trim()) return;
+
+    setTransferBusy(true);
+    setStatus('Transferring call…');
+    logTelnyx('transfer.blind.start', { destination: destination.trim() });
+
+    try {
+      const result = await postBlindTransfer(destination.trim());
+      if (!result.success) {
+        setStatus(result.error || 'Transfer failed');
+        logTelnyx('transfer.blind.failed', result);
+        return;
+      }
+      setStatus('Transfer in progress…');
+      logTelnyx('transfer.blind.accepted', result);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Transfer failed';
+      setStatus(message);
+      logTelnyx('transfer.blind.error', { message });
+    } finally {
+      setTransferBusy(false);
+    }
+  };
+
   const onCallerIdChange = (value: string) => {
     setCallerNumber(value);
     callerNumberRef.current = value;
@@ -1708,6 +1737,8 @@ function SoftphoneV2Content() {
       onToggleInCallKeypad={onToggleInCallKeypad}
       onDtmf={onDtmf}
       onDismissMissedToast={() => setMissedCallToast(null)}
+      onTransfer={onTransfer}
+      transferBusy={transferBusy}
     />
   );
 }
