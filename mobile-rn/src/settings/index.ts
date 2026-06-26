@@ -1,0 +1,1 @@
+export { fetchTenantProfile } from './settingsService';
