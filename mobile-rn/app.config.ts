@@ -18,6 +18,7 @@ const config: ExpoConfig = {
         microphonePermission: 'VSP Phone uses the microphone for voice calls.',
       },
     ],
+    './plugins/withFirebaseNotificationMerger.js',
   ],
   ios: {
     supportsTablet: true,
