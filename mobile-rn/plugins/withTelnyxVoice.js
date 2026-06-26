@@ -2,7 +2,6 @@ const fs = require('fs');
 const path = require('path');
 const {
   withAndroidManifest,
-  withMainActivity,
   withAppDelegate,
   withInfoPlist,
   withDangerousMod,
@@ -118,21 +117,10 @@ function withTelnyxAndroidManifest(config) {
 }
 
 function withTelnyxMainActivity(config) {
-  return withMainActivity(config, (config) => {
-    let contents = config.modResults.contents;
-    if (!contents.includes('TelnyxMainActivity')) {
-      contents = contents.replace(
-        /import com\.facebook\.react\.ReactActivity/,
-        'import com.telnyx.react_voice_commons.TelnyxMainActivity',
-      );
-      contents = contents.replace(
-        /class MainActivity : ReactActivity\(\)/,
-        'class MainActivity : TelnyxMainActivity()',
-      );
-    }
-    config.modResults.contents = contents;
-    return config;
-  });
+  // MainActivity must extend ReactActivity directly. TelnyxMainActivity uses
+  // onNewIntent(Intent?) which clashes with ReactActivity's onNewIntent(Intent)
+  // and fails Kotlin compile on EAS (SDK 56 / RN new architecture).
+  return config;
 }
 
 function withTelnyxAppGradle(config) {
