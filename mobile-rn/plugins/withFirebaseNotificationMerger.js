@@ -23,17 +23,18 @@ function mergeToolsReplace(existing, attribute) {
 
 function withFirebaseNotificationMerger(config) {
   return withAndroidManifest(config, (config) => {
-    const manifest = config.modResults;
+    const androidManifest = config.modResults;
+    const manifest = androidManifest.manifest;
     if (!manifest.$) manifest.$ = {};
     manifest.$['xmlns:tools'] = 'http://schemas.android.com/tools';
 
     const androidPackage = config.android?.package;
     if (androidPackage) {
-      manifest.$['android:package'] = androidPackage;
-      manifest.$['tools:replace'] = mergeToolsReplace(manifest.$['tools:replace'], 'android:package');
+      manifest.$['package'] = androidPackage;
+      manifest.$['tools:replace'] = mergeToolsReplace(manifest.$['tools:replace'], 'package');
     }
 
-    const app = AndroidConfig.Manifest.getMainApplicationOrThrow(manifest);
+    const app = AndroidConfig.Manifest.getMainApplicationOrThrow(androidManifest);
     AndroidConfig.Manifest.removeMetaDataItemFromMainApplication(app, FCM_NOTIFICATION_COLOR);
 
     const metaData = ensureArray(app['meta-data']);
