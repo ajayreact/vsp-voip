@@ -31,7 +31,7 @@ function buildTenantNav() {
   { href: '/my-numbers', label: 'My Numbers', icon: Phone },
   { href: getSoftphoneHref(), label: 'Softphone', icon: PhoneCall },
   { href: '/phone-system/extensions', label: 'Phone system', icon: Network },
-  { href: '/sms', label: 'SMS', icon: MessagesSquare },
+  { href: '/sms', label: 'Messages', icon: MessagesSquare },
   { href: '/numbers', label: 'Buy Numbers', icon: ShoppingCart },
   { href: '/greeting', label: 'Call routing', icon: MessageSquare },
   { href: '/voicemail', label: 'Voicemail', icon: Voicemail },
