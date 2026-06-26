@@ -1,0 +1,20 @@
+# Monorepo: only mobile-rn is required for EAS Build (deps installed on builder).
+/web/
+/node_modules/
+/reports/
+/.reference/
+/docs/
+/tests/
+/scripts/
+/prisma/
+/seed.ts
+/server.js
+/lib/
+/routes/
+/web/
+
+/mobile-rn/node_modules/
+/mobile-rn/android/
+/mobile-rn/ios/
+/mobile-rn/.expo/
+/mobile-rn/.build-fixtures/
