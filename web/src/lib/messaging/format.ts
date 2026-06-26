@@ -1,4 +1,10 @@
+import type { PlatformMessage } from '@/lib/messaging/types';
+
 const PENDING_STATUSES = new Set(['QUEUED', 'SENDING', 'SENT', 'queued', 'sending', 'sent']);
+
+export const MAX_SMS_LENGTH = 1600;
+export const MAX_MMS_ATTACHMENTS = 10;
+export const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
 
 export function normalizeDirection(value?: string): 'inbound' | 'outbound' {
   return String(value || '').toUpperCase() === 'OUTBOUND' ? 'outbound' : 'inbound';
@@ -87,3 +93,73 @@ export function filterConversations<T extends {
     );
   });
 }
+
+export function sortConversationsByActivity<T extends {
+  lastMessageAt?: string | null;
+  updatedAt?: string | null;
+}>(items: T[]): T[] {
+  return [...items].sort((a, b) => {
+    const aTime = new Date(a.lastMessageAt || a.updatedAt || 0).getTime();
+    const bTime = new Date(b.lastMessageAt || b.updatedAt || 0).getTime();
+    return bTime - aTime;
+  });
+}
+
+export function mergeMessagesById(messages: PlatformMessage[]): PlatformMessage[] {
+  const byId = new Map(messages.map((item) => [item.id, item]));
+  return Array.from(byId.values()).sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+  );
+}
+
+export function formatDateSeparator(iso: string) {
+  const date = new Date(iso);
+  const now = new Date();
+  if (date.toDateString() === now.toDateString()) return 'Today';
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+  return date.toLocaleDateString(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
+  });
+}
+
+export type MessageWithSeparator =
+  | { type: 'separator'; key: string; label: string }
+  | { type: 'message'; key: string; message: PlatformMessage };
+
+export function groupMessagesWithSeparators(messages: PlatformMessage[]): MessageWithSeparator[] {
+  const items: MessageWithSeparator[] = [];
+  let lastDay = '';
+
+  for (const message of messages) {
+    const day = new Date(message.createdAt).toDateString();
+    if (day !== lastDay) {
+      items.push({
+        type: 'separator',
+        key: `sep-${day}`,
+        label: formatDateSeparator(message.createdAt),
+      });
+      lastDay = day;
+    }
+    items.push({ type: 'message', key: message.id, message });
+  }
+
+  return items;
+}
+
+export function isValidMessagingPeer(value: string) {
+  const digits = value.replace(/\D/g, '');
+  return digits.length >= 10;
+}
+
+export function formatAttachmentSize(bytes?: number) {
+  if (!bytes) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+

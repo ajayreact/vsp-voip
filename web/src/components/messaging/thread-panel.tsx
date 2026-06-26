@@ -1,15 +1,21 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
+import { useMemo, useRef, useEffect, type KeyboardEvent } from 'react';
 import type { MessageAttachment, PlatformConversation, PlatformMessage } from '@/lib/messaging/types';
 import {
   formatMessagingTime,
   formatMessageStatus,
   formatPhoneDisplay,
+  groupMessagesWithSeparators,
   isFailedMessageStatus,
+  isValidMessagingPeer,
+  MAX_ATTACHMENT_BYTES,
+  MAX_MMS_ATTACHMENTS,
+  MAX_SMS_LENGTH,
   normalizeDirection,
 } from '@/lib/messaging/format';
 import { AttachmentChip, MessageBlock, PendingAttachmentChip } from '@/components/messaging/message-block';
+import { DateSeparator, MessagingStateBanner, ThreadSkeleton } from '@/components/messaging/messaging-states';
 import type { MessagingLine } from '@/lib/messaging/types';
 
 type ComposeBarProps = {
@@ -24,6 +30,8 @@ type ComposeBarProps = {
   onSend: () => void;
   sending: boolean;
   disabled: boolean;
+  offline: boolean;
+  peerError?: string;
   showPeerField?: boolean;
   peer?: string;
   onPeerChange?: (value: string) => void;
@@ -41,14 +49,29 @@ export function ComposeBar({
   onSend,
   sending,
   disabled,
+  offline,
+  peerError,
   showPeerField,
   peer = '',
   onPeerChange,
 }: ComposeBarProps) {
   const fileRef = useRef<HTMLInputElement>(null);
 
+  function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+      event.preventDefault();
+      if (!disabled && !sending && !offline) onSend();
+    }
+  }
+
   return (
     <div className="border-t border-slate-200 bg-white p-4 space-y-3">
+      {offline ? (
+        <p className="text-xs text-slate-600" role="status">
+          You are offline. Messages will send when connectivity returns.
+        </p>
+      ) : null}
+
       {showPeerField ? (
         <label className="block">
           <span className="mb-1 block text-xs font-medium text-slate-500">Recipient mobile number</span>
@@ -57,8 +80,10 @@ export function ComposeBar({
             value={peer}
             onChange={(e) => onPeerChange?.(e.target.value)}
             placeholder="+1 client phone (E.164)"
+            aria-invalid={Boolean(peerError)}
             className="w-full rounded-lg input-field text-sm"
           />
+          {peerError ? <span className="mt-1 block text-xs text-red-600">{peerError}</span> : null}
         </label>
       ) : null}
 
@@ -68,6 +93,7 @@ export function ComposeBar({
           value={fromLine}
           onChange={(e) => onFromLineChange(e.target.value)}
           className="w-full rounded-lg input-field text-sm"
+          aria-label="Business line"
         >
           {lines.map((line) => (
             <option key={line.id} value={line.number}>
@@ -94,14 +120,16 @@ export function ComposeBar({
         <textarea
           value={draft}
           onChange={(e) => onDraftChange(e.target.value)}
+          onKeyDown={handleKeyDown}
           rows={3}
-          maxLength={1600}
+          maxLength={MAX_SMS_LENGTH}
           placeholder="Type your message…"
+          aria-label="Message text"
           className="w-full rounded-lg input-field text-sm"
         />
       </label>
 
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <input
             ref={fileRef}
@@ -118,20 +146,24 @@ export function ComposeBar({
             type="button"
             onClick={() => fileRef.current?.click()}
             className="filter-btn text-xs"
+            disabled={offline || pendingAttachments.length >= MAX_MMS_ATTACHMENTS}
           >
             Attach
           </button>
-          <span className="text-xs text-slate-500">{draft.length}/1600</span>
+          <span className="text-xs text-slate-500">
+            {draft.length}/{MAX_SMS_LENGTH}
+          </span>
         </div>
         <button
           type="button"
-          disabled={disabled || sending}
+          disabled={disabled || sending || offline}
           onClick={onSend}
           className="btn-primary px-4 py-2 text-sm disabled:opacity-50"
         >
           {sending ? 'Sending…' : 'Send'}
         </button>
       </div>
+      <p className="text-xs text-slate-500">Press Ctrl+Enter to send</p>
     </div>
   );
 }
@@ -142,6 +174,7 @@ type ThreadPanelProps = {
   threadLoading: boolean;
   loadingOlder: boolean;
   hasOlder: boolean;
+  threadError?: string;
   lines: MessagingLine[];
   fromLine: string;
   draft: string;
@@ -149,6 +182,7 @@ type ThreadPanelProps = {
   pendingAttachments: MessageAttachment[];
   newPeer: string;
   isNewMessage: boolean;
+  offline: boolean;
   onFromLineChange: (value: string) => void;
   onDraftChange: (value: string) => void;
   onNewPeerChange: (value: string) => void;
@@ -156,6 +190,7 @@ type ThreadPanelProps = {
   onRemoveAttachment: (id: string) => void;
   onSend: () => void;
   onLoadOlder: () => void;
+  onRetryThread?: () => void;
 };
 
 export function ThreadPanel({
@@ -164,6 +199,7 @@ export function ThreadPanel({
   threadLoading,
   loadingOlder,
   hasOlder,
+  threadError,
   lines,
   fromLine,
   draft,
@@ -171,6 +207,7 @@ export function ThreadPanel({
   pendingAttachments,
   newPeer,
   isNewMessage,
+  offline,
   onFromLineChange,
   onDraftChange,
   onNewPeerChange,
@@ -178,27 +215,68 @@ export function ThreadPanel({
   onRemoveAttachment,
   onSend,
   onLoadOlder,
+  onRetryThread,
 }: ThreadPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const shouldStickToBottomRef = useRef(true);
+  const previousScrollHeightRef = useRef(0);
+
+  const groupedMessages = useMemo(
+    () => groupMessagesWithSeparators(messages),
+    [messages],
+  );
 
   useEffect(() => {
-    if (scrollRef.current && !loadingOlder) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const node = scrollRef.current;
+    if (!node || loadingOlder) return;
+
+    if (previousScrollHeightRef.current > 0) {
+      const delta = node.scrollHeight - previousScrollHeightRef.current;
+      if (delta > 0) node.scrollTop = delta;
+      previousScrollHeightRef.current = 0;
+      return;
+    }
+
+    if (shouldStickToBottomRef.current) {
+      node.scrollTop = node.scrollHeight;
     }
   }, [messages, threadLoading, loadingOlder]);
+
+  useEffect(() => {
+    if (loadingOlder && scrollRef.current) {
+      previousScrollHeightRef.current = scrollRef.current.scrollHeight;
+    }
+  }, [loadingOlder]);
+
+  useEffect(() => {
+    const node = scrollRef.current;
+    if (!node) return undefined;
+
+    function onScroll() {
+      const distanceFromBottom = node.scrollHeight - node.scrollTop - node.clientHeight;
+      shouldStickToBottomRef.current = distanceFromBottom < 80;
+    }
+
+    node.addEventListener('scroll', onScroll);
+    return () => node.removeEventListener('scroll', onScroll);
+  }, []);
 
   const peerLabel = conversation
     ? formatPhoneDisplay(conversation.peer)
     : 'New message';
 
+  const peerError = isNewMessage && newPeer.trim() && !isValidMessagingPeer(newPeer)
+    ? 'Enter a valid phone number with at least 10 digits.'
+    : '';
+
   const canSend = Boolean(
-    (conversation || newPeer.trim())
+    (conversation || (newPeer.trim() && isValidMessagingPeer(newPeer)))
     && fromLine
     && (draft.trim() || pendingAttachments.length),
   );
 
   return (
-    <div className="flex h-full flex-col overflow-hidden panel-card">
+    <div className="flex h-full min-h-[420px] flex-col overflow-hidden panel-card lg:min-h-[560px]">
       <header className="border-b border-slate-200 px-4 py-3">
         <p className="font-semibold text-slate-900">{peerLabel}</p>
         {conversation ? (
@@ -210,7 +288,19 @@ export function ThreadPanel({
         )}
       </header>
 
-      <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+      {threadError ? (
+        <div className="border-b border-slate-200 p-3">
+          <MessagingStateBanner message={threadError} onRetry={onRetryThread} />
+        </div>
+      ) : null}
+
+      <div
+        ref={scrollRef}
+        className="flex-1 space-y-3 overflow-y-auto px-4 py-4"
+        role="log"
+        aria-live="polite"
+        aria-label="Message thread"
+      >
         {hasOlder ? (
           <div className="text-center">
             <button
@@ -224,13 +314,18 @@ export function ThreadPanel({
           </div>
         ) : null}
 
-        {threadLoading ? (
-          <p className="py-12 text-center text-sm text-slate-500">Loading messages…</p>
-        ) : (
-          messages.map((msg) => {
+        {threadLoading && !messages.length ? <ThreadSkeleton /> : null}
+
+        {!threadLoading
+          ? groupedMessages.map((item) => {
+            if (item.type === 'separator') {
+              return <DateSeparator key={item.key} label={item.label} />;
+            }
+
+            const msg = item.message;
             const direction = normalizeDirection(msg.direction);
             return (
-              <div key={msg.id}>
+              <div key={item.key}>
                 <MessageBlock
                   body={msg.body}
                   direction={direction}
@@ -239,6 +334,7 @@ export function ThreadPanel({
                   statusFailed={isFailedMessageStatus(msg.status)}
                   readAt={msg.readAt}
                   messageType={msg.messageType}
+                  deliveryError={msg.deliveryError}
                 />
                 {msg.attachments?.map((attachment) => (
                   <AttachmentChip key={attachment.id} attachment={attachment} />
@@ -246,10 +342,16 @@ export function ThreadPanel({
               </div>
             );
           })
-        )}
+          : null}
 
         {!threadLoading && !messages.length && conversation ? (
           <p className="py-12 text-center text-sm text-slate-500">No messages in this thread yet</p>
+        ) : null}
+
+        {!threadLoading && isNewMessage && !conversation ? (
+          <p className="py-12 text-center text-sm text-slate-500">
+            Compose a message below to start a new client conversation.
+          </p>
         ) : null}
       </div>
 
@@ -265,6 +367,8 @@ export function ThreadPanel({
         onSend={onSend}
         sending={sending}
         disabled={!canSend}
+        offline={offline}
+        peerError={peerError}
         showPeerField={isNewMessage}
         peer={newPeer}
         onPeerChange={onNewPeerChange}
@@ -272,3 +376,5 @@ export function ThreadPanel({
     </div>
   );
 }
+
+export { MAX_ATTACHMENT_BYTES, MAX_MMS_ATTACHMENTS };

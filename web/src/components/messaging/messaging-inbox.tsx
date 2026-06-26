@@ -14,13 +14,19 @@ import {
 import {
   filterConversations,
   isPendingMessageStatus,
+  isValidMessagingPeer,
+  mergeMessagesById,
+  sortConversationsByActivity,
+  MAX_ATTACHMENT_BYTES,
+  MAX_MMS_ATTACHMENTS,
 } from '@/lib/messaging/format';
 import type { MessageAttachment, PlatformConversation, PlatformMessage } from '@/lib/messaging/types';
 import { ConversationListPanel } from '@/components/messaging/conversation-list';
 import { ThreadPanel } from '@/components/messaging/thread-panel';
+import { MessagingStateBanner } from '@/components/messaging/messaging-states';
 
-const POLL_MS = 8000;
-const THREAD_POLL_MS = 5000;
+const POLL_MS = 10000;
+const THREAD_POLL_MS = 8000;
 
 function requestNotificationPermission() {
   if (typeof window === 'undefined' || !('Notification' in window)) return;
@@ -35,7 +41,7 @@ function notifyNewMessage(conversation: PlatformConversation) {
   const preview = conversation.lastMessagePreview || 'New message';
   try {
     new Notification('VSP Messages', {
-      body: `${conversation.peer}: ${preview}`,
+      body: `${formatPhoneForNotification(conversation.peer)}: ${preview}`,
       tag: conversation.id,
     });
   } catch {
@@ -43,9 +49,29 @@ function notifyNewMessage(conversation: PlatformConversation) {
   }
 }
 
+function formatPhoneForNotification(value: string) {
+  const digits = value.replace(/\D/g, '');
+  if (digits.length === 11) return `+${digits}`;
+  if (digits.length === 10) return `+1${digits}`;
+  return value;
+}
+
+function mergeConversationLists(
+  previous: PlatformConversation[],
+  incoming: PlatformConversation[],
+  append: boolean,
+) {
+  const merged = append ? [...previous, ...incoming] : incoming;
+  const byId = new Map(merged.map((item) => [item.id, item]));
+  return sortConversationsByActivity(Array.from(byId.values()));
+}
+
 export function MessagingInbox() {
   const [bootLoading, setBootLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [sendError, setSendError] = useState('');
+  const [listError, setListError] = useState('');
+  const [threadError, setThreadError] = useState('');
+  const [offline, setOffline] = useState(false);
   const [configured, setConfigured] = useState(true);
   const [webhookReachable, setWebhookReachable] = useState(true);
   const [setupHint, setSetupHint] = useState('');
@@ -75,63 +101,92 @@ export function MessagingInbox() {
   const [pendingAttachments, setPendingAttachments] = useState<MessageAttachment[]>([]);
 
   const unreadSnapshotRef = useRef<Map<string, number>>(new Map());
+  const selectedIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    selectedIdRef.current = selected?.id || null;
+  }, [selected?.id]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const sync = () => setOffline(!navigator.onLine);
+    sync();
+    window.addEventListener('online', sync);
+    window.addEventListener('offline', sync);
+    return () => {
+      window.removeEventListener('online', sync);
+      window.removeEventListener('offline', sync);
+    };
+  }, []);
 
   const filteredConversations = useMemo(
     () => filterConversations(conversations, search),
     [conversations, search],
   );
 
-  const loadConversations = useCallback(async (cursor?: string | null, append = false) => {
-    if (append) setListLoadingMore(true);
-    else setListLoading(true);
+  const loadConversations = useCallback(async (
+    cursor?: string | null,
+    append = false,
+    silent = false,
+  ) => {
+    if (!silent) {
+      if (append) setListLoadingMore(true);
+      else setListLoading(true);
+    }
 
     try {
       const res = await fetchConversations({ cursor: cursor || undefined, limit: 50 });
-      setConversations((prev) => {
-        const merged = append ? [...prev, ...res.conversations] : res.conversations;
-        const byId = new Map(merged.map((item) => [item.id, item]));
-        return Array.from(byId.values());
-      });
+      setConversations((prev) => mergeConversationLists(prev, res.conversations, append));
       setConversationCursor(res.nextCursor);
       setHasMoreConversations(Boolean(res.nextCursor));
+      setListError('');
 
       for (const conv of res.conversations) {
         const prevUnread = unreadSnapshotRef.current.get(conv.id) ?? 0;
-        if (conv.unreadCount > prevUnread && conv.id !== selected?.id) {
+        if (conv.unreadCount > prevUnread && conv.id !== selectedIdRef.current) {
           notifyNewMessage(conv);
         }
         unreadSnapshotRef.current.set(conv.id, conv.unreadCount);
       }
     } catch (err) {
       if (!isUnauthorizedError(err)) {
-        setError(err instanceof Error ? err.message : 'Could not load conversations');
+        setListError(err instanceof Error ? err.message : 'Could not load conversations');
       }
     } finally {
-      setListLoading(false);
-      setListLoadingMore(false);
+      if (!silent) {
+        setListLoading(false);
+        setListLoadingMore(false);
+      }
     }
-  }, [selected]);
+  }, []);
 
   const loadThread = useCallback(async (
     conversationId: string,
     cursor?: string | null,
     prepend = false,
+    silent = false,
   ) => {
-    if (prepend) setLoadingOlder(true);
-    else setThreadLoading(true);
+    if (prepend) {
+      setLoadingOlder(true);
+    } else if (!silent) {
+      setThreadLoading(true);
+    }
 
     try {
       const res = await fetchConversationMessages(conversationId, {
         cursor: cursor || undefined,
         limit: 50,
       });
+
       setMessages((prev) => {
-        const merged = prepend ? [...res.messages, ...prev] : res.messages;
-        const byId = new Map(merged.map((item) => [item.id, item]));
-        return Array.from(byId.values());
+        const merged = prepend
+          ? mergeMessagesById([...res.messages, ...prev])
+          : mergeMessagesById(res.messages);
+        return merged;
       });
       setMessageCursor(res.nextCursor);
       setHasOlderMessages(Boolean(res.nextCursor));
+      setThreadError('');
 
       if (!prepend) {
         await markConversationRead(conversationId).catch(() => {});
@@ -143,17 +198,17 @@ export function MessagingInbox() {
         unreadSnapshotRef.current.set(conversationId, 0);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load messages');
+      setThreadError(err instanceof Error ? err.message : 'Could not load messages');
     } finally {
-      setThreadLoading(false);
       setLoadingOlder(false);
+      if (!silent) setThreadLoading(false);
     }
   }, []);
 
   useEffect(() => {
     async function boot() {
       setBootLoading(true);
-      setError('');
+      setListError('');
       try {
         const setup = await fetchMessagingLines();
         setConfigured(setup.configured);
@@ -167,7 +222,7 @@ export function MessagingInbox() {
         requestNotificationPermission();
       } catch (err) {
         if (!isUnauthorizedError(err)) {
-          setError(err instanceof Error ? err.message : 'Could not load messaging');
+          setListError(err instanceof Error ? err.message : 'Could not load messaging');
         }
       } finally {
         setBootLoading(false);
@@ -177,23 +232,29 @@ export function MessagingInbox() {
   }, [loadConversations]);
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      void loadConversations();
-    }, POLL_MS);
+    function tick() {
+      if (document.visibilityState !== 'visible') return;
+      void loadConversations(null, false, true);
+      if (selectedIdRef.current) {
+        void loadThread(selectedIdRef.current, null, false, true);
+      }
+    }
+
+    const timer = window.setInterval(tick, POLL_MS);
     return () => window.clearInterval(timer);
-  }, [loadConversations]);
+  }, [loadConversations, loadThread]);
 
   const hasPendingOutbound = messages.some(
     (msg) => String(msg.direction).toUpperCase() === 'OUTBOUND' && isPendingMessageStatus(msg.status),
   );
 
   useEffect(() => {
-    if (!selected?.id) return undefined;
-    if (!hasPendingOutbound) return undefined;
+    if (!selected?.id || !hasPendingOutbound) return undefined;
 
     const timer = window.setInterval(() => {
-      void loadThread(selected.id);
-      void loadConversations();
+      if (document.visibilityState !== 'visible') return;
+      void loadThread(selected.id, null, false, true);
+      void loadConversations(null, false, true);
     }, THREAD_POLL_MS);
 
     return () => window.clearInterval(timer);
@@ -205,6 +266,8 @@ export function MessagingInbox() {
     setNewPeer('');
     setDraft('');
     setPendingAttachments([]);
+    setSendError('');
+    setThreadError('');
     setFromLine(conversation.line);
     void loadThread(conversation.id);
   }
@@ -216,21 +279,38 @@ export function MessagingInbox() {
     setNewPeer('');
     setDraft('');
     setPendingAttachments([]);
+    setSendError('');
+    setThreadError('');
     setMessageCursor(null);
     setHasOlderMessages(false);
   }
 
   async function onAttachFiles(files: FileList | null) {
     if (!files?.length) return;
-    setError('');
+    setSendError('');
+
+    const remaining = MAX_MMS_ATTACHMENTS - pendingAttachments.length;
+    if (remaining <= 0) {
+      setSendError(`Maximum ${MAX_MMS_ATTACHMENTS} attachments per message.`);
+      return;
+    }
+
+    const selectedFiles = Array.from(files).slice(0, remaining);
+    for (const file of selectedFiles) {
+      if (file.size > MAX_ATTACHMENT_BYTES) {
+        setSendError(`"${file.name}" exceeds the 5 MB attachment limit.`);
+        return;
+      }
+    }
+
     try {
       const uploaded: MessageAttachment[] = [];
-      for (const file of Array.from(files)) {
+      for (const file of selectedFiles) {
         uploaded.push(await uploadMessageAttachment(file));
       }
       setPendingAttachments((prev) => [...prev, ...uploaded]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Attachment upload failed');
+      setSendError(err instanceof Error ? err.message : 'Attachment upload failed');
     }
   }
 
@@ -238,10 +318,19 @@ export function MessagingInbox() {
     const peer = selected?.peer || newPeer.trim();
     const line = fromLine;
     const text = draft.trim();
+
     if (!peer || !line || (!text && !pendingAttachments.length)) return;
+    if (!isValidMessagingPeer(peer)) {
+      setSendError('Enter a valid recipient phone number.');
+      return;
+    }
+    if (offline) {
+      setSendError('You are offline. Reconnect to send messages.');
+      return;
+    }
 
     setSending(true);
-    setError('');
+    setSendError('');
     try {
       const res = await sendPlatformMessage({
         from: line,
@@ -253,39 +342,38 @@ export function MessagingInbox() {
       setPendingAttachments([]);
 
       if (selected?.id === res.message.conversationId) {
-        setMessages((prev) => [...prev, res.message]);
+        setMessages((prev) => mergeMessagesById([...prev, res.message]));
       } else {
-        await loadConversations();
-        const match = conversations.find((c) => c.id === res.message.conversationId);
-        if (match) {
-          openConversation(match);
+        const refreshed = await fetchConversations({ limit: 50 });
+        setConversations(mergeConversationLists([], refreshed.conversations, false));
+        const found = refreshed.conversations.find((c) => c.id === res.message.conversationId);
+        if (found) {
+          openConversation(found);
         } else {
-          const refreshed = await fetchConversations({ limit: 50 });
-          const found = refreshed.conversations.find((c) => c.id === res.message.conversationId);
-          if (found) {
-            openConversation(found);
-          } else {
-            setIsNewMessage(false);
-            setSelected({
-              id: res.message.conversationId,
-              peer,
-              line,
-              unreadCount: 0,
-            });
-            setMessages([res.message]);
-          }
+          setIsNewMessage(false);
+          setSelected({
+            id: res.message.conversationId,
+            peer,
+            line,
+            unreadCount: 0,
+          });
+          setMessages([res.message]);
         }
       }
-      await loadConversations();
+      await loadConversations(null, false, true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Send failed');
+      setSendError(err instanceof Error ? err.message : 'Send failed');
     } finally {
       setSending(false);
     }
   }
 
   if (bootLoading) {
-    return <div className="py-24 text-center text-slate-400">Loading messages…</div>;
+    return (
+      <div className="py-24 text-center text-slate-400" role="status">
+        <span className="inline-block animate-pulse">Loading messages…</span>
+      </div>
+    );
   }
 
   if (!lines.length) {
@@ -318,6 +406,13 @@ export function MessagingInbox() {
         </p>
       </div>
 
+      {offline ? (
+        <MessagingStateBanner
+          tone="offline"
+          message="You are offline. Conversation list will refresh when connectivity returns."
+        />
+      ) : null}
+
       {!configured ? (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
           Messaging profile is not configured. Set{' '}
@@ -347,7 +442,13 @@ export function MessagingInbox() {
         </div>
       ) : null}
 
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      {sendError ? (
+        <MessagingStateBanner
+          message={sendError}
+          onRetry={() => void onSend()}
+          onDismiss={() => setSendError('')}
+        />
+      ) : null}
 
       <div className="grid min-h-[560px] gap-4 lg:grid-cols-[320px_1fr]">
         <ConversationListPanel
@@ -357,10 +458,13 @@ export function MessagingInbox() {
           loading={listLoading}
           loadingMore={listLoadingMore}
           hasMore={hasMoreConversations}
+          error={listError}
+          totalCount={conversations.length}
           onSearchChange={setSearch}
           onSelect={openConversation}
           onLoadMore={() => loadConversations(conversationCursor, true)}
           onNewMessage={startNewMessage}
+          onRetry={() => loadConversations()}
         />
 
         <ThreadPanel
@@ -369,6 +473,7 @@ export function MessagingInbox() {
           threadLoading={threadLoading}
           loadingOlder={loadingOlder}
           hasOlder={hasOlderMessages}
+          threadError={threadError}
           lines={lines}
           fromLine={fromLine}
           draft={draft}
@@ -376,6 +481,7 @@ export function MessagingInbox() {
           pendingAttachments={pendingAttachments}
           newPeer={newPeer}
           isNewMessage={isNewMessage}
+          offline={offline}
           onFromLineChange={setFromLine}
           onDraftChange={setDraft}
           onNewPeerChange={setNewPeer}
@@ -388,6 +494,9 @@ export function MessagingInbox() {
             if (selected?.id && messageCursor) {
               void loadThread(selected.id, messageCursor, true);
             }
+          }}
+          onRetryThread={() => {
+            if (selected?.id) void loadThread(selected.id);
           }}
         />
       </div>

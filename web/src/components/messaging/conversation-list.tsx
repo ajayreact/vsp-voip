@@ -6,6 +6,7 @@ import {
   formatPhoneDisplay,
   peerInitials,
 } from '@/lib/messaging/format';
+import { ConversationListSkeleton, MessagingStateBanner } from '@/components/messaging/messaging-states';
 import { cn } from '@/lib/utils';
 import { Search } from 'lucide-react';
 
@@ -16,10 +17,13 @@ type ConversationListProps = {
   loading: boolean;
   loadingMore: boolean;
   hasMore: boolean;
+  error?: string;
+  totalCount: number;
   onSearchChange: (value: string) => void;
   onSelect: (conversation: PlatformConversation) => void;
   onLoadMore: () => void;
   onNewMessage: () => void;
+  onRetry?: () => void;
 };
 
 export function ConversationListPanel({
@@ -29,17 +33,28 @@ export function ConversationListPanel({
   loading,
   loadingMore,
   hasMore,
+  error,
+  totalCount,
   onSearchChange,
   onSelect,
   onLoadMore,
   onNewMessage,
+  onRetry,
 }: ConversationListProps) {
+  const searchActive = search.trim().length > 0;
+  const showEmpty = !loading && !error && conversations.length === 0;
+
   return (
-    <div className="flex h-full flex-col overflow-hidden panel-card">
+    <div className="flex h-full min-h-[420px] flex-col overflow-hidden panel-card lg:min-h-[560px]">
       <div className="border-b border-slate-200 px-4 py-3">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-sm font-semibold text-slate-900">Conversations</h2>
-          <button type="button" onClick={onNewMessage} className="btn-primary px-3 py-1.5 text-xs">
+          <button
+            type="button"
+            onClick={onNewMessage}
+            className="btn-primary px-3 py-1.5 text-xs"
+            aria-label="Start new message"
+          >
             New
           </button>
         </div>
@@ -50,17 +65,28 @@ export function ConversationListPanel({
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search conversations"
+            aria-label="Search conversations"
             className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400"
           />
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        {loading && !conversations.length ? (
-          <p className="px-4 py-12 text-center text-sm text-slate-500">Loading conversations…</p>
+      {error ? (
+        <div className="border-b border-slate-200 p-3">
+          <MessagingStateBanner message={error} onRetry={onRetry} />
+        </div>
+      ) : null}
+
+      <div className="flex-1 overflow-y-auto" role="list" aria-label="Conversation list">
+        {loading && !conversations.length ? <ConversationListSkeleton /> : null}
+
+        {showEmpty && searchActive ? (
+          <p className="px-4 py-12 text-center text-sm text-slate-500">
+            No conversations match your search.
+          </p>
         ) : null}
 
-        {!loading && !conversations.length ? (
+        {showEmpty && !searchActive && totalCount === 0 ? (
           <p className="px-4 py-12 text-center text-sm text-slate-500">
             No conversations yet. Start a new message to reach a client.
           </p>
@@ -73,6 +99,8 @@ export function ConversationListPanel({
             <button
               key={conv.id}
               type="button"
+              role="listitem"
+              aria-current={active ? 'true' : undefined}
               onClick={() => onSelect(conv)}
               className={cn(
                 'flex w-full items-start gap-3 border-b border-slate-100 px-4 py-3 text-left transition',
@@ -84,6 +112,7 @@ export function ConversationListPanel({
                   'mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-xs font-semibold',
                   active ? 'bg-indigo-600 text-white' : 'bg-indigo-100 text-indigo-700',
                 )}
+                aria-hidden="true"
               >
                 {peerInitials(peerLabel)}
               </span>
@@ -102,7 +131,10 @@ export function ConversationListPanel({
                 </span>
               </span>
               {conv.unreadCount > 0 ? (
-                <span className="mt-1 rounded-full bg-indigo-600 px-2 py-0.5 text-xs font-semibold text-white">
+                <span
+                  className="mt-1 rounded-full bg-indigo-600 px-2 py-0.5 text-xs font-semibold text-white"
+                  aria-label={`${conv.unreadCount} unread`}
+                >
                   {conv.unreadCount > 99 ? '99+' : conv.unreadCount}
                 </span>
               ) : null}

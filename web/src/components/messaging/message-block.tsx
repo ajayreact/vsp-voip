@@ -11,6 +11,7 @@ type MessageBlockProps = {
   statusFailed?: boolean;
   readAt?: string | null;
   messageType?: string;
+  deliveryError?: string | null;
 };
 
 export function MessageBlock({
@@ -21,6 +22,7 @@ export function MessageBlock({
   statusFailed,
   readAt,
   messageType,
+  deliveryError,
 }: MessageBlockProps) {
   const outbound = direction === 'outbound';
 
@@ -42,6 +44,9 @@ export function MessageBlock({
         {timestamp ? <span>{timestamp}</span> : null}
         {outbound && status ? (
           <span className={cn(statusFailed && 'font-medium text-red-600')}>{status}</span>
+        ) : null}
+        {deliveryError ? (
+          <span className="font-medium text-red-600">{deliveryError}</span>
         ) : null}
         {outbound && readAt ? <span className="text-indigo-600">Read</span> : null}
       </div>
