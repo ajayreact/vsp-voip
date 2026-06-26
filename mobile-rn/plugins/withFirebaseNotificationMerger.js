@@ -10,29 +10,12 @@ function ensureArray(value) {
   return Array.isArray(value) ? value : value ? [value] : [];
 }
 
-function mergeToolsReplace(existing, attribute) {
-  const values = new Set(
-    String(existing || '')
-      .split(',')
-      .map((entry) => entry.trim())
-      .filter(Boolean),
-  );
-  values.add(attribute);
-  return Array.from(values).join(',');
-}
-
 function withFirebaseNotificationMerger(config) {
   return withAndroidManifest(config, (config) => {
     const androidManifest = config.modResults;
     const manifest = androidManifest.manifest;
     if (!manifest.$) manifest.$ = {};
     manifest.$['xmlns:tools'] = 'http://schemas.android.com/tools';
-
-    const androidPackage = config.android?.package;
-    if (androidPackage) {
-      manifest.$['package'] = androidPackage;
-      manifest.$['tools:replace'] = mergeToolsReplace(manifest.$['tools:replace'], 'package');
-    }
 
     const app = AndroidConfig.Manifest.getMainApplicationOrThrow(androidManifest);
     AndroidConfig.Manifest.removeMetaDataItemFromMainApplication(app, FCM_NOTIFICATION_COLOR);
