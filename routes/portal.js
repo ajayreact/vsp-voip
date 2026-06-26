@@ -1796,6 +1796,7 @@ router.post('/sms/send', authMiddleware, async (req, res) => {
       prisma,
       platform,
       tenantId: req.user.tenantId,
+      userId: req.user.sub,
       from,
       to,
       text,

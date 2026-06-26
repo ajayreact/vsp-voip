@@ -124,6 +124,30 @@ enum RingStrategy {
   LONGEST_IDLE
 }
 
+enum ConversationType {
+  CUSTOMER
+  INTERNAL
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum MessageType {
+  SMS
+  MMS
+}
+
+enum MessageChannelStatus {
+  QUEUED
+  SENDING
+  SENT
+  DELIVERED
+  FAILED
+  RECEIVED
+}
+
 model Tenant {
   id                    String        @id @default(uuid())
   name                  String
@@ -146,6 +170,8 @@ model Tenant {
   voicemails            Voicemail[]
   callRecordings        CallRecording[]
   smsMessages           SmsMessage[]
+  conversations         Conversation[]
+  messages              Message[]
   users                 User[]
   greeting              Greeting?
   numberOrders          NumberOrder[]
@@ -186,6 +212,8 @@ model User {
   pushTokenUpdatedAt         DateTime?
   devices                    UserDevice[]
   extensions                 Extension[]
+  conversationParticipants   ConversationParticipant[]
+  messagesSent               Message[]                 @relation("MessageSender")
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
 
@@ -554,18 +582,112 @@ model SmsMessage {
   id              String   @id @default(uuid())
   tenantId        String
   tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  messageId       String?  @unique
+  message         Message? @relation(fields: [messageId], references: [id], onDelete: SetNull)
   telnyxMessageId String?  @unique
   from            String
   to              String
   body            String
   direction       String   @default("inbound")
   status          String   @default("received")
+  deliveryError   String?
   isRead          Boolean  @default(false)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   @@index([tenantId, createdAt])
   @@index([tenantId, isRead])
+}
+
+model Conversation {
+  id                 String           @id @default(uuid())
+  tenantId           String
+  tenant             Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  peer               String
+  line               String
+  type               ConversationType @default(CUSTOMER)
+  lastMessageAt      DateTime?
+  lastMessagePreview String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  participants       ConversationParticipant[]
+  messages           Message[]
+
+  @@unique([tenantId, peer, line])
+  @@index([tenantId, lastMessageAt])
+}
+
+model ConversationParticipant {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           String       @default("agent")
+  lastReadAt     DateTime?
+  unreadCount    Int          @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([conversationId, userId])
+  @@index([userId, unreadCount])
+}
+
+model Message {
+  id              String               @id @default(uuid())
+  conversationId  String
+  conversation    Conversation         @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  tenantId        String
+  tenant          Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  telnyxMessageId String?              @unique
+  from            String
+  to              String
+  body            String?
+  direction       MessageDirection
+  messageType     MessageType          @default(SMS)
+  status          MessageChannelStatus @default(QUEUED)
+  deliveryError   String?
+  sentByUserId    String?
+  sentByUser      User?                @relation("MessageSender", fields: [sentByUserId], references: [id], onDelete: SetNull)
+  readAt          DateTime?
+  deliveredAt     DateTime?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  legacySms       SmsMessage?
+  attachments     MessageAttachment[]
+  statusHistory   MessageStatus[]
+
+  @@index([conversationId, createdAt])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, direction, status])
+}
+
+model MessageAttachment {
+  id          String   @id @default(uuid())
+  messageId   String?
+  message     Message? @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  tenantId    String
+  storageKey  String
+  publicUrl   String?
+  mimeType    String
+  sizeBytes   Int
+  fileName    String?
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([messageId])
+}
+
+model MessageStatus {
+  id        String               @id @default(uuid())
+  messageId String
+  message   Message              @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  status    MessageChannelStatus
+  source    String
+  detail    String?
+  createdAt DateTime             @default(now())
+
+  @@index([messageId, createdAt])
 }
 
 model CallLog {

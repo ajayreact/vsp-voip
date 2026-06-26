@@ -31,6 +31,7 @@ const { expireBillingGracePeriods } = require('./lib/billingGrace');
 const { startBillingIntegrityScheduler } = require('./lib/billingIntegrityJob');
 const { webhookLimiter } = require('./lib/rateLimit');
 const { logger } = require('./lib/logger');
+const messagingRoutes = require('./routes/messaging');
 const portalRoutes = require('./routes/portal');
 const adminRoutes = require('./routes/admin');
 const { handleStripeWebhook } = require('./lib/billing');
@@ -198,6 +199,8 @@ app.post('/webhook/call-recording', ...recordingWebhookMiddleware, (req, res) =>
 app.use(express.json());
 app.use('/uploads/greetings', express.static(path.join(__dirname, 'uploads', 'greetings')));
 app.use('/uploads/payment-proofs', express.static(path.join(__dirname, 'uploads', 'payment-proofs')));
+app.use('/uploads/messaging', express.static(path.join(__dirname, 'uploads', 'messaging')));
+app.use('/api', messagingRoutes);
 app.use('/api', portalRoutes);
 app.use('/api/admin', adminRoutes);
 
