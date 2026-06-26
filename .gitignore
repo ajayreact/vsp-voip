@@ -7,6 +7,12 @@ node_modules
 # Uploads
 uploads/
 
+# QA reports and test artifacts
+reports/*
+!reports/.gitkeep
+test-results/
+playwright-report/
+
 # Android release signing (never commit)
 mobile/android/key.properties
 mobile/android/keystore/

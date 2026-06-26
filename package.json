@@ -4,7 +4,14 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "vitest run --config vitest.config.ts",
+    "test:telephony": "vitest run --config vitest.config.ts tests/telephony tests/api tests/regression",
+    "test:browser": "playwright test --config tests/playwright.config.ts",
+    "qa": "node scripts/run-qa-suite.js",
+    "qa:full": "node scripts/run-qa-suite.js --full-telephony",
+    "qa:perf:100": "k6 run tests/performance/k6-100-users.js",
+    "qa:perf:500": "k6 run tests/performance/k6-500-users.js",
+    "validate:tests-framework": "node scripts/validate-tests-framework.js",
     "postinstall": "node scripts/ensure-prisma-client.js",
     "migrate:deploy": "prisma migrate deploy",
     "start": "tsx server.js",
@@ -26,7 +33,12 @@
     "validate:call-transfer-session": "tsx scripts/validate-call-transfer-session.js",
     "validate:blind-transfer": "tsx scripts/validate-blind-transfer.js",
     "validate:extension-did": "node scripts/validate-extension-did.js",
+    "diagnose:did-sync": "node scripts/diagnose-did-sync.js",
     "validate:recording-stream": "node scripts/validate-recording-stream.js",
+    "validate:deployment-docs": "node scripts/validate-deployment-docs.js",
+    "validate:pbx-docs": "node scripts/validate-pbx-docs.js",
+    "validate:git-docs": "node scripts/validate-git-docs.js",
+    "validate:roadmap-docs": "node scripts/validate-roadmap-docs.js",
     "validate:exclusive-voicemail-audio": "tsx --tsconfig web/tsconfig.json scripts/validate-exclusive-voicemail-audio.ts",
     "validate:inbound-media-phase1": "tsx --tsconfig web/tsconfig.json scripts/validate-inbound-media-phase1.ts",
     "validate:phase3b-sprint2": "tsx scripts/validate-phase3b-sprint2.js",
@@ -68,5 +80,10 @@
     "tsx": "^4.22.4",
     "prisma": "^7.8.0"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "@playwright/test": "^1.51.0",
+    "@types/node": "^22.13.10",
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.9"
+  }
 }

@@ -1,0 +1,1384 @@
+{
+  "lastSync": "2026-06-25T18:46:32.255Z",
+  "files": {
+    "webrtc/fundamentals.md": {
+      "hash": "203a9651403e1fec0fce836550cb97a3b6e2c2dddbf536e00e9d986ac02e4d8c",
+      "url": "https://developers.telnyx.com/docs/voice/webrtc/fundamentals.md",
+      "title": "Fundamentals",
+      "updatedAt": "2026-06-25T18:35:23.456Z",
+      "category": "webrtc"
+    },
+    "webrtc/architecture.md": {
+      "hash": "1ad874ac81b59925afb4ea603088dca1c5effa0613c86e589c925c0a3723f5a4",
+      "url": "https://developers.telnyx.com/docs/voice/webrtc/architecture.md",
+      "title": "Architecture",
+      "updatedAt": "2026-06-25T18:35:30.727Z",
+      "category": "webrtc"
+    },
+    "webrtc/sdk-commonalities.md": {
+      "hash": "c33b557ba0fb399c2f86d0afd18d581620d48ce7f561c6b3dbfe59298a9b08c0",
+      "url": "https://developers.telnyx.com/docs/voice/webrtc/sdk-commonalities.md",
+      "title": "SDK Commonalities",
+      "updatedAt": "2026-06-25T18:35:41.566Z",
+      "category": "webrtc"
+    },
+    "webrtc/auth/credential-connections.md": {
+      "hash": "acc75e88268a272a411260f6af2f4abb3a9e39bf97573abd878f5cd7bfa72947",
+      "url": "https://developers.telnyx.com/docs/voice/webrtc/auth/credential-connections.md",
+      "title": "Credential Connections",
+      "updatedAt": "2026-06-25T18:35:51.763Z",
+      "category": "webrtc"
+    },
+    "webrtc/auth/telephony-credentials.md": {
+      "hash": "7fe97e5513a089a721c529012bfd0c9c2ce4ee2fd151cfb1c9ef023526f3c869",
+      "url": "https://developers.telnyx.com/docs/voice/webrtc/auth/telephony-credentials.md",
+      "title": "Telephony Credentials",
+      "updatedAt": "2026-06-25T18:35:59.230Z",
+      "category": "webrtc"
+    },
+    "webrtc/auth/jwt.md": {
+      "hash": "8b1ffc22a042110b789dad6bda8b7442f603befcb254eb9c96a294ae6d195ca9",
+      "url": "https://developers.telnyx.com/docs/voice/webrtc/auth/jwt.md",
+      "title": "JWTs",
+      "updatedAt": "2026-06-25T18:36:07.701Z",
+      "category": "webrtc"
+    },
+    "webrtc/push-notifications.md": {
+      "hash": "697c45dd8736dff0a1c67047062439c5a4d64cf69edd1544b67da484876e3def",
+      "url": "https://developers.telnyx.com/docs/voice/webrtc/push-notifications.md",
+      "title": "Overview",
+      "updatedAt": "2026-06-25T18:36:12.249Z",
+      "category": "webrtc"
+    },
+    "webrtc/push-notifications/flutter.md": {
+      "hash": "51103c5b873c9edd8549d2286bc7a85d1a7695a29592c29dec1f0682eb38f0ff",
+      "url": "https://developers.telnyx.com/docs/voice/webrtc/push-notifications/flutter.md",
+      "title": "Flutter",
+      "updatedAt": "2026-06-25T18:36:23.130Z",
+      "category": "webrtc"
+    },
+    "webrtc/js-sdk/demo-app.md": {
+      "hash": "c5deb3ef30cc4294000d2c914bc92b9838f13b4a3cdfcc17a9c4f7a5e9046089",
+      "url": "https://developers.telnyx.com/docs/voice/webrtc/js-sdk/demo-app.md",
+      "title": "JS SDK Demo App",
+      "updatedAt": "2026-06-25T18:36:30.492Z",
+      "category": "webrtc"
+    },
+    "webrtc/js-sdk/anatomy.md": {
+      "hash": "8e6ca049c4947d768bc55f34a104ad3b39e0dbf5034e4d1ce0f971097810c49f",
+      "url": "https://developers.telnyx.com/docs/voice/webrtc/js-sdk/anatomy.md",
+      "title": "JS SDK Anatomy",
+      "updatedAt": "2026-06-25T18:36:36.451Z",
+      "category": "webrtc"
+    },
+    "webrtc/use-cases/contact-center.md": {
+      "hash": "a243c945d15a2f118455baf6a4044db450d910402f35d1f2c5686c12078ab589",
+      "url": "https://developers.telnyx.com/docs/voice/webrtc/use-cases/contact-center.md",
+      "title": "Contact Center (CCaaS)",
+      "updatedAt": "2026-06-25T18:36:41.625Z",
+      "category": "webrtc"
+    },
+    "webrtc/use-cases/outbound-dialer.md": {
+      "hash": "795b1cee4fd3829464699970cb65e8d99421c99ab23e2e37e9e4b827a0c08802",
+      "url": "https://developers.telnyx.com/docs/voice/webrtc/use-cases/outbound-dialer.md",
+      "title": "Outbound Dialer",
+      "updatedAt": "2026-06-25T18:37:01.332Z",
+      "category": "webrtc"
+    },
+    "webrtc/troubleshooting/detail-records.md": {
+      "hash": "567d9b5781860d3e82027ff79231b1f21acd21bde2e24df4247f37c7726ec21b",
+      "url": "https://developers.telnyx.com/docs/voice/webrtc/troubleshooting/detail-records.md",
+      "title": "Call Detail Records",
+      "updatedAt": "2026-06-25T18:37:12.125Z",
+      "category": "webrtc"
+    },
+    "webrtc/troubleshooting/debug-logs.md": {
+      "hash": "577776ddafc2e906cb0a9f502567bf9d885ed7d527e34f55a6da8c403392b217",
+      "url": "https://developers.telnyx.com/docs/voice/webrtc/troubleshooting/debug-logs.md",
+      "title": "Debug Logs",
+      "updatedAt": "2026-06-25T18:37:22.810Z",
+      "category": "webrtc"
+    },
+    "webrtc/troubleshooting/interpreting-debug-data.md": {
+      "hash": "c69c4e0b985e4016f39d0cb6cda540740e3643f44ea6cadfdf6f1950512c3e6f",
+      "url": "https://developers.telnyx.com/docs/voice/webrtc/troubleshooting/interpreting-debug-data.md",
+      "title": "Interpreting Debug Data",
+      "updatedAt": "2026-06-25T18:37:31.538Z",
+      "category": "webrtc"
+    },
+    "javascript-sdk/tutorials/make-your-first-call.md": {
+      "hash": "31dc4e97ab164d786b65b1c38f33a3eda4d6bfbf2f22a6453983251b51386ae6",
+      "url": "https://developers.telnyx.com/development/webrtc/js-sdk/tutorials/make-your-first-call.md",
+      "title": "WebRTC JS SDK quickstart",
+      "updatedAt": "2026-06-25T18:37:38.984Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/tutorials/build-call-center-agent.md": {
+      "hash": "e1aeb8a906aa1cd5c88e09f521f0b011872ad9ba553f8c434d7eb8a760ec9da2",
+      "url": "https://developers.telnyx.com/development/webrtc/js-sdk/tutorials/build-call-center-agent.md",
+      "title": "Build a Call Center Agent",
+      "updatedAt": "2026-06-25T18:37:49.431Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/how-to/authenticating-your-app.md": {
+      "hash": "36339beee85541fd78b6b83132f7c01e573df14d7e1b3a349c5d8377f16427b3",
+      "url": "https://developers.telnyx.com/development/webrtc/js-sdk/how-to/authenticating-your-app.md",
+      "title": "WebRTC JS SDK authentication",
+      "updatedAt": "2026-06-25T18:37:57.926Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/how-to/configure-network-firewall.md": {
+      "hash": "10d0dbff1bbc8a865e1644cbb4c60ce2c22206f1c39ec0453db2ebaf8cc4d9b2",
+      "url": "https://developers.telnyx.com/development/webrtc/js-sdk/how-to/configure-network-firewall.md",
+      "title": "Network Connectivity Requirements",
+      "updatedAt": "2026-06-25T18:38:08.019Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/how-to/switch-audio-devices.md": {
+      "hash": "486ec2d2f50d46543691f05c1bbf4f01648e82f12e7d8d59dd53a44de7cdbfa0",
+      "url": "https://developers.telnyx.com/development/webrtc/js-sdk/how-to/switch-audio-devices.md",
+      "title": "Device Management",
+      "updatedAt": "2026-06-25T18:38:14.914Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/how-to/monitor-call-quality.md": {
+      "hash": "4d4beb95bc93c03234170a27e4e5edeb0f70e9551b125a379a8ca0e744866b6a",
+      "url": "https://developers.telnyx.com/development/webrtc/js-sdk/how-to/monitor-call-quality.md",
+      "title": "Call Report Stats",
+      "updatedAt": "2026-06-25T18:38:24.728Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/how-to/handle-reconnection.md": {
+      "hash": "58868ba05a72d833d505fe17b6b4964c9aca0412e7d902efceac9d64079e1f66",
+      "url": "https://developers.telnyx.com/development/webrtc/js-sdk/how-to/handle-reconnection.md",
+      "title": "Reconnection & Call Recovery",
+      "updatedAt": "2026-06-25T18:38:34.669Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/how-to/integrate-with-frameworks.md": {
+      "hash": "52bf86170a8f6c2b409a2d167fc93091887243b6ac48c90be9d7e45055c3617a",
+      "url": "https://developers.telnyx.com/development/webrtc/js-sdk/how-to/integrate-with-frameworks.md",
+      "title": "Framework Integration",
+      "updatedAt": "2026-06-25T18:38:45.627Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/how-to/debug-call-issues.md": {
+      "hash": "532439e282f241427a4ad5a8c59a0ad9245f7cad12ae02195c28696d56f9ad06",
+      "url": "https://developers.telnyx.com/development/webrtc/js-sdk/how-to/debug-call-issues.md",
+      "title": "Debug Data & Call Quality Analysis",
+      "updatedAt": "2026-06-25T18:38:52.176Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/how-to/error-handling.md": {
+      "hash": "a95a4d41e9d7a4bc3ba00c3f54f74e4b6fc52fd0b90752bc23fe37f288a56fab",
+      "url": "https://developers.telnyx.com/development/webrtc/js-sdk/how-to/error-handling.md",
+      "title": "WebRTC JS SDK error handling",
+      "updatedAt": "2026-06-25T18:39:01.492Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/how-to/production-best-practices.md": {
+      "hash": "6ad58aa9fd88872c42157c999b85cde32609629e166f434ec7006bb0c6eab4aa",
+      "url": "https://developers.telnyx.com/development/webrtc/js-sdk/how-to/production-best-practices.md",
+      "title": "Production Best Practices",
+      "updatedAt": "2026-06-25T18:39:12.682Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/reference/telnyxrtc.md": {
+      "hash": "c8701f68be0cea55a3ed02cb58510e408a305133960ecb5cd47c119132ebaa8d",
+      "url": "https://developers.telnyx.com/development/webrtc/js-sdk/reference/telnyxrtc.md",
+      "title": "TelnyxRTC Class",
+      "updatedAt": "2026-06-25T18:39:20.560Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/reference/call.md": {
+      "hash": "c852fd4e59d3d3733422de62392b456d60a38f82f179e43755d0c9f7bc00c282",
+      "url": "https://developers.telnyx.com/development/webrtc/js-sdk/reference/call.md",
+      "title": "Call Class",
+      "updatedAt": "2026-06-25T18:39:29.658Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/reference/iclientoptions.md": {
+      "hash": "a5fbf52ee7eef55d225bb8342ab1796971144ff31f854524b5d1967240c8f98b",
+      "url": "https://developers.telnyx.com/development/webrtc/js-sdk/reference/iclientoptions.md",
+      "title": "IClientOptions",
+      "updatedAt": "2026-06-25T18:39:38.471Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/reference/icalloptions.md": {
+      "hash": "a2126fba1b2257a4214d1590ae51bacdd0381aa45a9d67d1be718f70a9d931ba",
+      "url": "https://developers.telnyx.com/development/webrtc/js-sdk/reference/icalloptions.md",
+      "title": "ICallOptions",
+      "updatedAt": "2026-06-25T18:39:48.072Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/reference/inotification.md": {
+      "hash": "e8b46018093cccef617121101cd7e1bb419e20379f8d03345f93dbfac8851d01",
+      "url": "https://developers.telnyx.com/development/webrtc/js-sdk/reference/inotification.md",
+      "title": "INotification",
+      "updatedAt": "2026-06-25T18:39:57.416Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/reference/sw-events.md": {
+      "hash": "c46e35fa5ae9609fa4cda7fe11044c5858937c16d8fadc180c6c036b930fe5a8",
+      "url": "https://developers.telnyx.com/development/webrtc/js-sdk/reference/sw-events.md",
+      "title": "Switch/Server Events",
+      "updatedAt": "2026-06-25T18:40:04.511Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/explanation/webrtc-signaling.md": {
+      "hash": "ee68f6bc474a3f181bc9d7f2b038f6a64de04d2987382f130a38c57ea38cc568",
+      "url": "https://developers.telnyx.com/development/webrtc/js-sdk/explanation/webrtc-signaling.md",
+      "title": "How WebRTC Signaling Works",
+      "updatedAt": "2026-06-25T18:40:14.565Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/explanation/ice-and-turn.md": {
+      "hash": "665340d408c2e01d5df4e39b61f531a2bcdb83e07e785d4f96ba08f288fc1e54",
+      "url": "https://developers.telnyx.com/development/webrtc/js-sdk/explanation/ice-and-turn.md",
+      "title": "How ICE & TURN Work",
+      "updatedAt": "2026-06-25T18:40:23.265Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/explanation/authentication-architecture.md": {
+      "hash": "513f1cdb932eac097b8d4ecedef9c18548eecbc33c13481b8e64a72cbcca6f8a",
+      "url": "https://developers.telnyx.com/development/webrtc/js-sdk/explanation/authentication-architecture.md",
+      "title": "Authentication Architecture",
+      "updatedAt": "2026-06-25T18:40:32.151Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/explanation/call-state-lifecycle.md": {
+      "hash": "a0e374c51a6e546f1ecb673524ddb1b34af7e7d08ba0ddef827493358b69e598",
+      "url": "https://developers.telnyx.com/development/webrtc/js-sdk/explanation/call-state-lifecycle.md",
+      "title": "Call State Lifecycle",
+      "updatedAt": "2026-06-25T18:40:41.349Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/changelog.md": {
+      "hash": "d6f455b6852e890423343a044148523ec3fa9e11d0288f80dbece14a821516e8",
+      "url": "https://developers.telnyx.com/development/webrtc/js-sdk/changelog.md",
+      "title": "WebRTC JS ChangeLog",
+      "updatedAt": "2026-06-25T18:40:51.352Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/flutter.md": {
+      "hash": "6d388a39de23ebaeda05b5c786640faa71283c2b6a5b7930cb33b30e76673f55",
+      "url": "https://developers.telnyx.com/development/webrtc/flutter-sdk.md",
+      "title": "Flutter Voice Client SDK",
+      "updatedAt": "2026-06-25T18:41:02.208Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/flutter/classes/txclient.md": {
+      "hash": "f8b1bb5757c15cce081e97e2a36e19f66f5dbd98733e4310e0b470e72d79490b",
+      "url": "https://developers.telnyx.com/development/webrtc/flutter-sdk/classes/txclient.md",
+      "title": "WebRTC Flutter Client",
+      "updatedAt": "2026-06-25T18:41:11.344Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/flutter/classes/call.md": {
+      "hash": "ae354c26aabbbf64ff350bc45b5facf5816ed563996499af1461f679506edc9e",
+      "url": "https://developers.telnyx.com/development/webrtc/flutter-sdk/classes/call.md",
+      "title": "WebRTC Flutter Call",
+      "updatedAt": "2026-06-25T18:41:20.268Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/flutter/classes/messages/telnyx-message.md": {
+      "hash": "cc47e63e45fc3cb7e3b3ad890d187825faa564f34c2bdc8d7ff94cc3b9911c70",
+      "url": "https://developers.telnyx.com/development/webrtc/flutter-sdk/classes/messages/telnyx-message.md",
+      "title": "Flutter WebRTC SDK Message",
+      "updatedAt": "2026-06-25T18:41:29.811Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/flutter/classes/messages/telnyx-socket-error.md": {
+      "hash": "7e1fca7c9f798a76db8b7c7aed1f080aa37626e09c566979ccf8fe8a31084ae1",
+      "url": "https://developers.telnyx.com/development/webrtc/flutter-sdk/classes/messages/telnyx-socket-error.md",
+      "title": "Flutter WebRTC SDK Socket Error Message",
+      "updatedAt": "2026-06-25T18:41:37.069Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/flutter/enums/call-state.md": {
+      "hash": "2ddca1893b97871a3141b458fb35a37179d301f3a34f134052e75a118d369a83",
+      "url": "https://developers.telnyx.com/development/webrtc/flutter-sdk/enums/call-state.md",
+      "title": "WebRTC Flutter Call State",
+      "updatedAt": "2026-06-25T18:41:43.842Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/flutter/event-handlers/on-socket-message-received.md": {
+      "hash": "16b68b6ea217cc4630b6b77b3c5e50f8949ea93773a601f616b2397f658f54fe",
+      "url": "https://developers.telnyx.com/development/webrtc/flutter-sdk/event-handlers/on-socket-message-received.md",
+      "title": "Flutter WebRTC SDK Socket Message Handler",
+      "updatedAt": "2026-06-25T18:41:52.577Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/flutter/event-handlers/on-socket-error-received.md": {
+      "hash": "9a8feff4fb2691873d561cb3f34effd0e53a38abb8268bbc79107aac30789664",
+      "url": "https://developers.telnyx.com/development/webrtc/flutter-sdk/event-handlers/on-socket-error-received.md",
+      "title": "Flutter WebRTC SDK Socket Error Handler",
+      "updatedAt": "2026-06-25T18:42:01.640Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/flutter/method-objects/config.md": {
+      "hash": "b0a1e24b90980d4e730eacd29078a13b85834a4d82b32cd256da39feb369708a",
+      "url": "https://developers.telnyx.com/development/webrtc/flutter-sdk/method-objects/config.md",
+      "title": "WebRTC Flutter Client Configuration",
+      "updatedAt": "2026-06-25T18:42:10.998Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/flutter/method-objects/incoming-invite-params.md": {
+      "hash": "d77c922f55790bf7ab5852966ef8d6704efd132db8171cc3663c07e027d9d173",
+      "url": "https://developers.telnyx.com/development/webrtc/flutter-sdk/method-objects/incoming-invite-params.md",
+      "title": "WebRTC Flutter Incoming Invite Object",
+      "updatedAt": "2026-06-25T18:42:17.307Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/flutter/method-objects/push-metadata.md": {
+      "hash": "3b36d7479b1f0713773c816798353a26c8e4ccc8cf2138165cfbac0476dcdf6e",
+      "url": "https://developers.telnyx.com/development/webrtc/flutter-sdk/method-objects/push-metadata.md",
+      "title": "WebRTC Flutter Client Push Notifications Configuration",
+      "updatedAt": "2026-06-25T18:42:23.468Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/flutter/push-notification/portal-setup.md": {
+      "hash": "c46f75417d5558ca69965a4299f6eebae09253cbccc1b69ed21b52ea0f430992",
+      "url": "https://developers.telnyx.com/development/webrtc/flutter-sdk/push-notification/portal-setup.md",
+      "title": "Flutter Push Notification Portal Setup",
+      "updatedAt": "2026-06-25T18:42:32.028Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/flutter/push-notification/app-setup.md": {
+      "hash": "d4baa549284b1d53b76298047f45d23e271be01fa04669d15236238261b2ae21",
+      "url": "https://developers.telnyx.com/development/webrtc/flutter-sdk/push-notification/app-setup.md",
+      "title": "Flutter Push Notification App Setup",
+      "updatedAt": "2026-06-25T18:42:39.992Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/flutter/push-notification/troubleshooting.md": {
+      "hash": "98f3b40f939aafc207fac87547fe03d82054cb45149254ed890f5cdc8d627cf3",
+      "url": "https://developers.telnyx.com/development/webrtc/flutter-sdk/push-notification/troubleshooting.md",
+      "title": "Flutter Push Troubleshooting",
+      "updatedAt": "2026-06-25T18:42:46.654Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/flutter/ai-voice-assistant/introduction.md": {
+      "hash": "b6f5b334f7fd0d292980c015db928255446524093e1a720b5ef26091a5c27567",
+      "url": "https://developers.telnyx.com/development/webrtc/flutter-sdk/ai-voice-assistant/introduction.md",
+      "title": "WebRTC Flutter SDK AI Voice Assistant Introduction",
+      "updatedAt": "2026-06-25T18:42:55.313Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/flutter/ai-voice-assistant/anonymous-login.md": {
+      "hash": "5c5e8d9aeff89fe6759bb5894ec648c920fabbc110617e51144d08fb7d6475f5",
+      "url": "https://developers.telnyx.com/development/webrtc/flutter-sdk/ai-voice-assistant/anonymous-login.md",
+      "title": "WebRTC Flutter SDK AI Voice Assistant Anonymous Login",
+      "updatedAt": "2026-06-25T18:42:55.572Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/flutter/ai-voice-assistant/starting-conversations.md": {
+      "hash": "33821bf82bb9d4e22ce96f6fa87b0bc9949def5ac5fcd07b1a32e246b39242d5",
+      "url": "https://developers.telnyx.com/development/webrtc/flutter-sdk/ai-voice-assistant/starting-conversations.md",
+      "title": "WebRTC Flutter SDK AI Voice Assistant Starting Conversations",
+      "updatedAt": "2026-06-25T18:42:56.090Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/flutter/ai-voice-assistant/text-messaging.md": {
+      "hash": "9e3d60481f14b0305dcdc1916312b49f43f50de6d292dd950475db89daf8d673",
+      "url": "https://developers.telnyx.com/development/webrtc/flutter-sdk/ai-voice-assistant/text-messaging.md",
+      "title": "WebRTC Flutter SDK AI Voice Assistant Text Messaging",
+      "updatedAt": "2026-06-25T18:42:56.325Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/flutter/ai-voice-assistant/transcript-updates.md": {
+      "hash": "23aff6701d485ec0d1f42df11894680540e1e395f5aafe65edcfaffa944d7f39",
+      "url": "https://developers.telnyx.com/development/webrtc/flutter-sdk/ai-voice-assistant/transcript-updates.md",
+      "title": "WebRTC Flutter SDK AI Voice Assistant Transcript Updates",
+      "updatedAt": "2026-06-25T18:42:56.610Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/flutter/stats.md": {
+      "hash": "6273484f9e4b7649b870cb605fd3cd0236fc4f32c206c4f0f575d6dde8f01dae",
+      "url": "https://developers.telnyx.com/development/webrtc/flutter-sdk/stats.md",
+      "title": "WebRTC Stats",
+      "updatedAt": "2026-06-25T18:42:56.854Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/flutter/error-handling.md": {
+      "hash": "cdd7a8e6fd30a308ea99132b7a88a2f109994a0703e8624c3a1a3fdb69a70f6d",
+      "url": "https://developers.telnyx.com/development/webrtc/flutter-sdk/error-handling.md",
+      "title": "WebRTC Flutter SDK Error Handling",
+      "updatedAt": "2026-06-25T18:42:57.090Z",
+      "category": "javascript-sdk"
+    },
+    "javascript-sdk/flutter/changelog.md": {
+      "hash": "cd735ad171e79cc8597da05d2643e500ce7e73ac69076f5fe9215aecd28099e7",
+      "url": "https://developers.telnyx.com/development/webrtc/flutter-sdk/changelog.md",
+      "title": "WebRTC Flutter ChangeLog",
+      "updatedAt": "2026-06-25T18:42:57.314Z",
+      "category": "javascript-sdk"
+    },
+    "call-control/api-reference/credentials/list-all-credentials.md": {
+      "hash": "d32b6fd0d704628087483eb2f88054339c82e07dd15bd781f9f5e17b0ed3a13c",
+      "url": "https://developers.telnyx.com/api-reference/credentials/list-all-credentials.md",
+      "title": "List all credentials",
+      "updatedAt": "2026-06-25T18:42:57.607Z",
+      "category": "authentication"
+    },
+    "call-control/api-reference/credentials/create-a-credential.md": {
+      "hash": "e432c5a08ade47e75da3950d95a59a2f3b322e23517aaba3ff6c17abfbffe751",
+      "url": "https://developers.telnyx.com/api-reference/credentials/create-a-credential.md",
+      "title": "Create a credential",
+      "updatedAt": "2026-06-25T18:42:57.878Z",
+      "category": "authentication"
+    },
+    "call-control/api-reference/credentials/get-a-credential.md": {
+      "hash": "9f9efe732d59020d53d336b1568b31411465ba9583fda5ce7ef8b5b8c3109aaf",
+      "url": "https://developers.telnyx.com/api-reference/credentials/get-a-credential.md",
+      "title": "Get a credential",
+      "updatedAt": "2026-06-25T18:42:58.124Z",
+      "category": "authentication"
+    },
+    "call-control/api-reference/credentials/update-a-credential.md": {
+      "hash": "8f1b3371faf0fae45c03d08f22023bf9ea68eba0e4d70e8ad563a0f9c0483838",
+      "url": "https://developers.telnyx.com/api-reference/credentials/update-a-credential.md",
+      "title": "Update a credential",
+      "updatedAt": "2026-06-25T18:42:58.373Z",
+      "category": "authentication"
+    },
+    "call-control/api-reference/credentials/delete-a-credential.md": {
+      "hash": "48f8bf5ff073b5fd3f373d79e2baf01aa485c38ac1064b1894a8ebe99af41691",
+      "url": "https://developers.telnyx.com/api-reference/credentials/delete-a-credential.md",
+      "title": "Delete a credential",
+      "updatedAt": "2026-06-25T18:42:58.596Z",
+      "category": "authentication"
+    },
+    "call-control/api-reference/access-tokens/create-an-access-token.md": {
+      "hash": "284dc4537f03cd978c6e1e1fe19e64364f4639d3ed0a66d2bd6e3245689fdd18",
+      "url": "https://developers.telnyx.com/api-reference/access-tokens/create-an-access-token.md",
+      "title": "Create an Access Token.",
+      "updatedAt": "2026-06-25T18:42:58.933Z",
+      "category": "authentication"
+    },
+    "call-control/api-reference/push-credentials/list-mobile-push-credentials.md": {
+      "hash": "a0009671a17e468cc6c880e782d15c51cfc5a7630e1d6255d8ed59cada4185da",
+      "url": "https://developers.telnyx.com/api-reference/push-credentials/list-mobile-push-credentials.md",
+      "title": "List mobile push credentials",
+      "updatedAt": "2026-06-25T18:42:59.188Z",
+      "category": "authentication"
+    },
+    "call-control/api-reference/push-credentials/creates-a-new-mobile-push-credential.md": {
+      "hash": "e76ffad6e71b277680da7cd26225a0a170df3f323b008d470a5b596ec563e0fe",
+      "url": "https://developers.telnyx.com/api-reference/push-credentials/creates-a-new-mobile-push-credential.md",
+      "title": "Creates a new mobile push credential",
+      "updatedAt": "2026-06-25T18:42:59.431Z",
+      "category": "authentication"
+    },
+    "call-control/api-reference/push-credentials/retrieves-a-mobile-push-credential.md": {
+      "hash": "ea194507fe624794d47099e7b85d1d114a15c7ea5c146287317fb328820817ee",
+      "url": "https://developers.telnyx.com/api-reference/push-credentials/retrieves-a-mobile-push-credential.md",
+      "title": "Retrieves a mobile push credential",
+      "updatedAt": "2026-06-25T18:42:59.772Z",
+      "category": "authentication"
+    },
+    "call-control/api-reference/push-credentials/deletes-a-mobile-push-credential.md": {
+      "hash": "879d28c070d746391b575a47e8b0b2359ea10e831acb40d5d901f3663bfeea5c",
+      "url": "https://developers.telnyx.com/api-reference/push-credentials/deletes-a-mobile-push-credential.md",
+      "title": "Deletes a mobile push credential",
+      "updatedAt": "2026-06-25T18:43:00.009Z",
+      "category": "authentication"
+    },
+    "call-control/api-reference/voice-sdk-stats/list-voice-sdk-call-reports.md": {
+      "hash": "e8bbeacd244ad1abe3ec493f72385d1b528d752ed9a3eb366ca6958a38d20f74",
+      "url": "https://developers.telnyx.com/api-reference/voice-sdk-stats/list-voice-sdk-call-reports.md",
+      "title": "List Voice SDK call reports",
+      "updatedAt": "2026-06-25T18:43:00.244Z",
+      "category": "call-control"
+    },
+    "call-control/api-reference/voice-sdk-stats/retrieve-voice-sdk-call-reports-by-call-id.md": {
+      "hash": "669f5dc53bc45dc330abbd4eb72ad07160c59c65e6f92a1a88e38d28964dc9fd",
+      "url": "https://developers.telnyx.com/api-reference/voice-sdk-stats/retrieve-voice-sdk-call-reports-by-call-id.md",
+      "title": "Retrieve Voice SDK call reports by call ID",
+      "updatedAt": "2026-06-25T18:43:00.495Z",
+      "category": "call-control"
+    },
+    "call-control/guides/voice-api-fundamentals.md": {
+      "hash": "c4fb66c3a257d1f06728cd5379c257318ef0ef33ca5bfcbe03170a43a94f823f",
+      "url": "https://developers.telnyx.com/docs/voice/programmable-voice/voice-api-fundamentals.md",
+      "title": "Getting Started",
+      "updatedAt": "2026-06-25T18:43:00.741Z",
+      "category": "best-practices"
+    },
+    "call-control/guides/voice-api-commands-and-resources.md": {
+      "hash": "846e4589aedbbce55468819c16b24d1e1d4bdc68b83754f35204116ab05277ec",
+      "url": "https://developers.telnyx.com/docs/voice/programmable-voice/voice-api-commands-and-resources.md",
+      "title": "Commands and Resources",
+      "updatedAt": "2026-06-25T18:43:00.994Z",
+      "category": "call-control"
+    },
+    "call-control/guides/voice-api-webhooks.md": {
+      "hash": "43fb23c510ae1d5a17ab3e49461e66a127a893bd1042a684992ea79bd9576d32",
+      "url": "https://developers.telnyx.com/docs/voice/programmable-voice/voice-api-webhooks.md",
+      "title": "Webhooks",
+      "updatedAt": "2026-06-25T18:43:01.251Z",
+      "category": "webhooks"
+    },
+    "call-control/guides/sending-commands.md": {
+      "hash": "22725b752a18fa73a512ef12adc32d3f8fbce1f80a834d5c905fbc50240c8c65",
+      "url": "https://developers.telnyx.com/docs/voice/programmable-voice/sending-commands.md",
+      "title": "Sending Commands",
+      "updatedAt": "2026-06-25T18:43:01.513Z",
+      "category": "call-control"
+    },
+    "call-control/guides/receiving-webhooks.md": {
+      "hash": "c181bc3de08a7287fec32eaeb679956ca5238962a68bd8859fa7be7c259dc41a",
+      "url": "https://developers.telnyx.com/docs/voice/programmable-voice/receiving-webhooks.md",
+      "title": "Receiving Webhooks",
+      "updatedAt": "2026-06-25T18:43:01.780Z",
+      "category": "webhooks"
+    },
+    "call-control/guides/command-retries.md": {
+      "hash": "4f60402b0c0990bccd89b7f6a0913ac6e93d45d7493b39b4270c1e78c29ed949",
+      "url": "https://developers.telnyx.com/docs/voice/programmable-voice/command-retries.md",
+      "title": "Command Retries",
+      "updatedAt": "2026-06-25T18:43:02.069Z",
+      "category": "call-control"
+    },
+    "call-control/guides/tts.md": {
+      "hash": "41e1e57234b0e38a501a161d8a88a633a452b73279f5f81d78b8bc7d9e77862e",
+      "url": "https://developers.telnyx.com/docs/voice/programmable-voice/tts.md",
+      "title": "Text-to-Speech",
+      "updatedAt": "2026-06-25T18:43:02.634Z",
+      "category": "call-control"
+    },
+    "call-control/guides/queueing-calls.md": {
+      "hash": "8012903846c3baac3ae38a97189ce313adf5fcd6291e224db7d98db19eed64c4",
+      "url": "https://developers.telnyx.com/docs/voice/programmable-voice/queueing-calls.md",
+      "title": "Call Queueing",
+      "updatedAt": "2026-06-25T18:43:02.940Z",
+      "category": "call-control"
+    },
+    "call-control/guides/answering-machine-detection.md": {
+      "hash": "5489d5156ba024f81d5624120695d2c3301ec583db25cb512bf286e96b0f28ca",
+      "url": "https://developers.telnyx.com/docs/voice/programmable-voice/answering-machine-detection.md",
+      "title": "Answering Machine Detection",
+      "updatedAt": "2026-06-25T18:43:03.207Z",
+      "category": "call-control"
+    },
+    "call-control/guides/storing-call-recordings.md": {
+      "hash": "e67e0e5326b682b22afa1dbfcdacd8a22de89d5de6faadbb7cf3b3e54ab256f7",
+      "url": "https://developers.telnyx.com/docs/voice/programmable-voice/storing-call-recordings.md",
+      "title": "Call Recordings Storage",
+      "updatedAt": "2026-06-25T18:43:03.463Z",
+      "category": "recordings"
+    },
+    "call-control/guides/siprec-server.md": {
+      "hash": "7587c41dd5ec2d30f4c96e60e65a75806dfddd6f6181ba60072ed9f8a26cc99a",
+      "url": "https://developers.telnyx.com/docs/voice/programmable-voice/siprec-server.md",
+      "title": "SIPREC Server Configuration",
+      "updatedAt": "2026-06-25T18:43:03.682Z",
+      "category": "sip"
+    },
+    "call-control/guides/siprec-client.md": {
+      "hash": "1929613e4a7ea18aa21f089ac0d8cf00800b9270dcff467dc21eb9c5910950fc",
+      "url": "https://developers.telnyx.com/docs/voice/programmable-voice/siprec-client.md",
+      "title": "SIPREC Client",
+      "updatedAt": "2026-06-25T18:43:03.917Z",
+      "category": "sip"
+    },
+    "call-control/guides/ssml-tags.md": {
+      "hash": "13dc4d8c806693c8719395efacc840f60419e80f0be295dc6b2fdea869fc8a1b",
+      "url": "https://developers.telnyx.com/docs/voice/programmable-voice/ssml-tags.md",
+      "title": "SSML Tags",
+      "updatedAt": "2026-06-25T18:43:04.177Z",
+      "category": "call-control"
+    },
+    "call-control/guides/gather-using-ai.md": {
+      "hash": "204a99c2c658559c522c62b34f0544121395cf145c22fcdaa47e125fc3486e0e",
+      "url": "https://developers.telnyx.com/docs/voice/programmable-voice/gather-using-ai.md",
+      "title": "Gather Using AI",
+      "updatedAt": "2026-06-25T18:43:04.405Z",
+      "category": "call-control"
+    },
+    "call-control/guides/media-streaming.md": {
+      "hash": "deabfc3ea55f9c876d29f2e569d0f01d13db40e2055c274895f499ab0c5fc48c",
+      "url": "https://developers.telnyx.com/docs/voice/programmable-voice/media-streaming.md",
+      "title": "Real-Time Media Streaming",
+      "updatedAt": "2026-06-25T18:43:04.632Z",
+      "category": "call-control"
+    },
+    "call-control/guides/noise-suppression.md": {
+      "hash": "965180f5328ac48c99b99dcf200ca53b14df119ce5d7649ca05ebe0c07553315",
+      "url": "https://developers.telnyx.com/docs/voice/programmable-voice/noise-suppression.md",
+      "title": "Noise Suppression",
+      "updatedAt": "2026-06-25T18:43:04.867Z",
+      "category": "call-control"
+    },
+    "call-control/guides/ivr-demo.md": {
+      "hash": "74674d838bd757ed8a0bf75e080c186f9e6631c4c2a0eb9eb497a834ac7c7e6b",
+      "url": "https://developers.telnyx.com/docs/voice/programmable-voice/ivr-demo.md",
+      "title": "IVR",
+      "updatedAt": "2026-06-25T18:43:05.133Z",
+      "category": "call-control"
+    },
+    "call-control/guides/call-center.md": {
+      "hash": "f9e016cf3f9797c2d3a20f3a8a44b9a85275d959bd84d216cf9fcfe84c8b5a64",
+      "url": "https://developers.telnyx.com/docs/voice/programmable-voice/call-center.md",
+      "title": "Call Center",
+      "updatedAt": "2026-06-25T18:43:05.397Z",
+      "category": "call-control"
+    },
+    "call-control/guides/call-tracking.md": {
+      "hash": "b3d09fe1c97bd32ffeec5529614d9c9b73a0be8d4668b4e06598131d1172cde1",
+      "url": "https://developers.telnyx.com/docs/voice/programmable-voice/call-tracking.md",
+      "title": "Call Tracking",
+      "updatedAt": "2026-06-25T18:43:05.639Z",
+      "category": "call-control"
+    },
+    "call-control/guides/conferencing-demo.md": {
+      "hash": "b29e89a7d8406eb0caf798cc9c2d403fc820d86627745bb68eede3d0529be1bf",
+      "url": "https://developers.telnyx.com/docs/voice/programmable-voice/conferencing-demo.md",
+      "title": "Conferencing",
+      "updatedAt": "2026-06-25T18:43:05.873Z",
+      "category": "call-control"
+    },
+    "call-control/guides/voice-api-services-in-europe.md": {
+      "hash": "a09e6f7bba110b249aa01e06c0c3443833ab48c785b7ef5b621fe6e1dbb7626b",
+      "url": "https://developers.telnyx.com/docs/voice/programmable-voice/voice-api-services-in-europe.md",
+      "title": "Voice API Services in Europe",
+      "updatedAt": "2026-06-25T18:43:06.091Z",
+      "category": "call-control"
+    },
+    "call-control/guides/l1-accounts-restirctions.md": {
+      "hash": "5616abc59ba9c3d41383f38c446421dac0a9b40581fce8d567d00a501460b721",
+      "url": "https://developers.telnyx.com/docs/voice/programmable-voice/l1-accounts-restirctions.md",
+      "title": "L1 Account Restrictions",
+      "updatedAt": "2026-06-25T18:43:06.318Z",
+      "category": "call-control"
+    },
+    "call-control/api-reference/call-control-applications/list-call-control-applications.md": {
+      "hash": "58c5b3af1fe426d900fec8dc5a5ed8a8ff8086f104606716d50e21503691f0b8",
+      "url": "https://developers.telnyx.com/api-reference/call-control-applications/list-call-control-applications.md",
+      "title": "List call control applications",
+      "updatedAt": "2026-06-25T18:43:06.550Z",
+      "category": "call-control"
+    },
+    "call-control/api-reference/call-control-applications/create-a-call-control-application.md": {
+      "hash": "9d655e4e5bc05d0d7c53f96748b64a241c60835e72f6f2425809159a63eae55a",
+      "url": "https://developers.telnyx.com/api-reference/call-control-applications/create-a-call-control-application.md",
+      "title": "Create a call control application",
+      "updatedAt": "2026-06-25T18:43:07.147Z",
+      "category": "call-control"
+    },
+    "call-control/api-reference/call-control-applications/retrieve-a-call-control-application.md": {
+      "hash": "fe6480060fdccc5a6c69b8dc4f04a5fcd6dd8634cbbb030ae07151187985bcd0",
+      "url": "https://developers.telnyx.com/api-reference/call-control-applications/retrieve-a-call-control-application.md",
+      "title": "Retrieve a call control application",
+      "updatedAt": "2026-06-25T18:43:07.395Z",
+      "category": "call-control"
+    },
+    "call-control/api-reference/call-control-applications/update-a-call-control-application.md": {
+      "hash": "62da64e8ef07ffa650fc66bc90797a30558300e8f23e05b685d2bda94a734cc4",
+      "url": "https://developers.telnyx.com/api-reference/call-control-applications/update-a-call-control-application.md",
+      "title": "Update a call control application",
+      "updatedAt": "2026-06-25T18:43:07.632Z",
+      "category": "call-control"
+    },
+    "call-control/api-reference/call-control-applications/delete-a-call-control-application.md": {
+      "hash": "b586edbf63f6a1d1b4ea55414897464fad34f10d48cb631998980945cab5e981",
+      "url": "https://developers.telnyx.com/api-reference/call-control-applications/delete-a-call-control-application.md",
+      "title": "Delete a call control application",
+      "updatedAt": "2026-06-25T18:43:07.901Z",
+      "category": "call-control"
+    },
+    "call-control/api-reference/call-information/list-all-active-calls-for-given-connection.md": {
+      "hash": "3ce5a5e67902b105f14e2298a0f850281f77e88560ca824f555f36b96b6bbbd2",
+      "url": "https://developers.telnyx.com/api-reference/call-information/list-all-active-calls-for-given-connection.md",
+      "title": "List all active calls for given connection",
+      "updatedAt": "2026-06-25T18:43:08.120Z",
+      "category": "call-control"
+    },
+    "call-control/api-reference/call-information/retrieve-a-call-status.md": {
+      "hash": "f296f58d18c81d2972f624e6189b0a0d2b8f12a23803e2b52e0b9856513cb85f",
+      "url": "https://developers.telnyx.com/api-reference/call-information/retrieve-a-call-status.md",
+      "title": "Retrieve a call status",
+      "updatedAt": "2026-06-25T18:43:08.423Z",
+      "category": "call-control"
+    },
+    "call-control/api-reference/call-commands/dial.md": {
+      "hash": "411513198fc5715d7d20403ba66d084954b704190ef0a080efc35f4797eadd8e",
+      "url": "https://developers.telnyx.com/api-reference/call-commands/dial.md",
+      "title": "Dial",
+      "updatedAt": "2026-06-25T18:43:08.672Z",
+      "category": "call-control"
+    },
+    "call-control/api-reference/call-commands/answer-call.md": {
+      "hash": "b5020504a0feb2472d1d5c1de820aba0d9140671ce219407806623af5f8678ba",
+      "url": "https://developers.telnyx.com/api-reference/call-commands/answer-call.md",
+      "title": "Answer call",
+      "updatedAt": "2026-06-25T18:43:08.940Z",
+      "category": "call-control"
+    },
+    "call-control/api-reference/call-commands/bridge-calls.md": {
+      "hash": "0b2043a9849372c6237143e1034fca26fac39e686cbb74b9c35bb84b3d043d2e",
+      "url": "https://developers.telnyx.com/api-reference/call-commands/bridge-calls.md",
+      "title": "Bridge calls",
+      "updatedAt": "2026-06-25T18:43:09.217Z",
+      "category": "call-control"
+    },
+    "call-control/api-reference/call-commands/update-client-state.md": {
+      "hash": "a3ea8f0ab509f3352c8e5d9bf87d7dac40cc69c4f7479b272954e22ad7ce7f88",
+      "url": "https://developers.telnyx.com/api-reference/call-commands/update-client-state.md",
+      "title": "Update client state",
+      "updatedAt": "2026-06-25T18:43:09.429Z",
+      "category": "call-control"
+    },
+    "call-control/api-reference/call-commands/enqueue-call.md": {
+      "hash": "f546703184ef959add8f5a647c389e1db8f225bfa8fcc85caf62bfd7ef49c6f5",
+      "url": "https://developers.telnyx.com/api-reference/call-commands/enqueue-call.md",
+      "title": "Enqueue call",
+      "updatedAt": "2026-06-25T18:43:09.647Z",
+      "category": "call-control"
+    },
+    "call-control/api-reference/call-commands/forking-start.md": {
+      "hash": "e37198412595bd14d7be77475b079aa85e9c793604a28660a29eb98913baa4dc",
+      "url": "https://developers.telnyx.com/api-reference/call-commands/forking-start.md",
+      "title": "Forking start",
+      "updatedAt": "2026-06-25T18:43:09.891Z",
+      "category": "call-control"
+    },
+    "call-control/api-reference/call-commands/forking-stop.md": {
+      "hash": "fa1a20209f8a2d2d9c780140f2423fce877bbc20ab78629e78991e836b7d45d6",
+      "url": "https://developers.telnyx.com/api-reference/call-commands/forking-stop.md",
+      "title": "Forking stop",
+      "updatedAt": "2026-06-25T18:43:10.126Z",
+      "category": "call-control"
+    },
+    "call-control/api-reference/call-commands/gather.md": {
+      "hash": "b98cb5eeff5ced6c983ac68f27b16f7ee144222a03dfd34b7154c6cdeef09f81",
+      "url": "https://developers.telnyx.com/api-reference/call-commands/gather.md",
+      "title": "Gather",
+      "updatedAt": "2026-06-25T18:43:10.359Z",
+      "category": "call-control"
+    },
+    "call-control/api-reference/call-commands/gather-stop.md": {
+      "hash": "f1287770e060a63de0435dbc3cb7124fe5294034a3c38b6b6e7cf87d0f6ae3dc",
+      "url": "https://developers.telnyx.com/api-reference/call-commands/gather-stop.md",
+      "title": "Gather stop",
+      "updatedAt": "2026-06-25T18:43:10.589Z",
+      "category": "call-control"
+    },
+    "call-control/api-reference/call-commands/gather-using-ai.md": {
+      "hash": "b6d74092e8b4d14a866b0af56eb37dc7d0c13e628db38340ebdd37601f190e90",
+      "url": "https://developers.telnyx.com/api-reference/call-commands/gather-using-ai.md",
+      "title": "Gather using AI",
+      "updatedAt": "2026-06-25T18:43:10.832Z",
+      "category": "call-control"
+    },
+    "call-control/api-reference/call-commands/gather-using-audio.md": {
+      "hash": "415a5de1240a391185f39b1293d074689c14116a80fbcf8c6378d54b5330ce7a",
+      "url": "https://developers.telnyx.com/api-reference/call-commands/gather-using-audio.md",
+      "title": "Gather using audio",
+      "updatedAt": "2026-06-25T18:43:11.074Z",
+      "category": "call-control"
+    },
+    "call-control/api-reference/call-commands/gather-using-speak.md": {
+      "hash": "689210d2edf3190290c0af6d84fff7718d6a364ccec32183ec564591dfd22999",
+      "url": "https://developers.telnyx.com/api-reference/call-commands/gather-using-speak.md",
+      "title": "Gather using speak",
+      "updatedAt": "2026-06-25T18:43:11.297Z",
+      "category": "call-control"
+    },
+    "call-control/api-reference/call-commands/hangup-call.md": {
+      "hash": "9eece489352ea585ca49d1dbb2ca980d8f476ffaf629ff862ffc0496f7551a8d",
+      "url": "https://developers.telnyx.com/api-reference/call-commands/hangup-call.md",
+      "title": "Hangup call",
+      "updatedAt": "2026-06-25T18:43:11.563Z",
+      "category": "call-control"
+    },
+    "call-control/api-reference/call-commands/reject-a-call.md": {
+      "hash": "de82bc322153808b7acf262cac972dc4c5e1b6a1eb553380469d9d72256079db",
+      "url": "https://developers.telnyx.com/api-reference/call-commands/reject-a-call.md",
+      "title": "Reject a call",
+      "updatedAt": "2026-06-25T18:43:11.819Z",
+      "category": "call-control"
+    },
+    "call-control/api-reference/call-commands/remove-call-from-a-queue.md": {
+      "hash": "b19c7506cb1a809afcab277e4abb140e1a4ecf5b3c983d3200fef95b2c1075cd",
+      "url": "https://developers.telnyx.com/api-reference/call-commands/remove-call-from-a-queue.md",
+      "title": "Remove call from a queue",
+      "updatedAt": "2026-06-25T18:43:12.040Z",
+      "category": "call-control"
+    },
+    "call-control/api-reference/call-commands/play-audio-url.md": {
+      "hash": "ca3f67a2c4af8d888c9eb041b12702329e8a71d858a0ad160d27520027834f1d",
+      "url": "https://developers.telnyx.com/api-reference/call-commands/play-audio-url.md",
+      "title": "Play audio URL",
+      "updatedAt": "2026-06-25T18:43:12.285Z",
+      "category": "call-control"
+    },
+    "call-control/api-reference/call-commands/stop-audio-playback.md": {
+      "hash": "c9d562a6220f0666b9934072a5fe95582f1eeb39326af91e8669b8477c6a20d0",
+      "url": "https://developers.telnyx.com/api-reference/call-commands/stop-audio-playback.md",
+      "title": "Stop audio playback",
+      "updatedAt": "2026-06-25T18:43:12.532Z",
+      "category": "call-control"
+    },
+    "call-control/api-reference/call-commands/recording-start.md": {
+      "hash": "036ac6c05fce1ee3234028ca73a117ac3169171728036455c1e90bca71c065a6",
+      "url": "https://developers.telnyx.com/api-reference/call-commands/recording-start.md",
+      "title": "Recording start",
+      "updatedAt": "2026-06-25T18:43:12.806Z",
+      "category": "recordings"
+    },
+    "call-control/api-reference/call-commands/recording-stop.md": {
+      "hash": "bdd9ff5e4ba0c9f767b33e034b36d0f544f01d3cc652a6328e0b2da75a836068",
+      "url": "https://developers.telnyx.com/api-reference/call-commands/recording-stop.md",
+      "title": "Recording stop",
+      "updatedAt": "2026-06-25T18:43:13.051Z",
+      "category": "recordings"
+    },
+    "call-control/api-reference/call-commands/record-resume.md": {
+      "hash": "2e287d53b408b000a30427e8cd1e104b1d93f74301317b6dcabee0950f2a67f9",
+      "url": "https://developers.telnyx.com/api-reference/call-commands/record-resume.md",
+      "title": "Record resume",
+      "updatedAt": "2026-06-25T18:43:13.270Z",
+      "category": "call-control"
+    },
+    "call-control/api-reference/call-commands/record-pause.md": {
+      "hash": "272724548e50883ca16265544225a6125c30077a98eb674fd5e23e4dad19a8f0",
+      "url": "https://developers.telnyx.com/api-reference/call-commands/record-pause.md",
+      "title": "Record pause",
+      "updatedAt": "2026-06-25T18:43:13.494Z",
+      "category": "call-control"
+    },
+    "call-control/api-reference/call-commands/send-dtmf.md": {
+      "hash": "23f8d30d807dab1b8fe2b9021958d2b3a567db2ec243f4449a7238883e83f5b5",
+      "url": "https://developers.telnyx.com/api-reference/call-commands/send-dtmf.md",
+      "title": "Send DTMF",
+      "updatedAt": "2026-06-25T18:43:13.800Z",
+      "category": "call-control"
+    },
+    "call-control/api-reference/call-commands/sip-refer-a-call.md": {
+      "hash": "a21e66b6c4d58e8bfe2a1bd380b930e3628948d24a4a182680112dd2116fa616",
+      "url": "https://developers.telnyx.com/api-reference/call-commands/sip-refer-a-call.md",
+      "title": "SIP Refer a call",
+      "updatedAt": "2026-06-25T18:43:14.043Z",
+      "category": "sip"
+    },
+    "call-control/api-reference/call-commands/siprec-start.md": {
+      "hash": "ad0afb3da9f4578cf198fa6481b787f78a55b914828051d8e4693b14920dc6fc",
+      "url": "https://developers.telnyx.com/api-reference/call-commands/siprec-start.md",
+      "title": "SIPREC start",
+      "updatedAt": "2026-06-25T18:43:14.349Z",
+      "category": "sip"
+    },
+    "call-control/api-reference/call-commands/siprec-stop.md": {
+      "hash": "e8d6d38854cf7d32c7876d064b4bc0cf027a5bc351ccab81766da176c0a9511f",
+      "url": "https://developers.telnyx.com/api-reference/call-commands/siprec-stop.md",
+      "title": "SIPREC stop",
+      "updatedAt": "2026-06-25T18:43:14.569Z",
+      "category": "sip"
+    },
+    "call-control/api-reference/call-commands/speak-text.md": {
+      "hash": "f85753316113a90b461c7c7083a453ddd8ce48ef98dbcdd234bae1f3b7583f6f",
+      "url": "https://developers.telnyx.com/api-reference/call-commands/speak-text.md",
+      "title": "Speak text",
+      "updatedAt": "2026-06-25T18:43:14.799Z",
+      "category": "call-control"
+    },
+    "call-control/api-reference/call-commands/streaming-start.md": {
+      "hash": "924c9fa0f134bc9394f2c7cdba55f6d49c553e4ca9142e3442cbc69c223e3712",
+      "url": "https://developers.telnyx.com/api-reference/call-commands/streaming-start.md",
+      "title": "Streaming start",
+      "updatedAt": "2026-06-25T18:43:15.064Z",
+      "category": "call-control"
+    },
+    "call-control/api-reference/call-commands/streaming-stop.md": {
+      "hash": "58007a7e115f761da6b607fbcefbbac7c64fad90e3c5a3f3ae23d79864b7110c",
+      "url": "https://developers.telnyx.com/api-reference/call-commands/streaming-stop.md",
+      "title": "Streaming stop",
+      "updatedAt": "2026-06-25T18:43:15.280Z",
+      "category": "call-control"
+    },
+    "call-control/api-reference/call-commands/switch-supervisor-role.md": {
+      "hash": "54a837a4cf5c6df5dcceed59f03b527840633eb6cf171094ca01c919025ad186",
+      "url": "https://developers.telnyx.com/api-reference/call-commands/switch-supervisor-role.md",
+      "title": "Switch supervisor role",
+      "updatedAt": "2026-06-25T18:43:15.522Z",
+      "category": "call-control"
+    },
+    "call-control/api-reference/call-commands/transcription-start.md": {
+      "hash": "dd38a10dad856d9a8f5c3b8535836a1c2dbcab84d2a427bdb0ae2ed74f0955c4",
+      "url": "https://developers.telnyx.com/api-reference/call-commands/transcription-start.md",
+      "title": "Transcription start",
+      "updatedAt": "2026-06-25T18:43:15.749Z",
+      "category": "call-control"
+    },
+    "call-control/api-reference/call-commands/transcription-stop.md": {
+      "hash": "f6c2b71c066522927c5c395d53b8103eea1c687acd6b8586b6c3a3dc46edd4b0",
+      "url": "https://developers.telnyx.com/api-reference/call-commands/transcription-stop.md",
+      "title": "Transcription stop",
+      "updatedAt": "2026-06-25T18:43:15.967Z",
+      "category": "call-control"
+    },
+    "call-control/api-reference/call-commands/transfer-call.md": {
+      "hash": "a356b08cf334ad9da007cb11d255f3bc6a53091f17a1d2e0d9db917fd783f9a8",
+      "url": "https://developers.telnyx.com/api-reference/call-commands/transfer-call.md",
+      "title": "Transfer call",
+      "updatedAt": "2026-06-25T18:43:16.196Z",
+      "category": "transfers"
+    },
+    "sip/get-started.md": {
+      "hash": "5f34b0e8bfd7db7ab23173dd402b6e9eae29de16d735bc5e5acec06959491730",
+      "url": "https://developers.telnyx.com/docs/voice/sip-trunking/get-started.md",
+      "title": "Overview",
+      "updatedAt": "2026-06-25T18:43:16.477Z",
+      "category": "sip"
+    },
+    "sip/authentication/credential-types.md": {
+      "hash": "02b5b36472f1f288cebfa822664d5d77f42e2572632313faf1b62a5969f17c30",
+      "url": "https://developers.telnyx.com/docs/voice/sip-trunking/authentication/credential-types.md",
+      "title": "Overview",
+      "updatedAt": "2026-06-25T18:43:16.806Z",
+      "category": "sip"
+    },
+    "sip/authentication/ip-authentication-token.md": {
+      "hash": "5e8d423564f203d1cd3bca60e313f239bbe20914dc15cd77ca97f965ad413015",
+      "url": "https://developers.telnyx.com/docs/voice/sip-trunking/authentication/ip-authentication-token.md",
+      "title": "IP Authentication Token",
+      "updatedAt": "2026-06-25T18:43:17.091Z",
+      "category": "sip"
+    },
+    "sip/authentication/tech-prefix.md": {
+      "hash": "89042af6046ba6bf06b946309c7772851d012b984c3157ba1adc6635aa624313",
+      "url": "https://developers.telnyx.com/docs/voice/sip-trunking/authentication/tech-prefix.md",
+      "title": "Tech Prefix",
+      "updatedAt": "2026-06-25T18:43:17.425Z",
+      "category": "sip"
+    },
+    "sip/configuration/caller-id-policy.md": {
+      "hash": "21f2502c67c1d82d7c88e518d066d4bdd1460dd35bb3d23712eecc6637c1d9bc",
+      "url": "https://developers.telnyx.com/docs/voice/sip-trunking/configuration/caller-id-policy.md",
+      "title": "Caller ID Policy",
+      "updatedAt": "2026-06-25T18:43:17.707Z",
+      "category": "sip"
+    },
+    "sip/configuration/concurrent-limits.md": {
+      "hash": "c032363258e43e88d9dd22edc9f1fe1feb3fc861ca2f8f9625fb3c22f3b1ba7e",
+      "url": "https://developers.telnyx.com/docs/voice/sip-trunking/configuration/concurrent-limits.md",
+      "title": "Concurrent Call Limits",
+      "updatedAt": "2026-06-25T18:43:17.959Z",
+      "category": "sip"
+    },
+    "sip/configuration/p-charge-info-header.md": {
+      "hash": "bc3da499cdb878bb401c68186357e00fdda98560b4c3e79130737a5695e66eef",
+      "url": "https://developers.telnyx.com/docs/voice/sip-trunking/configuration/p-charge-info-header.md",
+      "title": "P-Charge-Info",
+      "updatedAt": "2026-06-25T18:43:18.217Z",
+      "category": "sip"
+    },
+    "sip/configuration/outbound-voice-profiles.md": {
+      "hash": "ce1306536dc72628febb51d84e6e4c64f784e12f6a1152f94e359a4244ea2ed6",
+      "url": "https://developers.telnyx.com/docs/voice/sip-trunking/configuration/outbound-voice-profiles.md",
+      "title": "Outbound Voice Profiles for SIP trunking",
+      "updatedAt": "2026-06-25T18:43:18.486Z",
+      "category": "sip"
+    },
+    "sip/routing/round-robin-routing.md": {
+      "hash": "7eeea5a0dbfc1c359f5fc79555d1f64200376f0ded4c21544281fd43fa236f5f",
+      "url": "https://developers.telnyx.com/docs/voice/sip-trunking/routing/round-robin-routing.md",
+      "title": "Round Robin Routing",
+      "updatedAt": "2026-06-25T18:43:18.763Z",
+      "category": "sip"
+    },
+    "sip/routing/anchorsite-configuration.md": {
+      "hash": "c8be6508d14b3a4a655676cd227bc9388101761af790cf6bbda85e40946204a6",
+      "url": "https://developers.telnyx.com/docs/voice/sip-trunking/routing/anchorsite-configuration.md",
+      "title": "AnchorSite",
+      "updatedAt": "2026-06-25T18:43:19.266Z",
+      "category": "sip"
+    },
+    "sip/routing/failover-and-retries.md": {
+      "hash": "d3950516cbc3d6ebf081d29e5267f3dd86415c47cb00974bd70ddca261d96808",
+      "url": "https://developers.telnyx.com/docs/voice/sip-trunking/routing/failover-and-retries.md",
+      "title": "Failover & Retries",
+      "updatedAt": "2026-06-25T18:43:19.548Z",
+      "category": "sip"
+    },
+    "sip/network-configuration/ip-whitelisting.md": {
+      "hash": "1b775f85912fc5a9d28f099ffe027c95e7af3fa909a137978fa096ad2f52a3bd",
+      "url": "https://developers.telnyx.com/docs/voice/sip-trunking/network-configuration/ip-whitelisting.md",
+      "title": "IP Whitelisting",
+      "updatedAt": "2026-06-25T18:43:19.937Z",
+      "category": "sip"
+    },
+    "sip/network-configuration/srv-records.md": {
+      "hash": "d846ee9012217a0a7e66b3363b1518fac1c622b2700c949e6915c4d9c70642a4",
+      "url": "https://developers.telnyx.com/docs/voice/sip-trunking/network-configuration/srv-records.md",
+      "title": "SRV Records",
+      "updatedAt": "2026-06-25T18:43:20.172Z",
+      "category": "sip"
+    },
+    "sip/network-configuration/stun-turn-servers.md": {
+      "hash": "f37fff2ec7bd1ca5796deeac9937ae1c3ad6e281bb1f85a71a205f23b7a71f50",
+      "url": "https://developers.telnyx.com/docs/voice/sip-trunking/network-configuration/stun-turn-servers.md",
+      "title": "STUN/TURN",
+      "updatedAt": "2026-06-25T18:43:20.420Z",
+      "category": "sip"
+    },
+    "sip/features/noise-suppression.md": {
+      "hash": "39677cf06f7d672f66ee7e490d34dd02b091b76d53ea10e234d36466908314ad",
+      "url": "https://developers.telnyx.com/docs/voice/sip-trunking/features/noise-suppression.md",
+      "title": "Noise Suppression",
+      "updatedAt": "2026-06-25T18:43:20.666Z",
+      "category": "sip"
+    },
+    "sip/features/jitter-buffer.md": {
+      "hash": "6ab0537a4d13ba66f4fe1159ca49a94ee7731ae704dc5eae488f374aad3ca450",
+      "url": "https://developers.telnyx.com/docs/voice/sip-trunking/features/jitter-buffer.md",
+      "title": "Jitter Buffer",
+      "updatedAt": "2026-06-25T18:43:20.904Z",
+      "category": "sip"
+    },
+    "sip/features/external-transfers.md": {
+      "hash": "be3a8625df2797e8e3144b59c0a8a8687531133808f3d70ffb6ea951505e6a4f",
+      "url": "https://developers.telnyx.com/docs/voice/sip-trunking/features/external-transfers.md",
+      "title": "External Transfers",
+      "updatedAt": "2026-06-25T18:43:21.150Z",
+      "category": "transfers"
+    },
+    "sip/features/sip-uri-calling.md": {
+      "hash": "705f5850831bb133dc5effe9715274b5ae608da60704c7ed3450ddd69e68d31a",
+      "url": "https://developers.telnyx.com/docs/voice/sip-trunking/features/sip-uri-calling.md",
+      "title": "SIP URI Calling",
+      "updatedAt": "2026-06-25T18:43:21.394Z",
+      "category": "sip"
+    },
+    "sip/emergency-calling-dynamic-e911.md": {
+      "hash": "01cc3d47dc24fb8dde0a3df9de466b376b0035d4ae4da5f2d5bce55e8cce931e",
+      "url": "https://developers.telnyx.com/docs/voice/sip-trunking/emergency-calling-dynamic-e911.md",
+      "title": "Dynamic E911",
+      "updatedAt": "2026-06-25T18:43:21.647Z",
+      "category": "sip"
+    },
+    "sip/troubleshooting/response-codes.md": {
+      "hash": "8958248ef837cbf1595fe7e845235817d57ac9ae1b8a8abd7a8fc91a0dd6e7e2",
+      "url": "https://developers.telnyx.com/docs/voice/sip-trunking/troubleshooting/response-codes.md",
+      "title": "Response Codes",
+      "updatedAt": "2026-06-25T18:43:21.897Z",
+      "category": "sip"
+    },
+    "sip/configuration-guides.md": {
+      "hash": "79ae2e3f100f60ca2287a5dd90421b9622e53ca0a9892e867fd31427f245209e",
+      "url": "https://developers.telnyx.com/docs/voice/sip-trunking/configuration-guides.md",
+      "title": "Configuration Overview",
+      "updatedAt": "2026-06-25T18:43:22.162Z",
+      "category": "sip"
+    },
+    "call-control/api-reference/connections/list-connections.md": {
+      "hash": "960f7c6087595b73b2725c92333f3fae94d5bf7df58484a83bcd9db4c99446dc",
+      "url": "https://developers.telnyx.com/api-reference/connections/list-connections.md",
+      "title": "List connections",
+      "updatedAt": "2026-06-25T18:43:22.515Z",
+      "category": "sip"
+    },
+    "call-control/api-reference/connections/retrieve-a-connection.md": {
+      "hash": "a3043a161ff5e0808dee12f6ac79bb40263863db38cb959e6aff628ecb178c51",
+      "url": "https://developers.telnyx.com/api-reference/connections/retrieve-a-connection.md",
+      "title": "Retrieve a connection",
+      "updatedAt": "2026-06-25T18:43:22.819Z",
+      "category": "sip"
+    },
+    "call-control/api-reference/credential-connections/list-credential-connections.md": {
+      "hash": "792b586a703b18260279f89b7beb84cfab3886e962cb433e8afe40af7fbc07ee",
+      "url": "https://developers.telnyx.com/api-reference/credential-connections/list-credential-connections.md",
+      "title": "List credential connections",
+      "updatedAt": "2026-06-25T18:43:23.101Z",
+      "category": "sip"
+    },
+    "call-control/api-reference/credential-connections/create-a-credential-connection.md": {
+      "hash": "e891477a640eb89d2bd7315177dd51afff481d5590f6c8db31d702f351ca4b45",
+      "url": "https://developers.telnyx.com/api-reference/credential-connections/create-a-credential-connection.md",
+      "title": "Create a credential connection",
+      "updatedAt": "2026-06-25T18:43:23.447Z",
+      "category": "sip"
+    },
+    "call-control/api-reference/credential-connections/retrieve-a-credential-connection.md": {
+      "hash": "e4e93ac34349413a370315c46087f02e173bd2280ce98c145f8e8356d749761a",
+      "url": "https://developers.telnyx.com/api-reference/credential-connections/retrieve-a-credential-connection.md",
+      "title": "Retrieve a credential connection",
+      "updatedAt": "2026-06-25T18:43:23.869Z",
+      "category": "sip"
+    },
+    "call-control/api-reference/credential-connections/update-a-credential-connection.md": {
+      "hash": "d3d64c58c02fca797a58ef1753befbd8af6e5594bd2ee35dcf94867cbb0e6806",
+      "url": "https://developers.telnyx.com/api-reference/credential-connections/update-a-credential-connection.md",
+      "title": "Update a credential connection",
+      "updatedAt": "2026-06-25T18:43:24.148Z",
+      "category": "sip"
+    },
+    "call-control/api-reference/credential-connections/delete-a-credential-connection.md": {
+      "hash": "fbb3ad60aebfd27714c1f8887c782185ae3fa0c63e54b4cb4c127e18341ae297",
+      "url": "https://developers.telnyx.com/api-reference/credential-connections/delete-a-credential-connection.md",
+      "title": "Delete a credential connection",
+      "updatedAt": "2026-06-25T18:43:24.398Z",
+      "category": "sip"
+    },
+    "call-control/api-reference/credential-connections/check-a-credential-connection-registration-status.md": {
+      "hash": "d0d48a5868099f62f3e2fc8bf8717fae27c35497295d672981017155d2db12c5",
+      "url": "https://developers.telnyx.com/api-reference/credential-connections/check-a-credential-connection-registration-status.md",
+      "title": "Check a Credential Connection Registration Status",
+      "updatedAt": "2026-06-25T18:43:24.651Z",
+      "category": "sip"
+    },
+    "call-control/api-reference/outbound-voice-profiles/get-all-outbound-voice-profiles.md": {
+      "hash": "a1756c222f23bfa1946e9cb77180b9db9713d1349f976d7568cacdd54d3328c9",
+      "url": "https://developers.telnyx.com/api-reference/outbound-voice-profiles/get-all-outbound-voice-profiles.md",
+      "title": "Get all outbound voice profiles",
+      "updatedAt": "2026-06-25T18:43:24.913Z",
+      "category": "call-control"
+    },
+    "call-control/api-reference/outbound-voice-profiles/create-an-outbound-voice-profile.md": {
+      "hash": "7295ab815fdde09feb7251ca98fe15f136feda58accb23504f6bc0a0b6d87355",
+      "url": "https://developers.telnyx.com/api-reference/outbound-voice-profiles/create-an-outbound-voice-profile.md",
+      "title": "Create an outbound voice profile",
+      "updatedAt": "2026-06-25T18:43:25.165Z",
+      "category": "call-control"
+    },
+    "call-control/api-reference/outbound-voice-profiles/retrieve-an-outbound-voice-profile.md": {
+      "hash": "68c82cbc903d82200c7246335bb354508f8faac3ba3f8b85bb9bf273900a2e60",
+      "url": "https://developers.telnyx.com/api-reference/outbound-voice-profiles/retrieve-an-outbound-voice-profile.md",
+      "title": "Retrieve an outbound voice profile",
+      "updatedAt": "2026-06-25T18:43:25.432Z",
+      "category": "call-control"
+    },
+    "call-control/api-reference/outbound-voice-profiles/updates-an-existing-outbound-voice-profile.md": {
+      "hash": "16c2071801b82066a9db4b674c6927123dfacf27c338dab5366c41077e8d733f",
+      "url": "https://developers.telnyx.com/api-reference/outbound-voice-profiles/updates-an-existing-outbound-voice-profile.md",
+      "title": "Updates an existing outbound voice profile.",
+      "updatedAt": "2026-06-25T18:43:25.709Z",
+      "category": "call-control"
+    },
+    "call-control/api-reference/outbound-voice-profiles/delete-an-outbound-voice-profile.md": {
+      "hash": "a12fb8b730f45edc77532208c29952e1db1111f45aa480b2552e7175d462c711",
+      "url": "https://developers.telnyx.com/api-reference/outbound-voice-profiles/delete-an-outbound-voice-profile.md",
+      "title": "Delete an outbound voice profile",
+      "updatedAt": "2026-06-25T18:43:26.267Z",
+      "category": "call-control"
+    },
+    "call-control/api-reference/call-recordings/list-all-call-recordings.md": {
+      "hash": "8a3c03df9005deff12239a5fce4dcdad7e45750b80b52177f9ad2f9c37f1dc0d",
+      "url": "https://developers.telnyx.com/api-reference/call-recordings/list-all-call-recordings.md",
+      "title": "List all call recordings",
+      "updatedAt": "2026-06-25T18:43:26.541Z",
+      "category": "recordings"
+    },
+    "call-control/api-reference/call-recordings/retrieve-a-call-recording.md": {
+      "hash": "61d5340c2ca68d33c686f043c842c02ab21a8bd2d652eec3513dbda260cb75e0",
+      "url": "https://developers.telnyx.com/api-reference/call-recordings/retrieve-a-call-recording.md",
+      "title": "Retrieve a call recording",
+      "updatedAt": "2026-06-25T18:43:26.784Z",
+      "category": "recordings"
+    },
+    "call-control/api-reference/call-recordings/delete-a-call-recording.md": {
+      "hash": "850d0dd64b1baeeacf3b7f4e1a638e3e67debba1b4ed0d1bd7ff87fc5e6dac22",
+      "url": "https://developers.telnyx.com/api-reference/call-recordings/delete-a-call-recording.md",
+      "title": "Delete a call recording",
+      "updatedAt": "2026-06-25T18:43:27.201Z",
+      "category": "recordings"
+    },
+    "call-control/api-reference/call-recordings/delete-a-list-of-call-recordings.md": {
+      "hash": "204102a2a631818b1e99cb1cff859f5d3185133b63406c6e1efd1ea05e0a8e70",
+      "url": "https://developers.telnyx.com/api-reference/call-recordings/delete-a-list-of-call-recordings.md",
+      "title": "Delete a list of call recordings",
+      "updatedAt": "2026-06-25T18:43:27.471Z",
+      "category": "recordings"
+    },
+    "call-control/api-reference/call-recordings/list-all-recording-transcriptions.md": {
+      "hash": "e8704ba2751a34a1bc93fd901d734552ae8d9c6df5ab2c8c85b5b439afd2937e",
+      "url": "https://developers.telnyx.com/api-reference/call-recordings/list-all-recording-transcriptions.md",
+      "title": "List all recording transcriptions",
+      "updatedAt": "2026-06-25T18:43:27.735Z",
+      "category": "recordings"
+    },
+    "call-control/api-reference/call-recordings/retrieve-a-recording-transcription.md": {
+      "hash": "09582fdcf92fdc4a993a63a4b614b26da359309fac040e413fff053348682767",
+      "url": "https://developers.telnyx.com/api-reference/call-recordings/retrieve-a-recording-transcription.md",
+      "title": "Retrieve a recording transcription",
+      "updatedAt": "2026-06-25T18:43:28.105Z",
+      "category": "recordings"
+    },
+    "call-control/api-reference/call-recordings/delete-a-recording-transcription.md": {
+      "hash": "636239a0642b34b2c1b80b40d79e8e33c22af9e85a4768c659047296111d73d4",
+      "url": "https://developers.telnyx.com/api-reference/call-recordings/delete-a-recording-transcription.md",
+      "title": "Delete a recording transcription",
+      "updatedAt": "2026-06-25T18:43:28.441Z",
+      "category": "recordings"
+    },
+    "call-control/api-reference/call-recordings/retrieve-a-stored-credential.md": {
+      "hash": "a1dd6def64ada1ae52ddb42726a9d33c48b437ab52ae31796faaa821b060ede5",
+      "url": "https://developers.telnyx.com/api-reference/call-recordings/retrieve-a-stored-credential.md",
+      "title": "Retrieve a stored credential",
+      "updatedAt": "2026-06-25T18:43:28.723Z",
+      "category": "recordings"
+    },
+    "call-control/api-reference/call-recordings/create-a-custom-storage-credential.md": {
+      "hash": "f2c9d645902e417caefd9ca1aebb8ed7de8c6cd61a47257a7d4d1f85d7ce248a",
+      "url": "https://developers.telnyx.com/api-reference/call-recordings/create-a-custom-storage-credential.md",
+      "title": "Create a custom storage credential",
+      "updatedAt": "2026-06-25T18:43:28.984Z",
+      "category": "recordings"
+    },
+    "call-control/api-reference/call-recordings/update-a-stored-credential.md": {
+      "hash": "9e5d001e363114aa82a503d7afb51c3c063f9c84347e15a2a60c9fbb7b790bf0",
+      "url": "https://developers.telnyx.com/api-reference/call-recordings/update-a-stored-credential.md",
+      "title": "Update a stored credential",
+      "updatedAt": "2026-06-25T18:43:29.405Z",
+      "category": "recordings"
+    },
+    "call-control/api-reference/call-recordings/delete-a-stored-credential.md": {
+      "hash": "08e2bae2ec844726cb596cc5c2922b7d9106214b64a1c45d8e0f5a38f5d6e9f9",
+      "url": "https://developers.telnyx.com/api-reference/call-recordings/delete-a-stored-credential.md",
+      "title": "Delete a stored credential",
+      "updatedAt": "2026-06-25T18:43:29.945Z",
+      "category": "recordings"
+    },
+    "call-control/api-reference/number-portout/list-portout-requests.md": {
+      "hash": "405fef19ea7c23eeca1a6747fbc12d307d37466f45519366295c72ca96bb34d0",
+      "url": "https://developers.telnyx.com/api-reference/number-portout/list-portout-requests.md",
+      "title": "List portout requests",
+      "updatedAt": "2026-06-25T18:43:30.186Z",
+      "category": "phone-numbers"
+    },
+    "call-control/api-reference/number-portout/get-a-portout-request.md": {
+      "hash": "c26ba47ed1af18fb462bbb928b2bee92609ad309f035a34c1c863a5f3414188b",
+      "url": "https://developers.telnyx.com/api-reference/number-portout/get-a-portout-request.md",
+      "title": "Get a portout request",
+      "updatedAt": "2026-06-25T18:43:30.414Z",
+      "category": "phone-numbers"
+    },
+    "call-control/api-reference/number-portout/list-all-comments-for-a-portout-request.md": {
+      "hash": "a36a52e78137566e178c0dd91ed21694b0ebde8f0588a71e07fc1856eb3685c1",
+      "url": "https://developers.telnyx.com/api-reference/number-portout/list-all-comments-for-a-portout-request.md",
+      "title": "List all comments for a portout request",
+      "updatedAt": "2026-06-25T18:43:30.685Z",
+      "category": "phone-numbers"
+    },
+    "call-control/api-reference/number-portout/create-a-comment-on-a-portout-request.md": {
+      "hash": "7d69f49edb536735a11c5a20d568d3476697403c50cc43631712e94ca649e925",
+      "url": "https://developers.telnyx.com/api-reference/number-portout/create-a-comment-on-a-portout-request.md",
+      "title": "Create a comment on a portout request",
+      "updatedAt": "2026-06-25T18:43:31.221Z",
+      "category": "phone-numbers"
+    },
+    "call-control/api-reference/number-portout/list-supporting-documents-on-a-portout-request.md": {
+      "hash": "8800e6df60d3338b424164e807c33552d28384c2de54c8c5f29bf321eec3aad5",
+      "url": "https://developers.telnyx.com/api-reference/number-portout/list-supporting-documents-on-a-portout-request.md",
+      "title": "List supporting documents on a portout request",
+      "updatedAt": "2026-06-25T18:43:31.447Z",
+      "category": "phone-numbers"
+    },
+    "call-control/api-reference/number-portout/create-a-list-of-supporting-documents-on-a-portout-request.md": {
+      "hash": "cd0614a96a6cf851a76476e49f79b15f6e84c20e3f90d2db5b8396f8a083323c",
+      "url": "https://developers.telnyx.com/api-reference/number-portout/create-a-list-of-supporting-documents-on-a-portout-request.md",
+      "title": "Create a list of supporting documents on a portout request",
+      "updatedAt": "2026-06-25T18:43:31.729Z",
+      "category": "phone-numbers"
+    },
+    "call-control/api-reference/number-portout/update-status.md": {
+      "hash": "981386b1fc7da6d92869b4f6342ef705d0d082091c840f97a726ebaf15e381d7",
+      "url": "https://developers.telnyx.com/api-reference/number-portout/update-status.md",
+      "title": "Update Status",
+      "updatedAt": "2026-06-25T18:43:31.976Z",
+      "category": "phone-numbers"
+    },
+    "call-control/api-reference/number-portout/list-all-port-out-events.md": {
+      "hash": "f053401bc6f0d99efb60d906c4239ac52b1b69eafbdf673bba59c3bd7ddf48fb",
+      "url": "https://developers.telnyx.com/api-reference/number-portout/list-all-port-out-events.md",
+      "title": "List all port-out events",
+      "updatedAt": "2026-06-25T18:43:32.227Z",
+      "category": "phone-numbers"
+    },
+    "call-control/api-reference/number-portout/show-a-port-out-event.md": {
+      "hash": "fd83b6b4ad69c9cf2432287214f29609ed72352b620639721ebbebb3b716a908",
+      "url": "https://developers.telnyx.com/api-reference/number-portout/show-a-port-out-event.md",
+      "title": "Show a port-out event",
+      "updatedAt": "2026-06-25T18:43:32.488Z",
+      "category": "phone-numbers"
+    },
+    "call-control/api-reference/number-portout/republish-a-port-out-event.md": {
+      "hash": "e198b096b10ab8cea62afcc7d66cc4c6cf6e7c57cf7132d71e1f524371717c61",
+      "url": "https://developers.telnyx.com/api-reference/number-portout/republish-a-port-out-event.md",
+      "title": "Republish a port-out event",
+      "updatedAt": "2026-06-25T18:43:32.727Z",
+      "category": "phone-numbers"
+    },
+    "call-control/api-reference/number-portout/list-eligible-port-out-rejection-codes-for-a-specific-order.md": {
+      "hash": "3c315fb8e729ec53fd0623e82803c833745c0ece54fefd5cc483a59b7347d6ce",
+      "url": "https://developers.telnyx.com/api-reference/number-portout/list-eligible-port-out-rejection-codes-for-a-specific-order.md",
+      "title": "List eligible port-out rejection codes for a specific order",
+      "updatedAt": "2026-06-25T18:43:32.969Z",
+      "category": "phone-numbers"
+    },
+    "call-control/api-reference/number-portout/list-port-out-related-reports.md": {
+      "hash": "7ac8daa760678f656620531bbcb09501a0350380c76531a32388b3f7db258c06",
+      "url": "https://developers.telnyx.com/api-reference/number-portout/list-port-out-related-reports.md",
+      "title": "List port-out related reports",
+      "updatedAt": "2026-06-25T18:43:33.214Z",
+      "category": "phone-numbers"
+    },
+    "call-control/api-reference/number-portout/create-a-port-out-related-report.md": {
+      "hash": "e7630f271e97d7e7c41e6eaac6efd4f31bfb5f2b703ff814e8c48c17d2cc9210",
+      "url": "https://developers.telnyx.com/api-reference/number-portout/create-a-port-out-related-report.md",
+      "title": "Create a port-out related report",
+      "updatedAt": "2026-06-25T18:43:33.464Z",
+      "category": "phone-numbers"
+    },
+    "call-control/api-reference/number-portout/retrieve-a-report.md": {
+      "hash": "024d9e170f71c14a801a12e602c52696ee3df946314d550e5686c1631f0efc24",
+      "url": "https://developers.telnyx.com/api-reference/number-portout/retrieve-a-report.md",
+      "title": "Retrieve a report",
+      "updatedAt": "2026-06-25T18:43:33.742Z",
+      "category": "phone-numbers"
+    },
+    "call-control/api-reference/messaging/regenerate-messaging-profile-secret.md": {
+      "hash": "76e34bbd7f329931ac100ec63563145d5b4a3a396059a21b5444381df3893577",
+      "url": "https://developers.telnyx.com/api-reference/messaging/regenerate-messaging-profile-secret.md",
+      "title": "Regenerate messaging profile secret",
+      "updatedAt": "2026-06-25T18:43:33.979Z",
+      "category": "messaging"
+    },
+    "call-control/api-reference/messaging/list-alphanumeric-sender-ids-for-a-messaging-profile.md": {
+      "hash": "09d3429a3e389f0a85c25b26fced20dc9cb4d61628576d08ccbc3a39f41cd444",
+      "url": "https://developers.telnyx.com/api-reference/messaging/list-alphanumeric-sender-ids-for-a-messaging-profile.md",
+      "title": "List alphanumeric sender IDs for a messaging profile",
+      "updatedAt": "2026-06-25T18:43:34.246Z",
+      "category": "messaging"
+    },
+    "call-control/api-reference/messaging/get-detailed-messaging-profile-metrics.md": {
+      "hash": "500e8460c478ca07e1e4460fe05187f2eeac849d16c59a1a0556788825f7d0d7",
+      "url": "https://developers.telnyx.com/api-reference/messaging/get-detailed-messaging-profile-metrics.md",
+      "title": "Get detailed messaging profile metrics",
+      "updatedAt": "2026-06-25T18:43:34.506Z",
+      "category": "messaging"
+    },
+    "call-control/api-reference/messaging/retrieve-a-messaging-hosted-number.md": {
+      "hash": "c36a0495d12f5eb664166ef5e92d6dcb2bf1a511e2273dc9b4d74fda63f1a1ec",
+      "url": "https://developers.telnyx.com/api-reference/messaging/retrieve-a-messaging-hosted-number.md",
+      "title": "Retrieve a messaging hosted number",
+      "updatedAt": "2026-06-25T18:43:34.748Z",
+      "category": "messaging"
+    },
+    "call-control/api-reference/messaging/update-a-messaging-hosted-number.md": {
+      "hash": "c497044a020779454c017f6b3340590e78cbe04ca95c0f2c612640bf906f7a19",
+      "url": "https://developers.telnyx.com/api-reference/messaging/update-a-messaging-hosted-number.md",
+      "title": "Update a messaging hosted number",
+      "updatedAt": "2026-06-25T18:43:34.961Z",
+      "category": "messaging"
+    },
+    "call-control/api-reference/messaging/list-messaging-hosted-numbers.md": {
+      "hash": "e4d960ebd59ca0a72694810db8e0242aca51f1c6addb3dc2ece4dc71b724acaf",
+      "url": "https://developers.telnyx.com/api-reference/messaging/list-messaging-hosted-numbers.md",
+      "title": "List messaging hosted numbers",
+      "updatedAt": "2026-06-25T18:43:35.220Z",
+      "category": "messaging"
+    }
+  }
+}

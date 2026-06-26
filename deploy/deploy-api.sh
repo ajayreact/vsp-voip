@@ -63,6 +63,23 @@ if [[ "${HTTP_CODE}" != "401" ]]; then
 fi
 
 echo ""
+echo "==> Verify DID sync route (expect 401 without token)"
+SYNC_CODE="$(curl -s -o /dev/null -w '%{http_code}' -X POST \
+  -H 'Content-Type: application/json' \
+  http://127.0.0.1:3000/api/admin/numbers/sync)"
+echo "POST /api/admin/numbers/sync -> ${SYNC_CODE}"
+
+if [[ "${SYNC_CODE}" == "404" ]]; then
+  echo "ERROR: /api/admin/numbers/sync missing — rebuild did not pick up routes/admin.js"
+  docker compose logs api --tail=80
+  exit 1
+fi
+
+if [[ "${SYNC_CODE}" != "401" ]]; then
+  echo "WARN: expected 401 for unauthenticated sync probe, got ${SYNC_CODE}"
+fi
+
+echo ""
 echo "==> Deploy complete. Run from your workstation:"
-echo "    API_URL=https://api.vspphone.com node scripts/diagnose-call-accepted.js"
-echo "    docker compose logs api -f | grep -E 'call-accepted|WEBRTC_ACCEPTED|CALL_BRIDGED'"
+echo "    API_URL=https://api.vspphone.com node scripts/diagnose-did-sync.js"
+echo "    API_URL=https://api.vspphone.com EMAIL=... PASSWORD=... node scripts/diagnose-did-sync.js"

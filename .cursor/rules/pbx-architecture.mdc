@@ -1,0 +1,44 @@
+---
+description: Require understanding existing PBX architecture before implementing telephony features
+alwaysApply: true
+---
+
+# PBX Architecture
+
+Before implementing or modifying any PBX / telephony feature:
+
+## Mandatory understanding
+
+1. Read relevant docs in `docs/vsp/pbx/` and `docs/vsp/architecture-decisions/`
+2. Check feature status in `docs/vsp/features.md`
+3. Trace existing call flow — do not invent parallel paths
+4. Identify which modules own the feature today (`lib/inboundCallControl.js`, `lib/callControlSessionStore.js`, etc.)
+
+## Hard rules
+
+- **Reuse existing architecture** — extend Call Control FSM and Redis sessions
+- **Never introduce duplicate call flows** — no second inbound handler, no parallel TeXML+CC logic for new features
+- **Never duplicate session management** — use `ccs:*` and `cts:*` keys only via `callControlSessionStore.js` / `callTransferControl.js`
+- **Never bypass tenant isolation** — all queries scoped by `tenantId` from JWT or DID resolution
+- **Never bypass Call Control** for server-side call orchestration — use `lib/telnyxCallControl.js`
+- **Never bypass Redis session management** for ephemeral call state in production
+
+## Protected components
+
+Changes to these require regression analysis (see `protected-telephony-components.mdc`):
+
+- `lib/inboundCallControl.js`, `lib/telnyxCallControl.js`, `lib/callControlSessionStore.js`
+- `web/src/lib/webrtc-audio.ts`, `web/src/lib/telnyx-softphone-session.ts`
+- `web/src/app/(app)/softphone-v2/page.tsx`
+
+## Before code changes for production issues
+
+Follow `deployment-safety.mdc` — verify deploy state before blaming application logic.
+
+## Quick references
+
+- System overview: `docs/vsp/pbx/01-system-architecture.md`
+- Call flows: `docs/vsp/pbx/02-call-flow.md`
+- Session model: `docs/vsp/pbx/06-session-management.md`
+- API list: `docs/vsp/pbx/20-api-reference.md`
+- Bridge grace ADR: `docs/vsp/architecture-decisions/bridge-grace.md`

@@ -1,0 +1,17 @@
+---
+description: Local Telnyx KB — see vsp-phone-development.mdc Step 2 for full search order
+alwaysApply: false
+---
+
+# Telnyx Knowledge Base (Step 2)
+
+Full mandatory workflow: `.cursor/rules/vsp-phone-development.mdc`
+
+## Quick reference
+
+- Index: `docs/telnyx/index.md`
+- Search: `docs/telnyx/search-index.json`
+- VSP + Telnyx map: `docs/telnyx/overview.md`, `docs/telnyx/architecture.md`
+- Refresh: `node scripts/update-telnyx-docs.js`
+
+Use JavaScript/TypeScript and Flutter docs only — not Python, PHP, native iOS/Android, or React Native examples.

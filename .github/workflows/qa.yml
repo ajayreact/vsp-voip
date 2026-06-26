@@ -1,0 +1,58 @@
+name: QA
+
+on:
+  pull_request:
+    branches: [main, development, development/v2]
+  push:
+    branches: [main]
+
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: vsp
+          POSTGRES_PASSWORD: vsp
+          POSTGRES_DB: vsp_voip_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U vsp -d vsp_voip_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+    env:
+      DATABASE_URL: postgresql://vsp:vsp@localhost:5432/vsp_voip_test
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci-qa-secret
+      TELNYX_API_KEY: test-key-for-ci
+      NODE_ENV: test
+      API_BASE: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx prisma migrate deploy
+      - run: node scripts/validate-tests-framework.js
+      - name: Start API
+        run: |
+          node -e "require('./server.js')" &
+          sleep 8
+          curl -sf http://localhost:3000/health
+      - name: Vitest regression
+        run: npx vitest run --config vitest.config.ts
+      - name: Upload QA report artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-reports
+          path: reports/

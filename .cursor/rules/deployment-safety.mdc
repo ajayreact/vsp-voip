@@ -1,0 +1,42 @@
+---
+description: Verify deployment state before recommending production code changes
+alwaysApply: true
+---
+
+# Deployment Safety
+
+Before suggesting **application code changes** for production issues (calls broken, auth failing, missing features, one-way audio, etc.):
+
+## Mandatory verification order
+
+1. **Verify deployment** — confirm the fix was actually deployed to EC2 (`git rev-parse HEAD`, deploy scripts run)
+2. **Verify frontend/backend commit match** — compare server git SHA, `/ready` → `build.gitCommit`, and whether both layers were redeployed
+3. **Verify Docker** — `docker compose ps`, `docker compose logs api`, API rebuilt with `--build` when backend changed
+4. **Verify PM2** — `pm2 status vsp-web`, `deploy-web.sh` completed after frontend changes
+5. **Verify migrations** — `prisma migrate status`, no pending migrations after schema release
+6. **Verify environment variables** — `.env`, `WEB_ORIGIN`, `API_PUBLIC_URL`, `TELNYX_*`, `JWT_SECRET` unchanged unintentionally
+7. **Verify browser cache** — hard refresh / incognito before blaming stale frontend bundles
+
+## Only then
+
+Recommend application code changes if deployment and environment are confirmed correct.
+
+## Quick references
+
+- Runbook: `docs/vsp/deployment/02-ec2-deployment.md`
+- Known deploy issues: `docs/vsp/deployment/11-known-issues.md`
+- Production checklist: `docs/vsp/deployment/10-production-checklist.md`
+- Telephony validation: `docs/vsp/deployment/14-telephony-validation.md`
+
+## Common misdiagnoses
+
+| Symptom | Often deployment — not code |
+|---------|----------------------------|
+| New route 404 | API not rebuilt |
+| Old UI after merge | PM2 not restarted / browser cache |
+| All users logged out | JWT_SECRET changed |
+| `/ready` false | Missing Telnyx key, Redis, or DB |
+| Diagnostics 404 | Web not deployed |
+| One-way audio at office only | Firewall/TURN — compare WebRTC diagnostics |
+
+Do not modify protected telephony files until deployment is ruled out (see `vsp-phone-development.mdc`).

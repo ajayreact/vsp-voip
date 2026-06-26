@@ -35,6 +35,7 @@ import {
   clearWebRtcDiagnosticsSnapshot,
   registerWebRtcDiagnosticsSnapshot,
 } from '@/lib/webrtc-diagnostics-registry';
+import { startWebRtcSendPathProbe } from '@/lib/webrtc-send-path-probe';
 import { IphonePhoneApp } from '@/components/softphone-v2/iphone-phone-app';
 import type {
   CallHistoryRecord,
@@ -671,6 +672,7 @@ function SoftphoneV2Content() {
   const reconnectControllerRef = useRef<TelnyxReconnectController | null>(null);
   const registrationSuccessEmittedRef = useRef(false);
   const unwireCallAudioRef = useRef<(() => void) | null>(null);
+  const sendPathProbeStopRef = useRef<(() => void) | null>(null);
   const telemetryRef = useRef<{
     started?: string;
     connected?: string;
@@ -683,6 +685,8 @@ function SoftphoneV2Content() {
   };
 
   const clearCallMedia = () => {
+    sendPathProbeStopRef.current?.();
+    sendPathProbeStopRef.current = null;
     clearWebRtcDiagnosticsSnapshot();
     unwireCallAudioRef.current?.();
     unwireCallAudioRef.current = null;
@@ -700,6 +704,8 @@ function SoftphoneV2Content() {
         logTelnyx('media.playback-blocked', { label });
       });
       registerWebRtcDiagnosticsSnapshot(call, pc);
+      sendPathProbeStopRef.current?.();
+      sendPathProbeStopRef.current = startWebRtcSendPathProbe(call, label);
       void logPeerConnectionDiagnostics(call, label).then(() => {
         logTelnyx('media.diagnostics', { label });
       });
@@ -1350,7 +1356,7 @@ function SoftphoneV2Content() {
     };
   }, []);
 
-  const onCallWithDestination = (number: string) => {
+  const onCallWithDestination = async (number: string) => {
     const client = clientRef.current;
     const { destinationNumber, isExtension } = resolveOutboundDestination(number);
     logTelnyx('call.click', { destinationNumber, callerNumber, isExtension });
@@ -1374,9 +1380,23 @@ function SoftphoneV2Content() {
     setDisplayNumber(destinationNumber);
 
     try {
+      const audioEl = getRemoteAudioElement();
+      const localStream = await acquireMicrophoneStream();
+      logTelnyx('outbound.localStream', {
+        trackCount: localStream.getAudioTracks().length,
+        tracks: localStream.getAudioTracks().map((track) => ({
+          enabled: track.enabled,
+          readyState: track.readyState,
+          muted: track.muted,
+        })),
+      });
+
       const call = client.newCall({
         destinationNumber,
         callerNumber: outboundCallerId,
+        audio: true,
+        localStream,
+        remoteElement: audioEl ?? REMOTE_AUDIO_ID,
       });
       callRef.current = call;
       beginCallSession(call.id, destinationNumber, 'outbound');

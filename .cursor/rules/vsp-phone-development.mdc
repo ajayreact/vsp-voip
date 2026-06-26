@@ -1,0 +1,117 @@
+---
+description: Mandatory VSP Phone search order, development rules, and telephony safety constraints
+alwaysApply: true
+---
+
+# VSP Phone Development Rules
+
+Before implementing, modifying, or debugging any feature, follow this workflow exactly.
+
+## Search Order (Mandatory)
+
+### Step 1 — Search the VSP Internal Documentation
+
+Search first in `docs/vsp/`.
+
+Look for: architecture, call flows, deployment, database, coding standards, release notes, troubleshooting, previous design decisions.
+
+If the answer exists, follow the internal documentation.
+
+### Step 2 — Search the Local Telnyx Knowledge Base
+
+If not found internally, search `docs/telnyx/`.
+
+Use `search-index.json` and `index.md`. Search only documentation relevant to our stack:
+
+- **Backend:** Node.js, Express, TypeScript, Prisma, PostgreSQL, Redis
+- **Frontend:** React, Next.js, TypeScript
+- **Telephony:** Telnyx JS WebRTC SDK, Call Control API, SIP, WebRTC, RTP, ICE, STUN, TURN, DTLS, SRTP
+- **Infrastructure:** Docker, Docker Compose, PM2, Nginx, AWS EC2
+- **Auth:** JWT
+- **Future mobile:** Flutter
+
+Do **not** use docs for: Python, PHP, Laravel, Django, Flask, Ruby, Rails, Java, Spring, .NET, C#, Go, Rust, WordPress, Magento, Shopify, native Android/iOS, React Native, or unrelated SDKs.
+
+Refresh: `node scripts/update-telnyx-docs.js`
+
+### Step 3 — Search Existing VSP Source Code
+
+If documentation does not answer the question, search the project for similar implementations. Reuse existing patterns.
+
+Examples: WebRTC, blind transfer, voicemail, recording, DID management, extension routing, call control, Redis session store.
+
+### Step 4 — Official Telnyx Documentation (Fallback Only)
+
+Only if information is missing from `docs/vsp`, `docs/telnyx`, and source code — then verify against latest official Telnyx docs for API changes.
+
+---
+
+## Development Rules
+
+Before changing code:
+
+- Identify all affected files
+- Explain why the change is required
+- Compare against the existing implementation
+- Minimize scope; do not modify unrelated functionality
+
+When finished:
+
+- Explain what changed and list modified files
+- Explain why each file changed
+- Run project validation scripts and report results
+- Confirm no unrelated functionality changed
+
+---
+
+## Telephony Safety Rules
+
+Do **not** modify unless explicitly requested:
+
+- Bridge grace
+- Call Control state machines
+- Recording, voicemail, call history
+- WebRTC media path, ICE/TURN configuration
+- Authentication, database schema
+
+If any must change: explain why, cite supporting documentation, describe side effects, and wait for approval.
+
+---
+
+## Protected Telephony Components
+
+The following files are **protected**. Before modifying any of them:
+
+1. Explain why the change is required
+2. Identify the regression risk
+3. Compare against the last stable implementation
+4. Search `docs/vsp/` first
+5. Search `docs/telnyx/` second
+6. Only then modify the code
+
+**Protected files:**
+
+- `web/src/lib/webrtc-audio.ts`
+- `web/src/lib/telnyx-softphone-session.ts`
+- `web/src/app/(app)/softphone-v2/page.tsx`
+- `lib/inboundCallControl.js`
+- `lib/telnyxCallControl.js`
+- `lib/callControlSessionStore.js`
+
+If a change affects **microphone**, **localStream**, **RTCPeerConnection**, **ICE**, **TURN**, **SDP**, **RTP**, or **media tracks** — produce a **regression analysis before writing code**.
+
+Never rewrite a protected component when a targeted fix is sufficient.
+
+When uncertain, **ask for confirmation** before modifying protected files.
+
+---
+
+## Regression Prevention
+
+Before every implementation:
+
+1. Compare against the last stable implementation
+2. Identify potential regressions and explain risks
+3. Implement the smallest possible change
+
+Never rewrite working telephony logic when a targeted fix is sufficient.

@@ -1,0 +1,48 @@
+---
+description: Run QA regression tests before production telephony changes
+alwaysApply: true
+---
+
+# QA First
+
+## Before production telephony changes
+
+If changing production telephony behavior or deploying to EC2:
+
+1. **Run regression tests** — `npm run qa` (minimum) or `npm run qa:full` (protected files)
+2. **Review HTML report** — `reports/qa-report-latest.html`
+3. **Deploy only if tests pass** — see `docs/vsp/deployment/15-qa-regression.md`
+
+## Protected telephony files
+
+If modifying any protected component:
+
+- `lib/inboundCallControl.js`
+- `lib/telnyxCallControl.js`
+- `lib/callControlSessionStore.js`
+- `web/src/lib/webrtc-audio.ts`
+- `web/src/lib/telnyx-softphone-session.ts`
+- `web/src/app/(app)/softphone-v2/page.tsx`
+
+**Run full telephony regression:**
+
+```bash
+npm run qa:full
+```
+
+Includes: Vitest suite + `validate:blind-transfer` + `validate:rapid-accept-stress` + `validate:extension-did`.
+
+## Live call tests
+
+Optional manual/live layer:
+
+```bash
+QA_LIVE_CALLS=true QA_LIVE_WEBRTC=true npm run test:telephony
+QA_BROWSER_TESTS=true WEB_BASE=https://app.vspphone.com npm run test:browser
+```
+
+## Quick references
+
+- Test index: `tests/README.md`
+- Regression suite: `tests/regression/deploy-regression.test.ts`
+- Merge checklist: `docs/vsp/git/05-merge-checklist.md`
