@@ -57,11 +57,17 @@ describe('messaging mappers', () => {
 
 describe('messaging webhook parsing', () => {
   it('extracts inbound MMS media URLs', () => {
-    const urls = extractInboundMedia({
-      media: [{ url: 'https://cdn.example.com/a.jpg' }],
+    const { extractInboundMedia, extractInboundMediaItems } = require('../../lib/messaging/WebhookService');
+    const items = extractInboundMediaItems({
+      media: [{ url: 'https://cdn.example.com/a.jpg', content_type: 'image/jpeg' }],
       media_urls: ['https://cdn.example.com/b.jpg'],
     });
-    expect(urls).toEqual([
+    expect(items).toHaveLength(2);
+    expect(items[0].contentType).toBe('image/jpeg');
+    expect(extractInboundMedia({
+      media: [{ url: 'https://cdn.example.com/a.jpg' }],
+      media_urls: ['https://cdn.example.com/b.jpg'],
+    })).toEqual([
       'https://cdn.example.com/a.jpg',
       'https://cdn.example.com/b.jpg',
     ]);
