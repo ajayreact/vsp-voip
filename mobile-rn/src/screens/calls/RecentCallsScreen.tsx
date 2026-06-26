@@ -1,45 +1,45 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
+import React, { useCallback } from 'react';
+import { RefreshControl, StyleSheet, View } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import type { CallLogEntry } from '../../api/types';
 import { EmptyState, ErrorScreen, LoadingScreen, VspCallRow } from '../../components';
-import { fetchRecentCalls } from '../../calling';
+import { useRecentCalls } from '../../hooks/useRecentCalls';
 import { useTheme } from '../../shared/theme';
 
 export function RecentCallsScreen() {
   const { colors } = useTheme();
-  const [calls, setCalls] = useState<CallLogEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { data: calls = [], isLoading, isRefetching, error, refetch } = useRecentCalls(50);
 
-  const load = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
-    setError(null);
-    try {
-      setCalls(await fetchRecentCalls(50));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load calls');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
+  const renderItem = useCallback(({ item }: { item: CallLogEntry }) => (
+    <VspCallRow
+      peer={item.direction === 'inbound' ? item.from : item.to}
+      direction={item.direction || 'call'}
+      status={item.status}
+      timestamp={item.createdAt}
+      durationLabel={item.durationLabel}
+    />
+  ), []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  if (isLoading && calls.length === 0) {
+    return <LoadingScreen message="Loading call history…" />;
+  }
 
-  if (loading) return <LoadingScreen message="Loading call history…" />;
-  if (error) return <ErrorScreen message={error} onRetry={() => load()} />;
+  if (error && calls.length === 0) {
+    return (
+      <ErrorScreen
+        message={error instanceof Error ? error.message : 'Failed to load calls'}
+        onRetry={() => refetch()}
+      />
+    );
+  }
 
   return (
     <View style={styles.container}>
-      <FlatList
+      <FlashList
         data={calls}
         keyExtractor={(item) => item.id}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={colors.primary} />
+          <RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} tintColor={colors.primary} />
         }
         ListEmptyComponent={
           <EmptyState
@@ -48,15 +48,7 @@ export function RecentCallsScreen() {
             message="Your organization's call history will appear here."
           />
         }
-        renderItem={({ item }) => (
-          <VspCallRow
-            peer={item.direction === 'inbound' ? item.from : item.to}
-            direction={item.direction || 'call'}
-            status={item.status}
-            timestamp={item.createdAt}
-            durationLabel={item.durationLabel}
-          />
-        )}
+        renderItem={renderItem}
       />
     </View>
   );

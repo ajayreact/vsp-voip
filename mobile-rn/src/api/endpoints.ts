@@ -19,6 +19,9 @@ export const endpoints = {
   softphone: {
     token: '/api/softphone/token',
     config: '/api/softphone/config',
+    presence: '/api/softphone/presence',
+    callAccepted: '/api/softphone/call-accepted',
+    callLog: '/api/softphone/call-log',
   },
   messaging: {
     conversations: '/api/conversations',

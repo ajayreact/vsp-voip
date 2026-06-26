@@ -9,11 +9,22 @@ const config: ExpoConfig = {
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'automatic',
+  scheme: 'vspphone',
+  plugins: [
+    'expo-dev-client',
+    [
+      '@config-plugins/react-native-webrtc',
+      {
+        microphonePermission: 'VSP Phone uses the microphone for voice calls.',
+      },
+    ],
+  ],
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.vspphone.mobile',
     infoPlist: {
       NSMicrophoneUsageDescription: 'VSP Phone uses the microphone for voice calls.',
+      UIBackgroundModes: ['audio'],
     },
   },
   android: {
@@ -25,7 +36,12 @@ const config: ExpoConfig = {
     },
     package: 'com.vspphone.mobile',
     predictiveBackGestureEnabled: false,
-    permissions: ['RECORD_AUDIO', 'MODIFY_AUDIO_SETTINGS'],
+    permissions: [
+      'RECORD_AUDIO',
+      'MODIFY_AUDIO_SETTINGS',
+      'BLUETOOTH',
+      'BLUETOOTH_CONNECT',
+    ],
   },
   web: {
     favicon: './assets/favicon.png',

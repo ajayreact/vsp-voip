@@ -10,10 +10,10 @@ export function CallOverlay() {
 
   return (
     <>
-      <Modal visible={Boolean(incomingCall && !activeCall)} animationType="slide" presentationStyle="fullScreen">
+      <Modal visible={Boolean(incomingCall && !activeCall)} animationType="none" presentationStyle="fullScreen">
         {incomingCall ? <IncomingCallScreen session={incomingCall} /> : null}
       </Modal>
-      <Modal visible={Boolean(activeCall)} animationType="slide" presentationStyle="fullScreen">
+      <Modal visible={Boolean(activeCall)} animationType="none" presentationStyle="fullScreen">
         {activeCall ? <ActiveCallScreen session={activeCall} /> : null}
       </Modal>
     </>

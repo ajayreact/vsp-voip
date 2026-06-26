@@ -5,6 +5,7 @@ import {
   canMakeCalls,
   TelnyxConnectionState,
   TelnyxCallState,
+  CallStateHelpers,
   type Call,
 } from '@telnyx/react-voice-commons-sdk';
 import { useAuthStore } from '../store/authStore';
@@ -15,6 +16,10 @@ import {
   refreshCallSnapshot,
 } from './callingController';
 import { fetchSoftphoneConfig, fetchSoftphoneToken } from './softphoneService';
+import {
+  startSoftphonePresenceHeartbeat,
+  stopSoftphonePresenceHeartbeat,
+} from './softphonePresence';
 import { getTelnyxVoipClient } from './telnyxVoip';
 
 type Props = {
@@ -32,7 +37,22 @@ function TelnyxRegistrationBridge() {
 
   useEffect(() => {
     const client = getTelnyxVoipClient();
-    const connectionSub = client.connectionState$.subscribe(setConnectionState);
+    const connectionSub = client.connectionState$.subscribe((state) => {
+      setConnectionState(state);
+      if (state === TelnyxConnectionState.CONNECTED && isAuthenticated) {
+        startSoftphonePresenceHeartbeat();
+      } else if (
+        state === TelnyxConnectionState.DISCONNECTED
+        || state === TelnyxConnectionState.ERROR
+      ) {
+        stopSoftphonePresenceHeartbeat();
+      }
+    });
+
+    if (client.currentConnectionState === TelnyxConnectionState.CONNECTED && isAuthenticated) {
+      startSoftphonePresenceHeartbeat();
+    }
+
     const callsSub = client.calls$.subscribe((calls) => {
       const ringingIncoming = calls.find(
         (call) => call.isIncoming && call.currentState === TelnyxCallState.RINGING,
@@ -41,6 +61,7 @@ function TelnyxRegistrationBridge() {
         void refreshCallSnapshot(ringingIncoming);
       }
     });
+
     const activeSub = client.activeCall$.subscribe((call) => {
       if (call) void refreshCallSnapshot(call);
     });
@@ -49,8 +70,9 @@ function TelnyxRegistrationBridge() {
       connectionSub.unsubscribe();
       callsSub.unsubscribe();
       activeSub.unsubscribe();
+      stopSoftphonePresenceHeartbeat();
     };
-  }, [setConnectionState]);
+  }, [isAuthenticated, setConnectionState]);
 
   useEffect(() => {
     let disposed = false;
@@ -58,10 +80,18 @@ function TelnyxRegistrationBridge() {
     const callBindings = new Map<string, () => void>();
 
     const bindCalls = (calls: Call[]) => {
+      const liveIds = new Set(calls.map((call) => call.callId));
+      for (const [callId, unsubscribe] of callBindings.entries()) {
+        if (!liveIds.has(callId)) {
+          unsubscribe();
+          callBindings.delete(callId);
+        }
+      }
+
       for (const call of calls) {
         if (callBindings.has(call.callId)) continue;
-        const ownNumbers = useCallingStore.getState().tenantNumbers;
-        const unsubscribe = bindCallStreams(call, ownNumbers);
+        if (CallStateHelpers.isTerminated(call.currentState)) continue;
+        const unsubscribe = bindCallStreams(call);
         callBindings.set(call.callId, unsubscribe);
       }
     };
@@ -72,6 +102,7 @@ function TelnyxRegistrationBridge() {
       if (!isAuthenticated) {
         clearContactsCache();
         resetCalls();
+        stopSoftphonePresenceHeartbeat();
         await client.logout().catch(() => {});
         return;
       }
@@ -111,6 +142,7 @@ function TelnyxRegistrationBridge() {
       callsSub.unsubscribe();
       callBindings.forEach((unsub) => unsub());
       callBindings.clear();
+      stopSoftphonePresenceHeartbeat();
     };
   }, [isAuthenticated, registrationAttempt, resetCalls, setIsRegistering, setRegistrationError, setTenantNumbers]);
 

@@ -42,7 +42,7 @@ function stateBadge(state: TelnyxCallState, isHeld: boolean) {
   }
 }
 
-export function ActiveCallScreen({ session }: Props) {
+export const ActiveCallScreen = React.memo(function ActiveCallScreen({ session }: Props) {
   const { colors } = useTheme();
   const { identity, state, isMuted, isHeld, duration, showKeypad, lastDtmf, speakerOn } = session;
   const badge = stateBadge(state, isHeld);
@@ -109,7 +109,7 @@ export function ActiveCallScreen({ session }: Props) {
       </VspActionBar>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {

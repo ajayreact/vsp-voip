@@ -1,9 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo } from 'react';
+import { Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { ContactEntry } from '../../api/types';
 import { Avatar, EmptyState, ErrorScreen, LoadingScreen, SearchBar } from '../../components';
-import { fetchContacts, filterContacts } from '../../contacts';
+import { filterContacts } from '../../contacts';
+import { useContacts } from '../../hooks/useContacts';
 import type { ContactsStackParamList } from '../../navigation/types';
 import { useFavoritesStore } from '../../store/favoritesStore';
 import { useTheme } from '../../shared/theme';
@@ -13,36 +15,14 @@ type Props = NativeStackScreenProps<ContactsStackParamList, 'ContactsList'>;
 
 export function ContactsListScreen({ navigation }: Props) {
   const { colors } = useTheme();
-  const { favoriteIds, hydrate, toggleFavorite, hydrated } = useFavoritesStore();
-  const [contacts, setContacts] = useState<ContactEntry[]>([]);
-  const [search, setSearch] = useState('');
-  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { favoriteIds, hydrate, hydrated } = useFavoritesStore();
+  const [search, setSearch] = React.useState('');
+  const [showFavoritesOnly, setShowFavoritesOnly] = React.useState(false);
+  const { data: contacts = [], isLoading, isRefetching, error, refetch } = useContacts();
 
   useEffect(() => {
     hydrate();
   }, [hydrate]);
-
-  const load = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
-    setError(null);
-    try {
-      const data = await fetchContacts();
-      setContacts(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load contacts');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
 
   const filtered = useMemo(() => {
     let list = filterContacts(contacts, search);
@@ -52,12 +32,44 @@ export function ContactsListScreen({ navigation }: Props) {
     return list;
   }, [contacts, search, showFavoritesOnly, favoriteIds]);
 
-  if (loading && contacts.length === 0) {
+  const renderItem = useCallback(({ item }: { item: ContactEntry }) => (
+    <Pressable
+      onPress={() => navigation.navigate('ContactDetail', { contactId: item.id })}
+      style={({ pressed }) => [
+        styles.row,
+        {
+          backgroundColor: pressed ? colors.backgroundAlt : colors.surface,
+          borderBottomColor: colors.border,
+        },
+      ]}
+    >
+      <Avatar name={item.name} online={item.isOnline} />
+      <View style={styles.rowText}>
+        <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
+          {item.name}
+        </Text>
+        <Text style={[styles.meta, { color: colors.textMuted }]} numberOfLines={1}>
+          Ext {item.extensionNumber}
+          {item.department ? ` · ${item.department}` : ''}
+        </Text>
+      </View>
+      {hydrated && favoriteIds.includes(item.id) ? (
+        <Text style={{ color: colors.warning }}>★</Text>
+      ) : null}
+    </Pressable>
+  ), [colors, favoriteIds, hydrated, navigation]);
+
+  if (isLoading && contacts.length === 0) {
     return <LoadingScreen message="Loading directory…" />;
   }
 
   if (error && contacts.length === 0) {
-    return <ErrorScreen message={error} onRetry={() => load()} />;
+    return (
+      <ErrorScreen
+        message={error instanceof Error ? error.message : 'Failed to load contacts'}
+        onRetry={() => refetch()}
+      />
+    );
   }
 
   return (
@@ -93,11 +105,11 @@ export function ContactsListScreen({ navigation }: Props) {
         </View>
       </View>
 
-      <FlatList
+      <FlashList
         data={filtered}
         keyExtractor={(item) => item.id}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={colors.primary} />
+          <RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} tintColor={colors.primary} />
         }
         ListEmptyComponent={
           <EmptyState
@@ -110,32 +122,7 @@ export function ContactsListScreen({ navigation }: Props) {
             }
           />
         }
-        renderItem={({ item }) => (
-          <Pressable
-            onPress={() => navigation.navigate('ContactDetail', { contactId: item.id })}
-            style={({ pressed }) => [
-              styles.row,
-              {
-                backgroundColor: pressed ? colors.backgroundAlt : colors.surface,
-                borderBottomColor: colors.border,
-              },
-            ]}
-          >
-            <Avatar name={item.name} online={item.isOnline} />
-            <View style={styles.rowText}>
-              <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
-                {item.name}
-              </Text>
-              <Text style={[styles.meta, { color: colors.textMuted }]} numberOfLines={1}>
-                Ext {item.extensionNumber}
-                {item.department ? ` · ${item.department}` : ''}
-              </Text>
-            </View>
-            {hydrated && favoriteIds.includes(item.id) ? (
-              <Text style={{ color: colors.warning }}>★</Text>
-            ) : null}
-          </Pressable>
-        )}
+        renderItem={renderItem}
       />
     </View>
   );

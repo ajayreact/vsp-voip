@@ -1,9 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { RefreshControl, StyleSheet, View } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { ConversationSummary } from '../../api/types';
 import { Button, EmptyState, ErrorScreen, LoadingScreen, SearchBar, VspConversationRow } from '../../components';
-import { listConversations } from '../../messaging';
+import { useConversations } from '../../hooks/useConversations';
 import type { MessagesStackParamList } from '../../navigation/types';
 import { useTheme } from '../../shared/theme';
 import { formatPhone } from '../../utils/format';
@@ -13,29 +14,8 @@ type Props = NativeStackScreenProps<MessagesStackParamList, 'ConversationList'>;
 
 export function ConversationListScreen({ navigation }: Props) {
   const { colors } = useTheme();
-  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
-    setError(null);
-    try {
-      setConversations(await listConversations());
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load messages');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  const { data: conversations = [], isLoading, isRefetching, error, refetch } = useConversations();
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -48,11 +28,37 @@ export function ConversationListScreen({ navigation }: Props) {
     });
   }, [conversations, search]);
 
-  if (loading && conversations.length === 0) {
+  const renderItem = useCallback(({ item }: { item: ConversationSummary }) => {
+    const peer = item.peer || item.peerNumber || 'Unknown';
+    const line = item.line || item.lineNumber;
+    return (
+      <VspConversationRow
+        peerLabel={formatPhone(peer)}
+        lineLabel={line}
+        preview={item.lastMessagePreview || 'No messages yet'}
+        timestamp={item.lastMessageAt}
+        unreadCount={item.unreadCount}
+        onPress={() =>
+          navigation.navigate('ConversationThread', {
+            conversationId: item.id,
+            peerLabel: formatPhone(peer),
+            lineLabel: line,
+          })
+        }
+      />
+    );
+  }, [navigation]);
+
+  if (isLoading && conversations.length === 0) {
     return <LoadingScreen message="Loading conversations…" />;
   }
   if (error && conversations.length === 0) {
-    return <ErrorScreen message={error} onRetry={() => load()} />;
+    return (
+      <ErrorScreen
+        message={error instanceof Error ? error.message : 'Failed to load messages'}
+        onRetry={() => refetch()}
+      />
+    );
   }
 
   return (
@@ -65,11 +71,11 @@ export function ConversationListScreen({ navigation }: Props) {
           style={styles.newBtn}
         />
       </View>
-      <FlatList
+      <FlashList
         data={filtered}
         keyExtractor={(item) => item.id}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={colors.primary} />
+          <RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} tintColor={colors.primary} />
         }
         ListEmptyComponent={
           <EmptyState
@@ -78,26 +84,7 @@ export function ConversationListScreen({ navigation }: Props) {
             message="SMS and MMS threads for your organization lines appear here."
           />
         }
-        renderItem={({ item }) => {
-          const peer = item.peer || item.peerNumber || 'Unknown';
-          const line = item.line || item.lineNumber;
-          return (
-            <VspConversationRow
-              peerLabel={formatPhone(peer)}
-              lineLabel={line}
-              preview={item.lastMessagePreview || 'No messages yet'}
-              timestamp={item.lastMessageAt}
-              unreadCount={item.unreadCount}
-              onPress={() =>
-                navigation.navigate('ConversationThread', {
-                  conversationId: item.id,
-                  peerLabel: formatPhone(peer),
-                  lineLabel: line,
-                })
-              }
-            />
-          );
-        }}
+        renderItem={renderItem}
       />
     </View>
   );

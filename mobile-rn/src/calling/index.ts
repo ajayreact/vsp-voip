@@ -1,6 +1,17 @@
 export { fetchRecentCalls } from './callsService';
-export { fetchSoftphoneToken, fetchSoftphoneConfig } from './softphoneService';
-export type { SoftphoneTokenResponse, SoftphoneConfigResponse } from './softphoneService';
+export {
+  fetchSoftphoneToken,
+  fetchSoftphoneConfig,
+  postSoftphonePresence,
+  postCallAccepted,
+  postCallLog,
+} from './softphoneService';
+export type {
+  SoftphoneTokenResponse,
+  SoftphoneConfigResponse,
+  CallAcceptedResponse,
+  CallLogPayload,
+} from './softphoneService';
 export { TelnyxCallingProvider, useCanPlaceCalls, connectionLabel } from './TelnyxCallingProvider';
 export { CallOverlay } from './CallOverlay';
 export {
@@ -8,3 +19,4 @@ export {
   resolveInboundCallerNameHint,
 } from './inboundCallerDisplay';
 export { resolveInboundCallIdentity, resolveLiveCallerIdentity } from './callerIdentity';
+export { startSoftphonePresenceHeartbeat, stopSoftphonePresenceHeartbeat } from './softphonePresence';
