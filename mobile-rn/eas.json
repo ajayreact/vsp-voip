@@ -28,7 +28,8 @@
       "env": {
         "EAS_BUILD_PROFILE": "preview",
         "APNS_ENVIRONMENT": "development",
-        "EXPO_PUBLIC_API_BASE_URL": "https://api.vspphone.com"
+        "EXPO_PUBLIC_API_BASE_URL": "https://api.vspphone.com",
+        "GOOGLE_SERVICES_JSON": "./google-services.json.example"
       }
     },
     "production": {
