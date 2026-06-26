@@ -1,8 +1,5 @@
-const fs = require('fs');
-const path = require('path');
 const {
   withAndroidManifest,
-  withDangerousMod,
   AndroidConfig,
 } = require('expo/config-plugins');
 
@@ -13,11 +10,28 @@ function ensureArray(value) {
   return Array.isArray(value) ? value : value ? [value] : [];
 }
 
+function mergeToolsReplace(existing, attribute) {
+  const values = new Set(
+    String(existing || '')
+      .split(',')
+      .map((entry) => entry.trim())
+      .filter(Boolean),
+  );
+  values.add(attribute);
+  return Array.from(values).join(',');
+}
+
 function withFirebaseNotificationMerger(config) {
-  config = withAndroidManifest(config, (config) => {
+  return withAndroidManifest(config, (config) => {
     const manifest = config.modResults;
     if (!manifest.$) manifest.$ = {};
     manifest.$['xmlns:tools'] = 'http://schemas.android.com/tools';
+
+    const androidPackage = config.android?.package;
+    if (androidPackage) {
+      manifest.$['android:package'] = androidPackage;
+      manifest.$['tools:replace'] = mergeToolsReplace(manifest.$['tools:replace'], 'android:package');
+    }
 
     const app = AndroidConfig.Manifest.getMainApplicationOrThrow(manifest);
     AndroidConfig.Manifest.removeMetaDataItemFromMainApplication(app, FCM_NOTIFICATION_COLOR);
@@ -34,35 +48,6 @@ function withFirebaseNotificationMerger(config) {
 
     return config;
   });
-
-  config = withDangerousMod(config, [
-    'android',
-    async (config) => {
-      const manifestPath = path.join(
-        config.modRequest.platformProjectRoot,
-        'app',
-        'src',
-        'main',
-        'AndroidManifest.xml',
-      );
-      if (!fs.existsSync(manifestPath)) return config;
-
-      let contents = fs.readFileSync(manifestPath, 'utf8');
-      const manifestOpenTag =
-        /<manifest\b([^>]*xmlns:tools="http:\/\/schemas\.android\.com\/tools")([^>]*)>/;
-      if (manifestOpenTag.test(contents) && !contents.includes('tools:replace="android:package"')) {
-        contents = contents.replace(
-          manifestOpenTag,
-          '<manifest$1$2 tools:replace="android:package">',
-        );
-        fs.writeFileSync(manifestPath, contents);
-      }
-
-      return config;
-    },
-  ]);
-
-  return config;
 }
 
 module.exports = withFirebaseNotificationMerger;
