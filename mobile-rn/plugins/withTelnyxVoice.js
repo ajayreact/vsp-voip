@@ -7,6 +7,7 @@ const {
   withInfoPlist,
   withDangerousMod,
   withXcodeProject,
+  withAppBuildGradle,
   IOSConfig,
   AndroidConfig,
 } = require('expo/config-plugins');
@@ -134,6 +135,19 @@ function withTelnyxMainActivity(config) {
   });
 }
 
+function withTelnyxAppGradle(config) {
+  return withAppBuildGradle(config, (config) => {
+    const marker = 'com.google.firebase:firebase-messaging';
+    if (!config.modResults.contents.includes(marker)) {
+      config.modResults.contents = config.modResults.contents.replace(
+        /dependencies\s*\{/,
+        `dependencies {\n    implementation platform('com.google.firebase:firebase-bom:34.15.0')\n    implementation '${marker}'`,
+      );
+    }
+    return config;
+  });
+}
+
 function withTelnyxNativeSources(config) {
   return withDangerousMod(config, [
     'android',
@@ -209,6 +223,7 @@ function withTelnyxVoice(config) {
   config = withVoicePnBridgeXcodeProject(config);
   config = withTelnyxAndroidManifest(config);
   config = withTelnyxMainActivity(config);
+  config = withTelnyxAppGradle(config);
   config = withTelnyxNativeSources(config);
   return config;
 }
