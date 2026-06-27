@@ -465,6 +465,7 @@ router.get('/tenant/users', authMiddleware, requireRole('SUPER_ADMIN', 'TENANT_A
             displayName: true,
             department: true,
           },
+          orderBy: { extensionNumber: 'asc' },
           take: 1,
         },
       },
