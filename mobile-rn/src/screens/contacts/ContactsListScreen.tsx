@@ -1,26 +1,34 @@
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { RefreshControl, StyleSheet, Text, View } from 'react-native';
-import { FlashList } from '@shopify/flash-list';
+import { FlashList, type FlashListRef } from '@shopify/flash-list';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { ContactEntry } from '../../api/types';
 import { EmptyState, ErrorScreen, SearchBar } from '../../components';
+import { AlphabetIndex } from '../../components/contacts/AlphabetIndex';
 import { ContactRow } from '../../components/contacts/ContactRow';
+import { ContactSectionHeader } from '../../components/contacts/ContactSectionHeader';
 import { RipplePressable } from '../../components/ui/RipplePressable';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
 import { filterContacts } from '../../contacts';
+import {
+  flattenContactsWithSections,
+  groupContactsByLetter,
+  type ContactListItem,
+} from '../../contacts/contactIndex';
 import { useContacts } from '../../hooks/useContacts';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import type { ContactsStackParamList } from '../../navigation/types';
 import { useFavoritesStore } from '../../store/favoritesStore';
 import { useTheme } from '../../shared/theme';
-import { keyExtractorById, LIST_ITEM_HEIGHT } from '../../lib/listConstants';
-import { contactRowLayout } from '../../lib/listLayout';
+import { LIST_ITEM_HEIGHT } from '../../lib/listConstants';
 import { spacing, typography } from '../../shared/theme';
 
 type Props = NativeStackScreenProps<ContactsStackParamList, 'ContactsList'>;
 
 export function ContactsListScreen({ navigation }: Props) {
   const { colors } = useTheme();
+  const listRef = useRef<FlashListRef<ContactListItem>>(null);
   const { favoriteIds, hydrate, hydrated } = useFavoritesStore();
   const [search, setSearch] = React.useState('');
   const debouncedSearch = useDebouncedValue(search, 250);
@@ -48,6 +56,21 @@ export function ContactsListScreen({ navigation }: Props) {
     return list;
   }, [contacts, debouncedSearch, showFavoritesOnly, favoriteSet]);
 
+  const listItems = useMemo(() => flattenContactsWithSections(filtered), [filtered]);
+
+  const sectionLetters = useMemo(
+    () => groupContactsByLetter(filtered).map((group) => group.letter),
+    [filtered],
+  );
+
+  const sectionIndexByLetter = useMemo(() => {
+    const map = new Map<string, number>();
+    listItems.forEach((item, index) => {
+      if (item.type === 'section') map.set(item.letter, index);
+    });
+    return map;
+  }, [listItems]);
+
   const handleContactPress = useCallback(
     (contactId: string) => {
       navigation.navigate('ContactDetail', { contactId });
@@ -55,12 +78,33 @@ export function ContactsListScreen({ navigation }: Props) {
     [navigation],
   );
 
+  const handleJumpToLetter = useCallback(
+    (letter: string) => {
+      const index = sectionIndexByLetter.get(letter);
+      if (index == null) return;
+      listRef.current?.scrollToIndex({ index, animated: true });
+    },
+    [sectionIndexByLetter],
+  );
+
   const renderItem = useCallback(
-    ({ item }: { item: ContactEntry }) => (
-      <ContactRow item={item} isFavorite={hydrated && favoriteSet.has(item.id)} onPress={handleContactPress} />
-    ),
+    ({ item }: { item: ContactListItem }) => {
+      if (item.type === 'section') {
+        return <ContactSectionHeader letter={item.letter} />;
+      }
+      return (
+        <ContactRow
+          item={item.contact}
+          isFavorite={hydrated && favoriteSet.has(item.contact.id)}
+          onPress={handleContactPress}
+        />
+      );
+    },
     [favoriteSet, handleContactPress, hydrated],
   );
+
+  const keyExtractor = useCallback((item: ContactListItem) => item.key, []);
+  const getItemType = useCallback((item: ContactListItem) => item.type, []);
 
   const onRefresh = useCallback(() => {
     void refetch();
@@ -100,9 +144,11 @@ export function ContactsListScreen({ navigation }: Props) {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>Contacts</Text>
+        <Text style={[styles.title, { color: colors.text }]} accessibilityRole="header">
+          Contacts
+        </Text>
         <SearchBar value={search} onChangeText={setSearch} placeholder="Search name, ext, department" />
         <View style={styles.filters}>
           <RipplePressable
@@ -114,6 +160,8 @@ export function ContactsListScreen({ navigation }: Props) {
                 borderColor: colors.border,
               },
             ]}
+            accessibilityRole="button"
+            accessibilityState={{ selected: !showFavoritesOnly }}
           >
             <Text style={{ color: !showFavoritesOnly ? '#fff' : colors.text }}>All</Text>
           </RipplePressable>
@@ -126,39 +174,60 @@ export function ContactsListScreen({ navigation }: Props) {
                 borderColor: colors.border,
               },
             ]}
+            accessibilityRole="button"
+            accessibilityState={{ selected: showFavoritesOnly }}
           >
             <Text style={{ color: showFavoritesOnly ? '#fff' : colors.text }}>Favorites</Text>
           </RipplePressable>
         </View>
       </View>
 
-      <FlashList
-        data={filtered}
-        keyExtractor={keyExtractorById}
-        drawDistance={LIST_ITEM_HEIGHT.contact * 8}
-        overrideItemLayout={contactRowLayout}
-        removeClippedSubviews
-        refreshControl={refreshControl}
-        ListEmptyComponent={listEmpty}
-        renderItem={renderItem}
-      />
-    </View>
+      <View style={styles.listWrap}>
+        <FlashList
+          ref={listRef}
+          data={listItems}
+          keyExtractor={keyExtractor}
+          getItemType={getItemType}
+          drawDistance={LIST_ITEM_HEIGHT.contact * 10}
+          removeClippedSubviews
+          refreshControl={refreshControl}
+          ListEmptyComponent={listEmpty}
+          renderItem={renderItem}
+          contentContainerStyle={listItems.length === 0 ? styles.emptyList : undefined}
+        />
+        <AlphabetIndex letters={sectionLetters} onJump={handleJumpToLetter} />
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
-    padding: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
     gap: spacing.sm,
   },
-  title: { ...typography.title },
+  title: {
+    ...typography.display,
+    fontSize: 34,
+    fontWeight: '700',
+  },
   filters: { flexDirection: 'row', gap: spacing.sm },
   chip: {
     borderRadius: 999,
     borderWidth: 1,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
+    minHeight: 36,
+    justifyContent: 'center',
+  },
+  listWrap: {
+    flex: 1,
+    position: 'relative',
+  },
+  emptyList: {
+    flexGrow: 1,
   },
 });

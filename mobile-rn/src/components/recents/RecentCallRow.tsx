@@ -34,11 +34,12 @@ function directionColor(call: CallLogEntry, colors: ReturnType<typeof useTheme>[
   return colors.textMuted;
 }
 
-function callTypeLabel(call: CallLogEntry, contact?: ContactEntry) {
-  if (call.callType) return call.callType;
-  if (contact?.assignedDidNumber) return 'Mobile';
-  if (contact) return 'Office';
-  return 'SIP';
+function statusLabel(call: CallLogEntry) {
+  const status = (call.status || '').toLowerCase();
+  if (status.includes('miss')) return 'Missed';
+  if (status.includes('no-answer') || status.includes('no_answer')) return 'No answer';
+  if (call.direction === 'outbound') return 'Outgoing';
+  return 'Incoming';
 }
 
 function RowContent({
@@ -55,11 +56,17 @@ function RowContent({
   const isMissed = (call.status || '').toLowerCase().includes('miss');
   const iconName = directionIcon(call);
   const iconColor = directionColor(call, colors);
+  const meta = [
+    contact?.extensionNumber ? `Ext ${contact.extensionNumber}` : null,
+    contact?.department,
+  ].filter(Boolean).join(' · ');
 
   return (
     <RipplePressable
       onPress={onPress}
       style={[styles.row, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}
+      accessibilityRole="button"
+      accessibilityLabel={`${displayName}, ${statusLabel(call)}, ${formatRelativeTime(call.createdAt)}`}
     >
       {isEditing ? (
         <View
@@ -74,51 +81,40 @@ function RowContent({
           {selected ? <Ionicons name="checkmark" size={14} color="#fff" /> : null}
         </View>
       ) : null}
-      <Avatar name={displayName} size={44} />
+      <Avatar name={displayName} size={46} />
       <View style={styles.content}>
-        <Text
-          style={[styles.name, { color: isMissed ? colors.error : colors.text }]}
-          numberOfLines={1}
-        >
-          {displayName}
-        </Text>
-        <View style={styles.metaRow}>
-          {contact?.extensionNumber ? (
-            <Text style={[styles.meta, { color: colors.textMuted }]} numberOfLines={1}>
-              Ext {contact.extensionNumber}
-            </Text>
-          ) : null}
-          {contact?.department ? (
-            <Text style={[styles.meta, { color: colors.textMuted }]} numberOfLines={1}>
-              {contact.department}
-            </Text>
-          ) : null}
-        </View>
-        <View style={styles.detailRow}>
-          <Ionicons name={iconName} size={14} color={iconColor} />
-          <Text style={[styles.meta, { color: colors.textMuted }]}>{callTypeLabel(call, contact)}</Text>
-        </View>
-      </View>
-      {!isEditing ? (
-        <View style={styles.trailing}>
+        <View style={styles.titleRow}>
+          <Text
+            style={[styles.name, { color: isMissed ? colors.error : colors.text }]}
+            numberOfLines={1}
+          >
+            {displayName}
+          </Text>
           <Text style={[styles.time, { color: colors.textMuted }]}>
             {formatRelativeTime(call.createdAt)}
           </Text>
-          <Pressable
-            onPress={() => onInfoPress()}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel="Contact info"
-            style={styles.infoBtn}
-          >
-            <Ionicons name="information-circle-outline" size={22} color={colors.primary} />
-          </Pressable>
         </View>
-      ) : (
-        <Text style={[styles.time, { color: colors.textMuted }]}>
-          {formatRelativeTime(call.createdAt)}
-        </Text>
-      )}
+        {meta ? (
+          <Text style={[styles.meta, { color: colors.textMuted }]} numberOfLines={1}>
+            {meta}
+          </Text>
+        ) : null}
+        <View style={styles.detailRow}>
+          <Ionicons name={iconName} size={13} color={iconColor} />
+          <Text style={[styles.status, { color: colors.textMuted }]}>{statusLabel(call)}</Text>
+        </View>
+      </View>
+      {!isEditing ? (
+        <Pressable
+          onPress={() => onInfoPress()}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Contact info"
+          style={styles.infoBtn}
+        >
+          <Ionicons name="information-circle-outline" size={22} color={colors.primary} />
+        </Pressable>
+      ) : null}
     </RipplePressable>
   );
 }
@@ -206,7 +202,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm + 2,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    minHeight: 72,
+    minHeight: 64,
   },
   selectCircle: {
     width: 24,
@@ -221,14 +217,15 @@ const styles = StyleSheet.create({
     minWidth: 0,
     gap: 2,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   name: {
     ...typography.bodyMedium,
     fontWeight: '600',
-  },
-  metaRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
+    flex: 1,
   },
   meta: {
     ...typography.caption,
@@ -238,18 +235,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginTop: 1,
   },
-  trailing: {
-    alignItems: 'flex-end',
-    gap: spacing.xs,
+  status: {
+    ...typography.caption,
+    fontSize: 12,
   },
   time: {
     ...typography.caption,
-    fontSize: 13,
+    fontSize: 12,
   },
   infoBtn: {
     padding: 2,
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   swipeAction: {
     justifyContent: 'center',

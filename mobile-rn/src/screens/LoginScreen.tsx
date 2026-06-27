@@ -1,7 +1,16 @@
-import React, { useState } from 'react';
-import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import React, { useMemo, useState } from 'react';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Button, LoadingOverlay, TextField } from '../components';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../shared/theme';
@@ -14,112 +23,196 @@ type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 export function LoginScreen({ navigation }: Props) {
   const { login, isSubmitting, error, clearError } = useAuth();
   const { colors } = useTheme();
-  const [orgUrl, setOrgUrl] = useState('');
+  const { width } = useWindowDimensions();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
 
+  const cardWidth = useMemo(() => {
+    if (width >= 768) return Math.min(440, width * 0.55);
+    return width - spacing.lg * 2;
+  }, [width]);
+
   async function handleSubmit() {
     clearError();
-    await login(username, password);
+    await login(username.trim(), password);
   }
 
   const friendlyError = error ? getFriendlyErrorMessage(new Error(error)) : null;
 
   return (
-    <KeyboardAvoidingView
-      style={[styles.root, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <LoadingOverlay visible={isSubmitting} />
-      <View style={styles.header}>
-        <View style={[styles.logoWrap, { backgroundColor: colors.primarySoft }]}>
-          <Ionicons name="call" size={28} color={colors.primary} />
-        </View>
-        <Text style={[styles.title, { color: colors.text }]}>VSP Phone</Text>
-        <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-          Enterprise calling for your organization
-        </Text>
-      </View>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <LoadingOverlay visible={isSubmitting} />
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          bounces={false}
+        >
+          <View style={[styles.inner, { maxWidth: cardWidth }]}>
+            <View style={styles.brandBlock}>
+              <View style={[styles.logoWrap, { backgroundColor: colors.primarySoft }]}>
+                <Ionicons name="call" size={32} color={colors.primary} accessibilityElementsHidden />
+              </View>
+              <Text style={[styles.title, { color: colors.text }]} accessibilityRole="header">
+                VSP Phone
+              </Text>
+              <Text style={[styles.subtitle, { color: colors.textMuted }]}>
+                Enterprise calling for your organization
+              </Text>
+            </View>
 
-      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <TextField
-          label="Organization URL"
-          value={orgUrl}
-          onChangeText={setOrgUrl}
-          placeholder="your-company.vspphone.com"
-          autoCapitalize="none"
-          autoComplete="url"
-        />
-        <TextField
-          label="Username"
-          value={username}
-          onChangeText={setUsername}
-          keyboardType="email-address"
-          autoComplete="username"
-          textContentType="username"
-        />
-        <TextField
-          label="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          autoComplete="password"
-          textContentType="password"
-        />
+            <View
+              style={[
+                styles.card,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                  width: cardWidth,
+                },
+              ]}
+            >
+              <TextField
+                label="Username"
+                value={username}
+                onChangeText={setUsername}
+                placeholder="Email or username"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoComplete="username"
+                textContentType="username"
+                returnKeyType="next"
+                accessibilityLabel="Username"
+              />
+              <TextField
+                label="Password"
+                value={password}
+                onChangeText={setPassword}
+                placeholder="Enter your password"
+                secureTextEntry
+                autoComplete="password"
+                textContentType="password"
+                returnKeyType="done"
+                onSubmitEditing={() => void handleSubmit()}
+                accessibilityLabel="Password"
+              />
 
-        {friendlyError ? (
-          <Text style={[styles.error, { color: colors.error }]}>{friendlyError}</Text>
-        ) : null}
+              {friendlyError ? (
+                <View
+                  style={[styles.errorBox, { backgroundColor: colors.errorSoft, borderColor: colors.error }]}
+                  accessibilityRole="alert"
+                >
+                  <Ionicons name="alert-circle" size={18} color={colors.error} />
+                  <Text style={[styles.error, { color: colors.error }]}>{friendlyError}</Text>
+                </View>
+              ) : null}
 
-        <Button
-          label="Sign in"
-          onPress={handleSubmit}
-          loading={isSubmitting}
-          disabled={!username || !password}
-          style={styles.loginBtn}
-        />
+              <Button
+                label="Sign in"
+                onPress={() => void handleSubmit()}
+                loading={isSubmitting}
+                disabled={!username.trim() || !password}
+                style={styles.loginBtn}
+              />
 
-        <View style={styles.dividerRow}>
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
-          <Text style={[styles.dividerText, { color: colors.textMuted }]}>OR</Text>
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
-        </View>
+              <View style={styles.dividerRow}>
+                <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                <Text style={[styles.dividerText, { color: colors.textMuted }]}>OR</Text>
+                <View style={[styles.divider, { backgroundColor: colors.border }]} />
+              </View>
 
-        <Button
-          label="Scan QR Code"
-          variant="secondary"
-          onPress={() => navigation.navigate('QrLogin')}
-          style={styles.qrBtn}
-        />
-      </View>
-    </KeyboardAvoidingView>
+              <Button
+                label="Scan QR Code"
+                variant="secondary"
+                onPress={() => navigation.navigate('QrLogin')}
+                style={styles.qrBtn}
+              />
+            </View>
+
+            <Text style={[styles.footer, { color: colors.textMuted }]}>
+              Secured by your organization portal
+            </Text>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, padding: spacing.lg, justifyContent: 'center' },
-  header: { alignItems: 'center', marginBottom: spacing.xl, gap: spacing.sm },
+  safe: { flex: 1 },
+  flex: { flex: 1 },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.lg,
+  },
+  inner: {
+    width: '100%',
+    alignSelf: 'center',
+    gap: spacing.lg,
+  },
+  brandBlock: {
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingBottom: spacing.sm,
+  },
   logoWrap: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
+    width: 72,
+    height: 72,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
+    ...tokens.shadow.card,
   },
-  title: { ...typography.display, fontSize: 28 },
-  subtitle: { ...typography.body, textAlign: 'center' },
+  title: {
+    ...typography.display,
+    fontSize: 30,
+    fontWeight: '700',
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    ...typography.body,
+    textAlign: 'center',
+    maxWidth: 320,
+    lineHeight: 22,
+  },
   card: {
     borderRadius: tokens.radius.lg,
     borderWidth: 1,
     padding: spacing.lg,
-    gap: spacing.sm,
+    gap: spacing.md,
     ...tokens.shadow.card,
   },
-  error: { ...typography.caption, marginTop: spacing.xs },
-  loginBtn: { marginTop: spacing.sm },
-  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginVertical: spacing.md },
-  divider: { flex: 1, height: 1 },
-  dividerText: { ...typography.caption, fontWeight: '600' },
+  errorBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderRadius: tokens.radius.md,
+    padding: spacing.sm,
+  },
+  error: {
+    ...typography.caption,
+    flex: 1,
+    lineHeight: 18,
+  },
+  loginBtn: { marginTop: spacing.xs, minHeight: 52 },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginVertical: spacing.xs,
+  },
+  divider: { flex: 1, height: StyleSheet.hairlineWidth },
+  dividerText: { ...typography.caption, fontWeight: '700', letterSpacing: 1 },
   qrBtn: { minHeight: 52 },
+  footer: {
+    ...typography.caption,
+    textAlign: 'center',
+  },
 });

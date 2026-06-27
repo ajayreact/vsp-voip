@@ -45,6 +45,22 @@ export function findContactInMaps(maps: ContactLookupMaps, number: string): Cont
   );
 }
 
+export function flattenContactsWithSections(contacts: ContactEntry[]): ContactListItem[] {
+  const groups = groupContactsByLetter(contacts);
+  const items: ContactListItem[] = [];
+  for (const group of groups) {
+    items.push({ type: 'section', key: `section-${group.letter}`, letter: group.letter });
+    for (const contact of group.items) {
+      items.push({ type: 'contact', key: contact.id, contact });
+    }
+  }
+  return items;
+}
+
+export type ContactListItem =
+  | { type: 'section'; key: string; letter: string }
+  | { type: 'contact'; key: string; contact: ContactEntry };
+
 export function groupContactsByLetter(contacts: ContactEntry[]): { letter: string; items: ContactEntry[] }[] {
   const groups = new Map<string, ContactEntry[]>();
   for (const contact of contacts) {

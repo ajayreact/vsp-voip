@@ -2,7 +2,6 @@ import React, { useEffect } from 'react';
 import {
   TelnyxVoiceApp,
   createTokenConfig,
-  canMakeCalls,
   TelnyxConnectionState,
   TelnyxCallState,
   CallStateHelpers,
@@ -217,9 +216,10 @@ export function TelnyxCallingProvider({ children }: Props) {
   );
 }
 
+import { usePhoneConnection } from '../hooks/usePhoneConnection';
+
 export function useCanPlaceCalls() {
-  const connectionState = useCallingStore((s) => s.connectionState);
-  return canMakeCalls(connectionState);
+  return usePhoneConnection().canPlaceCalls;
 }
 
 export function connectionLabel(state: TelnyxConnectionState) {

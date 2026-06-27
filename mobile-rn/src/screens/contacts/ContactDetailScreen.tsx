@@ -8,6 +8,7 @@ import { Avatar, ErrorScreen } from '../../components';
 import { FadeInView } from '../../components/ui/FadeInView';
 import { SkeletonContactDetail } from '../../components/ui/SkeletonLoader';
 import { getFriendlyCallError, placeOutboundCall } from '../../calling/callingController';
+import { usePhoneConnection } from '../../hooks/usePhoneConnection';
 import { fetchContactDetail, mapExtensionToContact } from '../../contacts';
 import { useAuth } from '../../hooks/useAuth';
 import { useConversations } from '../../hooks/useConversations';
@@ -72,6 +73,7 @@ export function ContactDetailScreen({ route, navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [calling, setCalling] = useState(false);
+  const { canPlaceCalls } = usePhoneConnection();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -120,11 +122,18 @@ export function ContactDetailScreen({ route, navigation }: Props) {
 
   async function handleCall() {
     if (!dialNumber) return;
+    if (!canPlaceCalls) {
+      Alert.alert(
+        'Unable to place call',
+        'The phone is not connected. Please wait while we reconnect.',
+      );
+      return;
+    }
     setCalling(true);
     try {
       await placeOutboundCall(dialNumber);
     } catch (err) {
-      Alert.alert('Call failed', getFriendlyCallError(err));
+      Alert.alert('Unable to place call', getFriendlyCallError(err));
     } finally {
       setCalling(false);
     }
@@ -194,7 +203,7 @@ export function ContactDetailScreen({ route, navigation }: Props) {
             icon="call-outline"
             label="Audio"
             onPress={() => void handleCall()}
-            disabled={calling || !dialNumber}
+            disabled={calling || !dialNumber || !canPlaceCalls}
           />
           <QuickAction icon="videocam-outline" label="Video" onPress={() => {}} disabled />
         </View>

@@ -1,5 +1,5 @@
 import type { Call } from '@telnyx/react-voice-commons-sdk';
-import { TelnyxCallState } from '@telnyx/react-voice-commons-sdk';
+import { TelnyxCallState, canMakeCalls } from '@telnyx/react-voice-commons-sdk';
 import { fetchContacts } from '../contacts/contactsService';
 import { useCallingStore, type CallSessionSnapshot } from '../store/callingStore';
 import { getFriendlyErrorMessage } from '../utils/friendlyError';
@@ -36,6 +36,13 @@ export class CallInProgressError extends Error {
   constructor() {
     super('Unable to place call. Finish or end your current call first.');
     this.name = 'CallInProgressError';
+  }
+}
+
+export class CallNotConnectedError extends Error {
+  constructor() {
+    super('Unable to place call. The phone is not connected. Please wait while we reconnect.');
+    this.name = 'CallNotConnectedError';
   }
 }
 
@@ -163,8 +170,12 @@ export async function placeOutboundCall(destination: string) {
     throw new CallInProgressError();
   }
 
+  const { defaultCallerId, tenantNumbers, connectionState, isRegistering } = useCallingStore.getState();
+  if (isRegistering || !canMakeCalls(connectionState)) {
+    throw new CallNotConnectedError();
+  }
+
   const client = getTelnyxVoipClient();
-  const { defaultCallerId, tenantNumbers } = useCallingStore.getState();
   const normalized = normalizeDestination(destination);
   if (!normalized) throw new Error('Enter a valid phone number or extension.');
   const callerNumber = defaultCallerId || tenantNumbers[0] || undefined;
@@ -342,6 +353,9 @@ export function clearContactsCache() {
 export function getFriendlyCallError(error: unknown): string {
   if (error instanceof CallInProgressError) {
     return 'Unable to place call. End your current call first.';
+  }
+  if (error instanceof CallNotConnectedError) {
+    return error.message;
   }
   return getFriendlyErrorMessage(error, 'calls');
 }

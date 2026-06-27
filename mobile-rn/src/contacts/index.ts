@@ -5,4 +5,5 @@ export {
   mapExtensionToContact,
 } from './contactsService';
 export { findContactByNumber } from './contactLookup';
-export { buildContactLookupMaps, findContactInMaps, groupContactsByLetter } from './contactIndex';
+export { buildContactLookupMaps, findContactInMaps, flattenContactsWithSections, groupContactsByLetter } from './contactIndex';
+export type { ContactListItem } from './contactIndex';

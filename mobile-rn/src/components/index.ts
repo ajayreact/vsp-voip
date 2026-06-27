@@ -6,6 +6,7 @@ export { LoadingScreen } from './LoadingScreen';
 export { ErrorScreen } from './ErrorScreen';
 export { OfflineScreen } from './OfflineScreen';
 export { NetworkStatusBanner } from './NetworkStatusBanner';
+export { ConnectionStatus } from './ConnectionStatus';
 export { SessionExpiredScreen } from './SessionExpiredScreen';
 export { SplashScreenView, hideSplashScreen } from './SplashScreenView';
 export { SearchBar } from './SearchBar';

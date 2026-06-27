@@ -54,6 +54,15 @@ export function getFriendlyErrorMessage(error: unknown, context?: string): strin
   if (/finish or end your current call/i.test(message)) {
     return 'Unable to place call. End your current call first.';
   }
+  if (/phone is not connected/i.test(message)) {
+    return 'Unable to place call. The phone is not connected. Please wait while we reconnect.';
+  }
+  if (/cannot make call when connection state/i.test(message)) {
+    return 'Unable to place call. The phone is not connected. Please wait while we reconnect.';
+  }
+  if (/connection state is:\s*(error|connecting|disconnected|reconnecting|offline)/i.test(message)) {
+    return 'Unable to place call. The phone is not connected. Please wait while we reconnect.';
+  }
   if (/valid phone number or extension/i.test(message)) {
     return 'Enter a valid phone number or extension.';
   }

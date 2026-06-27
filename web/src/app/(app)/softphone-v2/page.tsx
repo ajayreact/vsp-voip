@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { TelnyxRTC } from '@telnyx/webrtc';
 import type { Call } from '@telnyx/webrtc';
-import { getSoftphoneConfig, getSoftphoneToken, getExtensions, getMe, isUnauthorizedError } from '@/lib/api';
+import { getSoftphoneConfig, getSoftphoneToken, getExtensions, getMe, initiateInternalExtensionCall, isUnauthorizedError } from '@/lib/api';
 import { persistStoredCallerId, resolveStoredCallerId } from '@/lib/softphone-caller-id';
 import { postServerCallLog, postCallAccepted, postBlindTransfer } from '@/lib/softphone-call-log-client';
 import { isSoftphoneV2Enabled } from '@/lib/softphone-config';
@@ -20,11 +20,20 @@ import {
   type TelnyxReconnectController,
 } from '@/lib/softphone-v2-reconnect';
 import { stopOutboundRingback, syncOutboundRingback } from '@/lib/softphone-v2-ringback';
+import {
+  canConfirmOutboundAnswer,
+  createOutboundAnswerTracker,
+  noteOutboundProgress,
+  resetOutboundAnswerTracker,
+  resolveOutboundUiCallState,
+  type OutboundAnswerTracker,
+} from '@/lib/softphone-outbound-answer';
 import { trackSoftphoneEvent, subscribeSoftphoneTelemetry, type SoftphoneTelemetrySnapshot } from '@/lib/softphone-telemetry';
 import {
   buildTelnyxClientOptions,
   bindRemoteAudioTarget,
   bindTelnyxTokenLifecycle,
+  waitForRemoteAudioElement,
 } from '@/lib/telnyx-softphone-session';
 import { logPeerConnectionDiagnostics } from '@/lib/telnyx-debug';
 import {
@@ -33,7 +42,7 @@ import {
   resolveInboundCallerNameHint,
   type InboundCallerNotification,
 } from '@/lib/inbound-caller-display';
-import { isInboundCall } from '@/lib/softphone-call-utils';
+import { isConnectingCallState, isInboundCall } from '@/lib/softphone-call-utils';
 import {
   detachRemoteCallAudio,
   resolvePeerConnection,
@@ -474,6 +483,7 @@ function SoftphoneV2Content() {
   const [status, setStatus] = useState('Initializing…');
   const [callSeconds, setCallSeconds] = useState(0);
   const [callState, setCallState] = useState('');
+  const [callAnswered, setCallAnswered] = useState(false);
   const [displayNumber, setDisplayNumber] = useState('');
   const [callerDisplayNameHint, setCallerDisplayNameHint] = useState('');
   const [lastDtmf, setLastDtmf] = useState('');
@@ -502,6 +512,7 @@ function SoftphoneV2Content() {
   const callSessionRef = useRef<ActiveCallSession | null>(null);
   const callerNumberRef = useRef('');
   const callDirectionRef = useRef<'inbound' | 'outbound' | ''>('');
+  const callAnsweredRef = useRef(false);
   const displayNumberRef = useRef('');
   const tenantNumbersRef = useRef<string[]>([]);
   const saveCallToHistoryRef = useRef<() => void>(() => {});
@@ -514,6 +525,14 @@ function SoftphoneV2Content() {
   const localMediaStreamRef = useRef<MediaStream | null>(null);
   const reconnectControllerRef = useRef<TelnyxReconnectController | null>(null);
   const registrationSuccessEmittedRef = useRef(false);
+  const outboundAnswerTrackerRef = useRef<OutboundAnswerTracker>(createOutboundAnswerTracker());
+  const pendingInternalExtensionRef = useRef<{
+    targetNumber: string;
+    targetDisplayName: string;
+  } | null>(null);
+  const internalBridgeAutoAnswerRef = useRef(false);
+  const internalBridgeAwaitingDeskRef = useRef(false);
+  const internalBridgeActiveCountRef = useRef(0);
   const unwireCallAudioRef = useRef<(() => void) | null>(null);
   const sendPathProbeStopRef = useRef<(() => void) | null>(null);
   const telemetryRef = useRef<{
@@ -633,7 +652,7 @@ function SoftphoneV2Content() {
 
   const syncTimerWithCallState = (state: string | number | undefined | null) => {
     const normalized = normalizeCallState(state);
-    if (normalized === 'active') {
+    if (normalized === 'active' && callAnswered) {
       startTimer();
       return;
     }
@@ -780,6 +799,8 @@ function SoftphoneV2Content() {
   const markCallSessionActive = (callId: string) => {
     if (callSessionRef.current?.callId === callId) {
       callSessionRef.current.reachedActive = true;
+      setCallAnswered(true);
+      callAnsweredRef.current = true;
       trackCallConnected(
         callId,
         callSessionRef.current.number,
@@ -792,18 +813,104 @@ function SoftphoneV2Content() {
         direction: callSessionRef.current.direction,
         status: 'connected',
       });
+      syncTimerWithCallState('active');
+    }
+  };
+
+  const resetOutboundAnswerGate = () => {
+    resetOutboundAnswerTracker(outboundAnswerTrackerRef.current);
+    internalBridgeAutoAnswerRef.current = false;
+    internalBridgeAwaitingDeskRef.current = false;
+    internalBridgeActiveCountRef.current = 0;
+    pendingInternalExtensionRef.current = null;
+    setCallAnswered(false);
+    callAnsweredRef.current = false;
+  };
+
+  const tryConfirmOutboundAnswer = (call: Call, callId: string, eventType?: string) => {
+    if (internalBridgeAwaitingDeskRef.current) {
+      if (
+        eventType === 'participantData'
+        || eventType === 'telnyx_rtc.attach'
+      ) {
+        internalBridgeAwaitingDeskRef.current = false;
+        markCallSessionActive(callId);
+        return true;
+      }
+      if (normalizeCallState(call.state) === 'active') {
+        internalBridgeActiveCountRef.current += 1;
+        if (
+          internalBridgeActiveCountRef.current >= 2
+          && outboundAnswerTrackerRef.current.remoteRingSeen
+        ) {
+          internalBridgeAwaitingDeskRef.current = false;
+          markCallSessionActive(callId);
+          return true;
+        }
+      }
+      return false;
+    }
+
+    if (!canConfirmOutboundAnswer(call, outboundAnswerTrackerRef.current)) {
+      logTelnyx('outbound.defer-connected', {
+        callId,
+        state: call.state,
+        prevState: (call as Call & { prevState?: string | number }).prevState,
+        remoteRingSeen: outboundAnswerTrackerRef.current.remoteRingSeen,
+        lastProgress: outboundAnswerTrackerRef.current.lastProgressState,
+      });
+      return false;
+    }
+    markCallSessionActive(callId);
+    return true;
+  };
+
+  const autoAnswerInternalBridgeCall = async (call: Call) => {
+    internalBridgeAutoAnswerRef.current = true;
+    internalBridgeAwaitingDeskRef.current = true;
+    internalBridgeActiveCountRef.current = 0;
+    try {
+      const extended = call as Call & {
+        options?: {
+          remoteElement?: string | HTMLMediaElement;
+          localStream?: MediaStream;
+          audio?: boolean;
+        };
+      };
+      const audioEl = getRemoteAudioElement();
+      const localStream = await acquireMicrophoneStream(localMediaStreamRef);
+      if (extended.options) {
+        extended.options.localStream = localStream;
+        extended.options.remoteElement = audioEl ?? REMOTE_AUDIO_ID;
+        extended.options.audio = true;
+      }
+      await call.answer();
+      attachCallMedia(call, 'internal-bridge:answer');
+      window.setTimeout(() => {
+        noteOutboundProgress(outboundAnswerTrackerRef.current, 'ringing');
+      }, 1000);
+      logTelnyx('internal-bridge.auto-answer');
+    } catch (err) {
+      logTelnyx('internal-bridge.auto-answer.error', err);
+      internalBridgeAutoAnswerRef.current = false;
+      internalBridgeAwaitingDeskRef.current = false;
     }
   };
 
   const finalizeCallSession = () => {
     saveCallToHistory();
     resetCallTelemetry();
+    resetOutboundAnswerGate();
     callSessionRef.current = null;
     setCallDirection('');
     callDirectionRef.current = '';
     setIncomingReceivedAt('');
     setCallerDisplayNameHint('');
   };
+
+  useEffect(() => {
+    callAnsweredRef.current = callAnswered;
+  }, [callAnswered]);
 
   useEffect(() => {
     callerNumberRef.current = callerNumber;
@@ -823,8 +930,12 @@ function SoftphoneV2Content() {
   }, [telnyxReady]);
 
   useEffect(() => {
-    void syncOutboundRingback(callRef.current, callDirection, callState);
-  }, [callState, callDirection]);
+    void syncOutboundRingback(
+      callRef.current,
+      callDirection,
+      resolveOutboundUiCallState(callState, callDirection, callAnswered),
+    );
+  }, [callState, callDirection, callAnswered]);
 
   useEffect(() => {
     setCallHistory(loadCallHistory());
@@ -864,7 +975,8 @@ function SoftphoneV2Content() {
     callSecondsRef.current = callSeconds;
   }, [callSeconds]);
 
-  const showIncomingOverlay = callState === 'ringing' && callDirection === 'inbound';
+  const showIncomingOverlay = callDirection === 'inbound'
+    && isConnectingCallState(callState);
 
   useEffect(() => {
     if (showIncomingOverlay) {
@@ -959,12 +1071,20 @@ function SoftphoneV2Content() {
           },
         });
 
-        const audioEl = getRemoteAudioElement();
+        let audioEl = getRemoteAudioElement();
+        if (!audioEl) {
+          try {
+            audioEl = await waitForRemoteAudioElement(
+              { current: null },
+              REMOTE_AUDIO_ID,
+            );
+          } catch (err) {
+            logTelnyx('boot.remote-audio-missing', err);
+          }
+        }
         if (audioEl) {
           bindRemoteAudioTarget(client, audioEl);
           logTelnyx('boot.remote-audio-bound', { id: audioEl.id });
-        } else {
-          logTelnyx('boot.remote-audio-missing');
         }
 
         reconnectControllerRef.current = createTelnyxReconnectController({
@@ -1033,9 +1153,14 @@ function SoftphoneV2Content() {
               id: payload.call.id,
               state: payload.call.state,
             });
-            syncTimerWithCallState(payload.call.state);
             if (mounted) {
               const ownedInboundNumbers = getOwnedInboundNumbers();
+              const notificationIsOutboundLeg = callDirectionRef.current === 'outbound'
+                || callSessionRef.current?.direction === 'outbound';
+              if (notificationIsOutboundLeg) {
+                noteOutboundProgress(outboundAnswerTrackerRef.current, normalized);
+              }
+
               setCallState(normalized);
               const pstnCallerHint = callSessionRef.current?.pstnCaller || '';
               setDisplayNumber((prev) => {
@@ -1072,6 +1197,33 @@ function SoftphoneV2Content() {
               const notificationIsInbound = isInboundCall(payload.call)
                 && existingSession?.direction !== 'outbound'
                 && callDirectionRef.current !== 'outbound';
+
+              const pendingInternal = pendingInternalExtensionRef.current;
+              if (
+                pendingInternal
+                && isInboundCall(payload.call)
+                && callId
+                && !terminal
+              ) {
+                pendingInternalExtensionRef.current = null;
+                const targetLabel = pendingInternal.targetDisplayName
+                  || pendingInternal.targetNumber;
+                displayNumberRef.current = targetLabel;
+                setDisplayNumber(targetLabel);
+                setCallDirection('outbound');
+                callDirectionRef.current = 'outbound';
+                if (!callSessionRef.current || callSessionRef.current.callId !== callId) {
+                  beginCallSession(callId, targetLabel, 'outbound');
+                }
+                if (
+                  normalized === 'ringing'
+                  || normalized === 'trying'
+                  || normalized === 'early'
+                  || normalized === 'answering'
+                ) {
+                  void autoAnswerInternalBridgeCall(payload.call);
+                }
+              }
 
               // Telnyx callUpdate may emit hangup/destroy/purge sequentially — never
               // start a new session on a terminal notification (see SDK State enum).
@@ -1110,12 +1262,24 @@ function SoftphoneV2Content() {
               }
 
               if (normalized === 'active' && callId) {
-                markCallSessionActive(callId);
+                if (notificationIsInbound) {
+                  markCallSessionActive(callId);
+                } else {
+                  tryConfirmOutboundAnswer(payload.call, callId, payload.type);
+                }
                 attachCallMedia(
                   payload.call,
                   notificationIsInbound ? 'inbound:active' : 'outbound:active',
                 );
                 stopIncomingRingtoneRef.current();
+              } else if (
+                callId
+                && payload.type
+                && (callDirectionRef.current === 'outbound'
+                  || internalBridgeAwaitingDeskRef.current)
+                && !callAnsweredRef.current
+              ) {
+                tryConfirmOutboundAnswer(payload.call, callId, payload.type);
               }
 
               if (terminal) {
@@ -1142,6 +1306,7 @@ function SoftphoneV2Content() {
                 }
 
                 resetCallTelemetry();
+                resetOutboundAnswerGate();
                 callSessionRef.current = null;
                 setCallDirection('');
                 callDirectionRef.current = '';
@@ -1242,6 +1407,11 @@ function SoftphoneV2Content() {
     const { destinationNumber, isExtension } = resolveOutboundDestination(number);
     logTelnyx('call.click', { destinationNumber, callerNumber, isExtension });
 
+    if (!telnyxReady) {
+      logTelnyx('call.blocked', 'not registered');
+      setStatus('Softphone not registered — wait for Ready status');
+      return;
+    }
     if (!client) {
       logTelnyx('call.blocked', 'no client');
       return;
@@ -1258,7 +1428,41 @@ function SoftphoneV2Content() {
     const outboundCallerId = normalizeDialNumber(callerNumber);
     resetTimer();
     resetInCallControls();
+    resetOutboundAnswerGate();
     setDisplayNumber(destinationNumber);
+
+    if (isExtension) {
+      try {
+        setCallDirection('outbound');
+        callDirectionRef.current = 'outbound';
+        setCallState('requesting');
+        const result = await initiateInternalExtensionCall(destinationNumber);
+        pendingInternalExtensionRef.current = {
+          targetNumber: destinationNumber,
+          targetDisplayName: result.targetDisplayName || `Ext ${destinationNumber}`,
+        };
+        setDisplayNumber(pendingInternalExtensionRef.current.targetDisplayName);
+        logTelnyx('internal-call.originated', result);
+        trackSoftphoneEvent('Call Started', {
+          callId: result.callControlId,
+          number: destinationNumber,
+          direction: 'outbound',
+        });
+      } catch (err) {
+        logTelnyx('internal-call.error', err);
+        resetOutboundAnswerGate();
+        setCallState('');
+        setCallDirection('');
+        callDirectionRef.current = '';
+        trackSoftphoneEvent('Call Failed', {
+          callId: 'unknown',
+          number: destinationNumber,
+          direction: 'outbound',
+          reason: err instanceof Error ? err.message : 'internal-call.error',
+        });
+      }
+      return;
+    }
 
     try {
       const audioEl = getRemoteAudioElement();
@@ -1283,6 +1487,7 @@ function SoftphoneV2Content() {
       beginCallSession(call.id, destinationNumber, 'outbound');
       setCallDirection('outbound');
       setCallState(normalizeCallState(call.state));
+      noteOutboundProgress(outboundAnswerTrackerRef.current, normalizeCallState(call.state));
       logTelnyx('newCall.returned', {
         id: call.id,
         state: call.state,
@@ -1470,9 +1675,11 @@ function SoftphoneV2Content() {
     setShowInCallKeypad((prev) => !prev);
   };
 
+  const inCallMediaReady = callAnswered && (callState === 'active' || callState === 'held');
+
   const onDtmf = (digit: string) => {
     const call = callRef.current as CallWithControls | null;
-    if (!call || callState !== 'active') return;
+    if (!call || !inCallMediaReady) return;
 
     console.log('[softphone-v2] dtmf', digit);
     logTelnyx('dtmf', digit);
@@ -1487,7 +1694,7 @@ function SoftphoneV2Content() {
 
   const onToggleMute = () => {
     const call = callRef.current as CallWithControls | null;
-    if (!call || callState !== 'active') return;
+    if (!call || !inCallMediaReady) return;
     try {
       if (muted) {
         call.unmuteAudio?.();
@@ -1503,7 +1710,7 @@ function SoftphoneV2Content() {
 
   const onToggleHold = () => {
     const call = callRef.current as CallWithControls | null;
-    if (!call || (callState !== 'active' && callState !== 'held')) return;
+    if (!call || !inCallMediaReady) return;
     try {
       if (onHold) {
         call.unhold?.();
@@ -1530,7 +1737,7 @@ function SoftphoneV2Content() {
   };
 
   const onTransfer = async () => {
-    if (transferBusy || callDirection !== 'inbound' || callState !== 'active') return;
+    if (transferBusy || callDirection !== 'inbound' || !inCallMediaReady) return;
 
     const destination = window.prompt('Transfer to (extension or phone number):');
     if (!destination?.trim()) return;
@@ -1564,9 +1771,13 @@ function SoftphoneV2Content() {
     logTelnyx('caller-id.changed', { callerNumber: value });
   };
 
-  const canPlaceCall = isValidDialInput(destination) && Boolean(callerNumber);
-  const hasLiveCall = Boolean(callRef.current && callState && !['hangup', 'destroy', 'destroyed', 'purge', 'error', ''].includes(callState));
-  const isCallActive = callState === 'active';
+  const canPlaceCall = telnyxReady
+    && isValidDialInput(destination)
+    && Boolean(callerNumber);
+  const hasLiveCall = Boolean(callRef.current && callState && !['hangup', 'destroy', 'destroyed', 'purge', 'error', ''].includes(callState))
+    || Boolean(pendingInternalExtensionRef.current);
+  const isCallActive = callAnswered && (callState === 'active' || callState === 'held');
+  const uiCallState = resolveOutboundUiCallState(callState, callDirection, callAnswered);
   const activeCallCount = hasLiveCall ? 1 : 0;
   const failedCallCount = callHistory.filter((record) => record.status !== 'completed').length;
   const missedCallCount = callHistory.filter((record) => isInboundMissedStatus(record.status)).length;
@@ -1587,7 +1798,7 @@ function SoftphoneV2Content() {
       showIncomingOverlay={showIncomingOverlay}
       hasLiveCall={hasLiveCall}
       isCallActive={isCallActive}
-      callState={callState}
+      callState={uiCallState}
       callDirection={callDirection}
       displayNumber={displayNumber}
       callerDisplayNameHint={callerDisplayNameHint}

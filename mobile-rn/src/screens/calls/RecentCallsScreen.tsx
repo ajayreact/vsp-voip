@@ -27,6 +27,7 @@ import {
   type RecentCallListItem,
 } from '../../calling/groupRecentCalls';
 import { getFriendlyCallError, placeOutboundCall } from '../../calling/callingController';
+import { usePhoneConnection } from '../../hooks/usePhoneConnection';
 import { buildContactLookupMaps, findContactInMaps } from '../../contacts/contactIndex';
 import { useContacts } from '../../hooks/useContacts';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
@@ -61,6 +62,7 @@ export function RecentCallsScreen({ navigation }: Props) {
   const debouncedSearch = useDebouncedValue(search, 250);
   const [isEditing, setIsEditing] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const { canPlaceCalls } = usePhoneConnection();
   const { hiddenIds, hideCall, hideCalls } = useHiddenCallIds();
 
   const { data: calls = [], isLoading, isRefetching, error, refetch } = useRecentCalls();
@@ -149,11 +151,18 @@ export function RecentCallsScreen({ navigation }: Props) {
   );
 
   const handleSwipeCall = useCallback((call: RecentCallListItem & { type: 'call' }) => {
+    if (!canPlaceCalls) {
+      Alert.alert(
+        'Unable to place call',
+        'The phone is not connected. Please wait while we reconnect.',
+      );
+      return;
+    }
     const peer = call.call.direction === 'inbound' ? call.call.from : call.call.to;
     void placeOutboundCall(peer).catch((err) => {
-      Alert.alert('Call failed', getFriendlyCallError(err));
+      Alert.alert('Unable to place call', getFriendlyCallError(err));
     });
-  }, []);
+  }, [canPlaceCalls]);
 
   const handleDelete = useCallback(
     (callId: string) => {
@@ -291,6 +300,8 @@ export function RecentCallsScreen({ navigation }: Props) {
         refreshControl={refreshControl}
         ListEmptyComponent={EMPTY_CALLS}
         renderItem={renderItem}
+        contentContainerStyle={listItems.length === 0 ? styles.emptyList : undefined}
+        style={styles.list}
       />
 
       {isEditing && selectedIds.size > 0 ? (
@@ -361,4 +372,6 @@ const styles = StyleSheet.create({
     color: '#FF3B30',
     fontWeight: '600',
   },
+  list: { flex: 1 },
+  emptyList: { flexGrow: 1 },
 });

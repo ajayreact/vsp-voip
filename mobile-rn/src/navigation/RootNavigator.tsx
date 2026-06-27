@@ -4,7 +4,7 @@ import NetInfo from '@react-native-community/netinfo';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import {
-  NetworkStatusBanner,
+  ConnectionStatus,
   OfflineScreen,
   SessionExpiredScreen,
   SplashScreenView,
@@ -115,7 +115,7 @@ export function RootNavigator() {
     <ThemeContext.Provider value={themeContextValue}>
       <TelnyxCallingProvider>
         <View style={styles.root}>
-          <NetworkStatusBanner />
+          <ConnectionStatus visible={isAuthenticated && !sessionExpired} />
           <NavigationContainer ref={navigationRef} theme={navTheme}>
             <Stack.Navigator screenOptions={{ headerShown: false, freezeOnBlur: true }}>
               {sessionExpired ? (
