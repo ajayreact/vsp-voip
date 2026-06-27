@@ -1,5 +1,6 @@
 import type { Call } from '@telnyx/webrtc';
 import { isTerminalCallState, normalizeCallState } from '@/lib/telnyx-debug';
+import { resolveInboundCallerDisplay } from './inbound-caller-display';
 
 export type TelnyxSoftphoneNotification = {
   type?: string;
@@ -36,14 +37,24 @@ export function isInboundCall(call: Call | null | undefined) {
 export function resolveRemoteCallerNumber(call: Call | null | undefined) {
   if (!call) return '';
 
-  const options = (call as Call & {
+  const extended = call as Call & {
+    remotePartyNumber?: string;
     options?: {
       remoteCallerNumber?: string;
+      remotePartyNumber?: string;
       callerNumber?: string;
       callerName?: string;
       remoteCallerName?: string;
+      destinationNumber?: string;
     };
-  }).options;
+  };
+  const options = extended.options;
+
+  // Telnyx JS SDK: inbound caller is call.remotePartyNumber (see call-state-lifecycle.md).
+  if (isInboundCall(call)) {
+    const { chosenDisplayNumber } = resolveInboundCallerDisplay(extended);
+    return chosenDisplayNumber === 'Unknown' ? '' : chosenDisplayNumber;
+  }
 
   return (
     options?.remoteCallerNumber

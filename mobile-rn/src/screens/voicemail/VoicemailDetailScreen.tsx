@@ -2,14 +2,17 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { VoicemailRecord } from '../../api/types';
-import { Button, ErrorScreen, LoadingScreen, VspBadge, VspPanel } from '../../components';
-import type { VoicemailStackParamList } from '../../navigation/types';
+import { Button, ErrorScreen, VspBadge, VspPanel, FriendlyError } from '../../components';
+import { FadeInView } from '../../components/ui/FadeInView';
+import { SkeletonVoicemailDetail } from '../../components/ui/SkeletonLoader';
+import type { CallsStackParamList, YouStackParamList } from '../../navigation/types';
 import { fetchVoicemails, markVoicemailRead } from '../../voicemail';
 import { useTheme } from '../../shared/theme';
 import { formatPhone, formatRelativeTime } from '../../utils/format';
+import { getFriendlyErrorMessage } from '../../utils/friendlyError';
 import { spacing, typography } from '../../shared/theme';
 
-type Props = NativeStackScreenProps<VoicemailStackParamList, 'VoicemailDetail'>;
+type Props = NativeStackScreenProps<CallsStackParamList & YouStackParamList, 'VoicemailDetail'>;
 
 export function VoicemailDetailScreen({ route }: Props) {
   const { voicemailId } = route.params;
@@ -30,7 +33,7 @@ export function VoicemailDetailScreen({ route }: Props) {
         setVm(updated);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load voicemail');
+      setError(getFriendlyErrorMessage(err, 'voicemail'));
     } finally {
       setLoading(false);
     }
@@ -40,8 +43,15 @@ export function VoicemailDetailScreen({ route }: Props) {
     load();
   }, [load]);
 
-  if (loading) return <LoadingScreen message="Loading message…" />;
-  if (error || !vm) return <ErrorScreen message={error || 'Voicemail not found'} onRetry={load} />;
+  if (loading) return <SkeletonVoicemailDetail />;
+  if (error || !vm) {
+    return (
+      <FriendlyError
+        message={error || 'Voicemail not found'}
+        onRetry={load}
+      />
+    );
+  }
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={styles.content}>

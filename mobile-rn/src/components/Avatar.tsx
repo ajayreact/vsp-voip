@@ -1,21 +1,25 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
+import { FadeInView } from './ui/FadeInView';
 import { useTheme } from '../shared/theme';
 import { callerInitials } from '../utils/format';
+import { MOTION } from '../lib/animations';
 import { typography } from '../shared/theme';
 
 type AvatarProps = {
   name: string;
   size?: number;
   online?: boolean;
+  uri?: string | null;
 };
 
-export function Avatar({ name, size = 44, online }: AvatarProps) {
+function AvatarComponent({ name, size = 44, online, uri }: AvatarProps) {
   const { colors } = useTheme();
   const fontSize = size * 0.36;
 
   return (
-    <View style={{ position: 'relative' }}>
+    <FadeInView style={styles.wrap}>
       <View
         style={[
           styles.circle,
@@ -27,9 +31,20 @@ export function Avatar({ name, size = 44, online }: AvatarProps) {
           },
         ]}
       >
-        <Text style={[styles.initials, { color: colors.primary, fontSize }]}>
-          {callerInitials(name)}
-        </Text>
+        {uri ? (
+          <Image
+            source={{ uri }}
+            style={{ width: size, height: size, borderRadius: size / 2 }}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+            transition={MOTION.imageTransitionMs}
+            accessibilityLabel={`Avatar for ${name}`}
+          />
+        ) : (
+          <Text style={[styles.initials, { color: colors.primary, fontSize }]}>
+            {callerInitials(name)}
+          </Text>
+        )}
       </View>
       {online !== undefined ? (
         <View
@@ -42,14 +57,18 @@ export function Avatar({ name, size = 44, online }: AvatarProps) {
           ]}
         />
       ) : null}
-    </View>
+    </FadeInView>
   );
 }
 
+export const Avatar = memo(AvatarComponent);
+
 const styles = StyleSheet.create({
+  wrap: { position: 'relative' },
   circle: {
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   initials: {
     ...typography.subtitle,

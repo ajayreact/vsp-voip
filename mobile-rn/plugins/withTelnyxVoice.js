@@ -79,7 +79,7 @@ function withTelnyxAndroidManifest(config) {
     AndroidConfig.Manifest.addMetaDataItemToMainApplication(
       app,
       'com.google.firebase.messaging.default_notification_channel_id',
-      'vsp_calls',
+      'telnyx_voice_calls',
       'value',
     );
 

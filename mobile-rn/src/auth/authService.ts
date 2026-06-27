@@ -29,8 +29,8 @@ export function getCachedAccessToken(): string | null {
 
 async function setSessionTokens(accessToken: string, refreshToken?: string | null) {
   accessTokenCache = accessToken;
-  refreshTokenCache = refreshToken ?? refreshTokenCache;
-  await saveTokens(accessToken, refreshToken ?? undefined);
+  refreshTokenCache = refreshToken ?? null;
+  await saveTokens(accessToken, refreshToken ?? null);
 }
 
 export async function clearSession(): Promise<void> {
@@ -38,6 +38,11 @@ export async function clearSession(): Promise<void> {
   refreshTokenCache = null;
   refreshPromise = null;
   await clearTokens();
+}
+
+export async function loginWithAccessToken(accessToken: string, refreshToken?: string | null): Promise<User> {
+  await setSessionTokens(accessToken, refreshToken ?? null);
+  return fetchCurrentUser();
 }
 
 export async function login(email: string, password: string): Promise<LoginResponse> {
@@ -111,15 +116,17 @@ export async function bootstrapSession(): Promise<User | null> {
 }
 
 export async function logout(): Promise<void> {
+  const refreshToken = refreshTokenCache || (await loadStoredTokens()).refreshToken;
   try {
     if (accessTokenCache) {
       await apiRequest(endpoints.auth.logout, {
         method: 'POST',
         token: accessTokenCache,
+        body: refreshToken ? { refreshToken } : undefined,
       });
     }
   } catch {
-    // Backend logout is planned; ignore until endpoint exists.
+    // Clear local session even if server logout fails.
   } finally {
     await clearSession();
   }

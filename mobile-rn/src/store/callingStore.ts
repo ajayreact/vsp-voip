@@ -41,6 +41,8 @@ type CallingState = {
   patchIncomingCall: (patch: Partial<CallSessionSnapshot>) => void;
   resetCalls: () => void;
   retryRegistration: () => void;
+  pushTokenSyncAttempt: number;
+  requestPushTokenSync: () => void;
 };
 
 export const useCallingStore = create<CallingState>((set) => ({
@@ -69,5 +71,9 @@ export const useCallingStore = create<CallingState>((set) => ({
   retryRegistration: () => set((state) => ({
     registrationAttempt: state.registrationAttempt + 1,
     registrationError: null,
+  })),
+  pushTokenSyncAttempt: 0,
+  requestPushTokenSync: () => set((state) => ({
+    pushTokenSyncAttempt: state.pushTokenSyncAttempt + 1,
   })),
 }));

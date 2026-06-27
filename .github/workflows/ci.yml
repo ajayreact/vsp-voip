@@ -48,6 +48,8 @@ jobs:
           sleep 5
           curl -sf http://localhost:3000/health
           curl -sf http://localhost:3000/ready || true
+      - name: Deploy smoke
+        run: node scripts/smoke-deploy.js
 
   web:
     runs-on: ubuntu-latest

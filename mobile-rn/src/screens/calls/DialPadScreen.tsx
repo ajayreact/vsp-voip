@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { TelnyxConnectionState } from '@telnyx/react-voice-commons-sdk';
-import { Button, VspDialDisplay, VspDialPad } from '../../components';
-import { placeOutboundCall } from '../../calling/callingController';
-import { connectionLabel, useCanPlaceCalls } from '../../calling/TelnyxCallingProvider';
-import { useCallingStore } from '../../store/callingStore';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { VspDialPad } from '../../components';
+import { placeOutboundCall, getFriendlyCallError } from '../../calling/callingController';
+import { useCanPlaceCalls } from '../../calling/TelnyxCallingProvider';
 import { useTheme } from '../../shared/theme';
 import { formatPhone } from '../../utils/format';
 import { spacing, typography } from '../../shared/theme';
@@ -14,12 +14,6 @@ export function DialPadScreen() {
   const [digits, setDigits] = useState('');
   const [placing, setPlacing] = useState(false);
   const [callError, setCallError] = useState<string | null>(null);
-
-  const connectionState = useCallingStore((s) => s.connectionState);
-  const registrationError = useCallingStore((s) => s.registrationError);
-  const isRegistering = useCallingStore((s) => s.isRegistering);
-  const defaultCallerId = useCallingStore((s) => s.defaultCallerId);
-  const retryRegistration = useCallingStore((s) => s.retryRegistration);
   const canPlace = useCanPlaceCalls();
 
   function append(d: string) {
@@ -39,106 +33,118 @@ export function DialPadScreen() {
       await placeOutboundCall(digits);
       setDigits('');
     } catch (error) {
-      setCallError(error instanceof Error ? error.message : 'Unable to place call');
+      setCallError(getFriendlyCallError(error));
     } finally {
       setPlacing(false);
     }
   }
 
-  const statusLabel = connectionLabel(connectionState);
-  const statusTone = registrationError
-    ? colors.error
-    : connectionState === TelnyxConnectionState.CONNECTED
-      ? colors.success
-      : connectionState === TelnyxConnectionState.RECONNECTING
-        ? colors.warning
-        : colors.textMuted;
-
-  const callerHint = defaultCallerId
-    ? `Caller ID ${formatPhone(defaultCallerId)}`
-    : 'Using tenant default caller ID';
-
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: colors.background }}
-      contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled"
-    >
-      <View style={[styles.statusBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <View style={styles.statusRow}>
-          {isRegistering ? <ActivityIndicator size="small" color={colors.primary} /> : null}
-          <Text style={[styles.statusText, { color: statusTone }]}>{statusLabel}</Text>
-        </View>
-        {registrationError ? (
-          <View style={styles.errorRow}>
-            <Text style={[styles.errorText, { color: colors.error }]}>{registrationError}</Text>
-            <Button label="Retry" variant="ghost" onPress={retryRegistration} />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+      <View style={styles.displayArea}>
+        {digits ? (
+          <View style={styles.displayRow}>
+            <Text style={[styles.number, { color: colors.text }]} numberOfLines={1}>
+              {formatPhone(digits)}
+            </Text>
+            <Pressable
+              onPress={backspace}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Delete digit"
+              style={styles.deleteBtn}
+            >
+              <Ionicons name="backspace-outline" size={28} color={colors.textMuted} />
+            </Pressable>
           </View>
-        ) : null}
+        ) : (
+          <View style={styles.displayPlaceholder} />
+        )}
       </View>
 
-      <VspDialDisplay
-        value={digits ? formatPhone(digits) : ''}
-        hint={canPlace ? callerHint : 'Registering with Telnyx…'}
-      />
-      <VspDialPad onDigit={append} />
+      <VspDialPad onDigit={append} variant="iphone" />
+
       {callError ? (
         <Text style={[styles.callError, { color: colors.error }]} accessibilityLiveRegion="polite">
           {callError}
         </Text>
       ) : null}
-      <View style={styles.actions}>
-        <Button label="Clear" variant="ghost" onPress={() => setDigits('')} disabled={!digits} />
-        <Button label="Delete" variant="secondary" onPress={backspace} disabled={!digits} />
-        <Button
-          label={placing ? 'Calling…' : 'Place call'}
+
+      <View style={styles.callWrap}>
+        <Pressable
           onPress={handlePlaceCall}
           disabled={!canPlace || digits.length < 3 || placing}
-        />
+          style={({ pressed }) => [
+            styles.callButton,
+            pressed && styles.callButtonPressed,
+            (!canPlace || digits.length < 3) && styles.callButtonDisabled,
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel="Place call"
+        >
+          {placing ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Ionicons name="call" size={32} color="#fff" />
+          )}
+        </Pressable>
       </View>
-    </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  content: {
+  container: {
+    flex: 1,
+    justifyContent: 'space-between',
     paddingBottom: spacing.xl,
-    gap: spacing.md,
   },
-  statusBar: {
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.sm,
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: spacing.md,
-    gap: spacing.xs,
+  displayArea: {
+    minHeight: 56,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xl,
+    marginTop: spacing.md,
   },
-  statusRow: {
+  displayRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    justifyContent: 'center',
+    gap: spacing.md,
   },
-  statusText: {
-    ...typography.caption,
-    fontWeight: '600',
+  displayPlaceholder: {
+    height: 40,
   },
-  errorRow: {
-    gap: spacing.xs,
+  number: {
+    ...typography.mono,
+    fontSize: 36,
+    fontWeight: '300',
+    flexShrink: 1,
+    textAlign: 'center',
   },
-  errorText: {
-    ...typography.caption,
+  deleteBtn: {
+    padding: spacing.xs,
   },
   callError: {
     ...typography.caption,
     textAlign: 'center',
     paddingHorizontal: spacing.lg,
   },
-  actions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  callWrap: {
+    alignItems: 'center',
+    paddingTop: spacing.lg,
+  },
+  callButton: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#34C759',
+    alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    marginTop: spacing.md,
+  },
+  callButtonPressed: {
+    opacity: 0.85,
+  },
+  callButtonDisabled: {
+    opacity: 0.45,
   },
 });

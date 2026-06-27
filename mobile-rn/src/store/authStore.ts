@@ -2,6 +2,9 @@ import { create } from 'zustand';
 import type { User } from '../api/types';
 import * as authService from '../auth/authService';
 import { isUnauthorizedError } from '../utils/errors';
+import { getFriendlyErrorMessage } from '../utils/friendlyError';
+import { usePushRegistrationStore } from '../notifications/pushTokenService';
+import { useOutboxStore } from '../messaging/outboxStore';
 
 type AuthState = {
   user: User | null;
@@ -12,6 +15,7 @@ type AuthState = {
   error: string | null;
   bootstrap: () => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
+  loginWithQrToken: (accessToken: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   markSessionExpired: () => void;
@@ -43,7 +47,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isAuthenticated: false,
         isBootstrapping: false,
         sessionExpired: expired,
-        error: error instanceof Error ? error.message : 'Session restore failed',
+        error: getFriendlyErrorMessage(error),
       });
     }
   },
@@ -61,7 +65,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (error) {
       set({
         isSubmitting: false,
-        error: error instanceof Error ? error.message : 'Login failed',
+        error: getFriendlyErrorMessage(error),
+      });
+      throw error;
+    }
+  },
+
+  loginWithQrToken: async (accessToken) => {
+    set({ isSubmitting: true, error: null, sessionExpired: false });
+    try {
+      const user = await authService.loginWithAccessToken(accessToken);
+      set({
+        user,
+        isAuthenticated: true,
+        isSubmitting: false,
+        sessionExpired: false,
+      });
+    } catch (error) {
+      set({
+        isSubmitting: false,
+        error: getFriendlyErrorMessage(error),
       });
       throw error;
     }
@@ -69,6 +92,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   logout: async () => {
     await authService.logout();
+    usePushRegistrationStore.getState().reset();
+    useOutboxStore.getState().clear();
     set({ user: null, isAuthenticated: false, error: null, sessionExpired: false });
   },
 
@@ -85,6 +110,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   markSessionExpired: () => {
+    void authService.clearSession().then(() => {
+      usePushRegistrationStore.getState().reset();
+    });
+    useOutboxStore.getState().clear();
     set({
       user: null,
       isAuthenticated: false,

@@ -10,11 +10,11 @@ export function CallOverlay() {
 
   return (
     <>
-      <Modal visible={Boolean(incomingCall && !activeCall)} animationType="none" presentationStyle="fullScreen">
-        {incomingCall ? <IncomingCallScreen session={incomingCall} /> : null}
-      </Modal>
-      <Modal visible={Boolean(activeCall)} animationType="none" presentationStyle="fullScreen">
+      <Modal visible={Boolean(activeCall && !incomingCall)} animationType="none" presentationStyle="fullScreen">
         {activeCall ? <ActiveCallScreen session={activeCall} /> : null}
+      </Modal>
+      <Modal visible={Boolean(incomingCall)} animationType="none" presentationStyle="fullScreen">
+        {incomingCall ? <IncomingCallScreen session={incomingCall} /> : null}
       </Modal>
     </>
   );

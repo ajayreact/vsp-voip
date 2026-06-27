@@ -6,6 +6,7 @@ let speakerForced = false;
 export function startCallAudio(speakerOn = false) {
   if (!active) {
     InCallManager.start({ media: 'audio' });
+    InCallManager.setKeepScreenOn(true);
     active = true;
   }
   setSpeakerEnabled(speakerOn);
@@ -14,12 +15,13 @@ export function startCallAudio(speakerOn = false) {
 export function stopCallAudio() {
   if (!active) return;
   InCallManager.setForceSpeakerphoneOn(false);
+  InCallManager.setKeepScreenOn(false);
   InCallManager.stop();
   active = false;
   speakerForced = false;
 }
 
-/** Earpiece by default; speaker when forced. Bluetooth routes when speaker is off. */
+/** Speaker when forced; earpiece/Bluetooth/wired when speaker is off. */
 export function setSpeakerEnabled(enabled: boolean) {
   speakerForced = enabled;
   InCallManager.setForceSpeakerphoneOn(enabled);
@@ -33,6 +35,13 @@ export function isSpeakerForced() {
 }
 
 export function syncCallAudioRoute(speakerOn: boolean) {
-  if (!active) return;
+  if (!active) {
+    startCallAudio(speakerOn);
+    return;
+  }
   setSpeakerEnabled(speakerOn);
+}
+
+export function isCallAudioActive() {
+  return active;
 }

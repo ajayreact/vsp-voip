@@ -5,3 +5,12 @@ ios/
 dist/
 web-build/
 .build-fixtures/
+.verify-apk/
+.verify-deps/
+*.tgz
+.git/
+coverage/
+*.log
+docs/
+**/.DS_Store
+**/Thumbs.db

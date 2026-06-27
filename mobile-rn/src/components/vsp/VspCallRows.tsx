@@ -1,6 +1,7 @@
-import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { memo } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 import { Avatar } from '../Avatar';
+import { RipplePressable } from '../ui/RipplePressable';
 import { VspBadge } from './VspBadge';
 import { useTheme } from '../../shared/theme';
 import { formatPhone, formatRelativeTime } from '../../utils/format';
@@ -15,7 +16,7 @@ type VspCallRowProps = {
   onPress?: () => void;
 };
 
-export function VspCallRow({
+function VspCallRowComponent({
   peer,
   direction,
   status,
@@ -27,12 +28,10 @@ export function VspCallRow({
   const tone = direction === 'inbound' ? 'primary' : 'muted';
 
   return (
-    <Pressable
+    <RipplePressable
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.row,
-        { backgroundColor: pressed ? colors.backgroundAlt : colors.surface, borderColor: colors.border },
-      ]}
+      disabled={!onPress}
+      style={[styles.row, { backgroundColor: colors.surface, borderColor: colors.border }]}
     >
       <Avatar name={peer} size={40} />
       <View style={styles.content}>
@@ -48,9 +47,11 @@ export function VspCallRow({
         </View>
       </View>
       <Text style={[styles.time, { color: colors.textMuted }]}>{formatRelativeTime(timestamp)}</Text>
-    </Pressable>
+    </RipplePressable>
   );
 }
+
+export const VspCallRow = memo(VspCallRowComponent);
 
 type VspVoicemailRowProps = {
   from: string;
@@ -60,7 +61,7 @@ type VspVoicemailRowProps = {
   onPress?: () => void;
 };
 
-export function VspVoicemailRow({
+function VspVoicemailRowComponent({
   from,
   durationSeconds,
   isRead,
@@ -71,12 +72,13 @@ export function VspVoicemailRow({
   const duration = durationSeconds ? `${Math.round(durationSeconds)}s` : '—';
 
   return (
-    <Pressable
+    <RipplePressable
       onPress={onPress}
-      style={({ pressed }) => [
+      disabled={!onPress}
+      style={[
         styles.row,
         {
-          backgroundColor: pressed ? colors.backgroundAlt : colors.surface,
+          backgroundColor: colors.surface,
           borderColor: colors.border,
           opacity: isRead ? 0.85 : 1,
         },
@@ -95,9 +97,11 @@ export function VspVoicemailRow({
       </View>
       {!isRead ? <View style={[styles.dot, { backgroundColor: colors.primary }]} /> : null}
       <Text style={[styles.time, { color: colors.textMuted }]}>{formatRelativeTime(timestamp)}</Text>
-    </Pressable>
+    </RipplePressable>
   );
 }
+
+export const VspVoicemailRow = memo(VspVoicemailRowComponent);
 
 const styles = StyleSheet.create({
   row: {

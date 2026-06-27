@@ -22,6 +22,9 @@ export const endpoints = {
     presence: '/api/softphone/presence',
     callAccepted: '/api/softphone/call-accepted',
     callLog: '/api/softphone/call-log',
+    pushToken: '/api/softphone/push-token',
+    devices: '/api/softphone/devices',
+    telemetry: '/api/softphone/telemetry',
   },
   messaging: {
     conversations: '/api/conversations',
@@ -29,6 +32,7 @@ export const endpoints = {
     markRead: (id: string) => `/api/conversations/${id}/read`,
     send: '/api/messages/send',
     attachments: '/api/messages/attachments',
+    smsConfig: '/api/sms/config',
   },
   voicemail: {
     list: (limit = 50) => `/api/tenant/voicemails?limit=${limit}`,

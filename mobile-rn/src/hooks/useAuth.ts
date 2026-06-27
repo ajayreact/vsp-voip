@@ -9,6 +9,7 @@ export function useAuth() {
   const error = useAuthStore((state) => state.error);
   const bootstrap = useAuthStore((state) => state.bootstrap);
   const login = useAuthStore((state) => state.login);
+  const loginWithQrToken = useAuthStore((state) => state.loginWithQrToken);
   const logout = useAuthStore((state) => state.logout);
   const refreshUser = useAuthStore((state) => state.refreshUser);
   const markSessionExpired = useAuthStore((state) => state.markSessionExpired);
@@ -23,6 +24,7 @@ export function useAuth() {
     error,
     bootstrap,
     login,
+    loginWithQrToken,
     logout,
     refreshUser,
     markSessionExpired,

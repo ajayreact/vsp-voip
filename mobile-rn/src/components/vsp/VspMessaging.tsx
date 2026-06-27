@@ -1,9 +1,18 @@
-import React from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { memo, useCallback } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import { Avatar } from '../Avatar';
+import { RipplePressable } from '../ui/RipplePressable';
 import { VspBadge } from './VspBadge';
 import { useTheme } from '../../shared/theme';
-import { formatRelativeTime } from '../../utils/format';
+import {
+  attachmentUri,
+  formatAttachmentSize,
+  formatMessageStatus,
+  formatMessagingTime,
+  isFailedMessageStatus,
+} from '../../messaging/format';
+import type { MessageAttachment } from '../../messaging/types';
 import { spacing, tokens, typography } from '../../shared/theme';
 
 type VspConversationRowProps = {
@@ -15,10 +24,7 @@ type VspConversationRowProps = {
   onPress?: () => void;
 };
 
-/**
- * Enterprise conversation row — card-style with left accent bar, not chat-app bubbles list.
- */
-export function VspConversationRow({
+export const VspConversationRow = memo(function VspConversationRow({
   peerLabel,
   lineLabel,
   preview,
@@ -29,18 +35,13 @@ export function VspConversationRow({
   const { colors } = useTheme();
 
   return (
-    <Pressable
+    <RipplePressable
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.row,
-        {
-          backgroundColor: pressed ? colors.backgroundAlt : colors.surface,
-          borderColor: colors.border,
-        },
-      ]}
+      accessibilityRole="button"
+      accessibilityLabel={`Conversation with ${peerLabel}${unreadCount ? `, ${unreadCount} unread` : ''}`}
+      style={[styles.row, { backgroundColor: colors.surface, borderColor: colors.border }]}
     >
-      <View style={[styles.accent, { backgroundColor: colors.primary }]} />
-      <Avatar name={peerLabel} size={44} />
+      <Avatar name={peerLabel} size={48} />
       <View style={styles.content}>
         <View style={styles.topLine}>
           <Text style={[styles.peer, { color: colors.text }]} numberOfLines={1}>
@@ -48,7 +49,7 @@ export function VspConversationRow({
           </Text>
           {timestamp ? (
             <Text style={[styles.time, { color: colors.textMuted }]}>
-              {formatRelativeTime(timestamp)}
+              {formatMessagingTime(timestamp)}
             </Text>
           ) : null}
         </View>
@@ -57,7 +58,7 @@ export function VspConversationRow({
             Line {lineLabel}
           </Text>
         ) : null}
-        <Text style={[styles.preview, { color: colors.textSecondary }]} numberOfLines={2}>
+        <Text style={[styles.preview, { color: unreadCount > 0 ? colors.text : colors.textMuted }]} numberOfLines={1}>
           {preview}
         </Text>
       </View>
@@ -66,23 +67,42 @@ export function VspConversationRow({
           <Text style={styles.unreadText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
         </View>
       ) : null}
-    </Pressable>
+    </RipplePressable>
   );
-}
+});
 
 type VspMessageBlockProps = {
   body: string;
   direction: 'inbound' | 'outbound';
   timestamp?: string;
   status?: string;
+  messageType?: string;
+  deliveryError?: string | null;
+  readAt?: string | null;
+  deliveredAt?: string | null;
+  optimistic?: boolean;
+  attachments?: MessageAttachment[];
+  onAttachmentPress?: (attachment: MessageAttachment) => void;
 };
 
-/**
- * Flat message blocks with directional accent — not consumer chat bubbles.
- */
-export function VspMessageBlock({ body, direction, timestamp, status }: VspMessageBlockProps) {
+export const VspMessageBlock = memo(function VspMessageBlock({
+  body,
+  direction,
+  timestamp,
+  status,
+  messageType,
+  deliveryError,
+  readAt,
+  deliveredAt,
+  optimistic,
+  attachments,
+  onAttachmentPress,
+}: VspMessageBlockProps) {
   const { colors } = useTheme();
   const isOutbound = direction === 'outbound';
+  const failed = isFailedMessageStatus(status);
+  const statusLabel = optimistic ? 'Sending…' : formatMessageStatus(status);
+  const readLabel = readAt ? 'Read' : deliveredAt ? 'Delivered' : null;
 
   return (
     <View
@@ -91,55 +111,96 @@ export function VspMessageBlock({ body, direction, timestamp, status }: VspMessa
         isOutbound ? styles.blockOut : styles.blockIn,
         {
           backgroundColor: isOutbound ? colors.primarySoft : colors.surface,
-          borderColor: isOutbound ? colors.primary : colors.border,
+          borderColor: failed ? colors.error : colors.border,
         },
       ]}
+      accessibilityRole="text"
     >
-      <Text style={[styles.blockLabel, { color: colors.textMuted }]}>
-        {isOutbound ? 'Sent' : 'Received'}
-      </Text>
-      <Text style={[styles.blockBody, { color: colors.text }]}>{body}</Text>
+      {body ? (
+        <Text style={[styles.blockBody, { color: colors.text }]}>{body}</Text>
+      ) : null}
+      {attachments?.length ? (
+        <View style={styles.attachmentList}>
+          {attachments.map((item) => (
+            <VspAttachmentChip
+              key={item.id}
+              name={item.fileName || 'Attachment'}
+              mimeType={item.mimeType}
+              uri={attachmentUri(item)}
+              sizeBytes={item.sizeBytes}
+              onPress={onAttachmentPress ? () => onAttachmentPress(item) : undefined}
+            />
+          ))}
+        </View>
+      ) : null}
       <View style={styles.blockMeta}>
         {timestamp ? (
           <Text style={[styles.blockTime, { color: colors.textMuted }]}>
-            {formatRelativeTime(timestamp)}
+            {formatMessagingTime(timestamp)}
           </Text>
         ) : null}
-        {status ? <VspBadge label={status} tone="muted" /> : null}
+        {statusLabel ? (
+          <VspBadge label={statusLabel} tone={failed ? 'error' : 'muted'} />
+        ) : null}
+        {isOutbound && readLabel ? (
+          <VspBadge label={readLabel} tone="muted" />
+        ) : null}
       </View>
+      {deliveryError ? (
+        <Text style={[styles.deliveryError, { color: colors.error }]} accessibilityRole="alert">
+          {deliveryError}
+        </Text>
+      ) : null}
     </View>
   );
-}
+});
 
 type VspAttachmentChipProps = {
   name: string;
   mimeType?: string;
   uri?: string;
+  sizeBytes?: number;
   onPress?: () => void;
 };
 
-export function VspAttachmentChip({ name, mimeType, uri, onPress }: VspAttachmentChipProps) {
+export const VspAttachmentChip = memo(function VspAttachmentChip({
+  name,
+  mimeType,
+  uri,
+  sizeBytes,
+  onPress,
+}: VspAttachmentChipProps) {
   const { colors } = useTheme();
   const isImage = mimeType?.startsWith('image/');
 
   return (
-    <Pressable
+    <RipplePressable
       onPress={onPress}
+      disabled={!onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`Attachment ${name}`}
       style={[styles.attachment, { backgroundColor: colors.backgroundAlt, borderColor: colors.border }]}
     >
       {isImage && uri ? (
-        <Image source={{ uri }} style={styles.thumb} />
+        <Image source={{ uri }} style={styles.thumb} contentFit="cover" cachePolicy="memory-disk" />
       ) : (
         <View style={[styles.fileIcon, { backgroundColor: colors.primarySoft }]}>
-          <Text style={{ color: colors.primary }}>📎</Text>
+          <Text style={{ color: colors.primary }}>{mimeType === 'application/pdf' ? 'PDF' : 'FILE'}</Text>
         </View>
       )}
-      <Text style={[styles.fileName, { color: colors.text }]} numberOfLines={1}>
-        {name}
-      </Text>
-    </Pressable>
+      <View style={styles.fileMeta}>
+        <Text style={[styles.fileName, { color: colors.text }]} numberOfLines={1}>
+          {name}
+        </Text>
+        {sizeBytes ? (
+          <Text style={[styles.fileSize, { color: colors.textMuted }]}>
+            {formatAttachmentSize(sizeBytes)}
+          </Text>
+        ) : null}
+      </View>
+    </RipplePressable>
   );
-}
+});
 
 const styles = StyleSheet.create({
   row: {
@@ -147,14 +208,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.md,
     paddingVertical: spacing.md,
-    paddingRight: spacing.lg,
+    paddingHorizontal: spacing.lg,
     borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  accent: {
-    width: 4,
-    alignSelf: 'stretch',
-    borderTopRightRadius: 2,
-    borderBottomRightRadius: 2,
   },
   content: {
     flex: 1,
@@ -194,12 +249,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   block: {
-    borderRadius: tokens.radius.md,
-    borderWidth: 1,
-    borderLeftWidth: 4,
-    padding: spacing.md,
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
     marginVertical: spacing.xs,
-    maxWidth: '92%',
+    maxWidth: '82%',
   },
   blockIn: {
     alignSelf: 'flex-start',
@@ -207,22 +262,36 @@ const styles = StyleSheet.create({
   blockOut: {
     alignSelf: 'flex-end',
   },
+  blockHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xs,
+  },
   blockLabel: {
     ...typography.label,
     fontSize: 10,
-    marginBottom: spacing.xs,
   },
   blockBody: {
     ...typography.body,
   },
+  attachmentList: {
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+  },
   blockMeta: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: spacing.sm,
     marginTop: spacing.sm,
   },
   blockTime: {
     ...typography.caption,
+  },
+  deliveryError: {
+    ...typography.caption,
+    marginTop: spacing.xs,
   },
   attachment: {
     flexDirection: 'row',
@@ -231,7 +300,7 @@ const styles = StyleSheet.create({
     borderRadius: tokens.radius.md,
     borderWidth: 1,
     padding: spacing.sm,
-    maxWidth: 220,
+    maxWidth: 260,
   },
   thumb: {
     width: 40,
@@ -245,8 +314,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  fileMeta: {
+    flex: 1,
+    minWidth: 0,
+  },
   fileName: {
     ...typography.caption,
-    flex: 1,
+  },
+  fileSize: {
+    ...typography.caption,
+    fontSize: 10,
   },
 });

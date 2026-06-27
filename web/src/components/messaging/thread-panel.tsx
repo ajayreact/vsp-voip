@@ -249,16 +249,18 @@ export function ThreadPanel({
   }, [loadingOlder]);
 
   useEffect(() => {
-    const node = scrollRef.current;
-    if (!node) return undefined;
+    const el = scrollRef.current;
+    if (!el) return undefined;
 
     function onScroll() {
-      const distanceFromBottom = node.scrollHeight - node.scrollTop - node.clientHeight;
+      const scrollEl = scrollRef.current;
+      if (!scrollEl) return;
+      const distanceFromBottom = scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight;
       shouldStickToBottomRef.current = distanceFromBottom < 80;
     }
 
-    node.addEventListener('scroll', onScroll);
-    return () => node.removeEventListener('scroll', onScroll);
+    el.addEventListener('scroll', onScroll);
+    return () => el.removeEventListener('scroll', onScroll);
   }, []);
 
   const peerLabel = conversation

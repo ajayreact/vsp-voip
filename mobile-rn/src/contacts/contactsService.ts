@@ -16,11 +16,15 @@ export function mapExtensionToContact(ext: ExtensionRecord): ContactEntry {
   };
 }
 
-export async function fetchContacts(): Promise<ContactEntry[]> {
+export async function fetchExtensions(): Promise<ExtensionRecord[]> {
   const response = await authorizedRequest<{ success?: boolean; extensions?: ExtensionRecord[] }>(
     endpoints.tenant.extensions,
   );
-  const extensions = response.extensions ?? [];
+  return response.extensions ?? [];
+}
+
+export async function fetchContacts(): Promise<ContactEntry[]> {
+  const extensions = await fetchExtensions();
   return extensions
     .filter((ext) => ext.status === 'ACTIVE')
     .map(mapExtensionToContact)

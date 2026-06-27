@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Button } from './Button';
 import { useTheme } from '../shared/theme';
+import { getFriendlyErrorMessage } from '../utils/friendlyError';
 import { spacing, typography } from '../shared/theme';
 
 type ErrorScreenProps = {
@@ -17,11 +18,13 @@ export function ErrorScreen({
 }: ErrorScreenProps) {
   const { colors } = useTheme();
 
+  const friendly = getFriendlyErrorMessage(message);
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Text style={[styles.icon, { color: colors.error }]}>!</Text>
+      <Text style={[styles.icon, { color: colors.primary }]}>!</Text>
       <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
-      <Text style={[styles.message, { color: colors.textMuted }]}>{message}</Text>
+      <Text style={[styles.message, { color: colors.textMuted }]}>{friendly}</Text>
       {onRetry ? <Button label="Try again" onPress={onRetry} style={styles.button} /> : null}
     </View>
   );

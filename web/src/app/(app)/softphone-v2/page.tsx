@@ -24,8 +24,16 @@ import { trackSoftphoneEvent, subscribeSoftphoneTelemetry, type SoftphoneTelemet
 import {
   buildTelnyxClientOptions,
   bindRemoteAudioTarget,
+  bindTelnyxTokenLifecycle,
 } from '@/lib/telnyx-softphone-session';
 import { logPeerConnectionDiagnostics } from '@/lib/telnyx-debug';
+import {
+  logInboundCallerResolution,
+  resolveInboundCallerDisplay,
+  resolveInboundCallerNameHint,
+  type InboundCallerNotification,
+} from '@/lib/inbound-caller-display';
+import { isInboundCall } from '@/lib/softphone-call-utils';
 import {
   detachRemoteCallAudio,
   resolvePeerConnection,
@@ -75,11 +83,21 @@ const DTMF_ROWS = [
   ['*', '0', '#'],
 ] as const;
 
-async function acquireMicrophoneStream(): Promise<MediaStream> {
+async function acquireMicrophoneStream(
+  holder: { current: MediaStream | null },
+): Promise<MediaStream> {
   if (!navigator.mediaDevices?.getUserMedia) {
     throw new Error('Microphone access is not available in this browser');
   }
-  return navigator.mediaDevices.getUserMedia({ audio: true });
+  holder.current?.getTracks().forEach((track) => track.stop());
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  holder.current = stream;
+  return stream;
+}
+
+function releaseMicrophoneStream(holder: { current: MediaStream | null }) {
+  holder.current?.getTracks().forEach((track) => track.stop());
+  holder.current = null;
 }
 
 function getRemoteAudioElement() {
@@ -166,6 +184,7 @@ type CallDisplayFields = Call & {
   remoteCallerNumber?: string;
   remotePartyNumber?: string;
   remotePartyName?: string;
+  localPartyNumber?: string;
   remoteIdentity?: {
     displayName?: string;
     uri?: {
@@ -183,103 +202,34 @@ type CallDisplayFields = Call & {
   };
 };
 
-function phoneDigits(value?: string | null) {
-  return String(value || '').replace(/\D/g, '');
-}
-
-function isOwnInboundNumber(digits: string, ownNumbers: string[] = []) {
-  if (!digits) return false;
-  return ownNumbers.some((value) => {
-    const ownDigits = phoneDigits(value);
-    if (!ownDigits) return false;
-    if (digits === ownDigits) return true;
-    return digits.length >= 10
-      && ownDigits.length >= 10
-      && digits.slice(-10) === ownDigits.slice(-10);
-  });
-}
-
-function extractPhoneDisplayValue(
-  value?: string | null,
-  ownNumbers: string[] = [],
-  options: { skipOwnFilter?: boolean } = {},
-) {
-  if (!value) return '';
-  let candidate = String(value).trim();
-  if (!candidate) return '';
-  if (/^anonymous$/i.test(candidate)) return '';
-
-  const sipMatch = candidate.match(/(?:sip|tel):([^@;>\s]+)/i);
-  if (sipMatch?.[1]) {
-    candidate = sipMatch[1];
-  }
-
-  candidate = candidate.replace(/^sip:/i, '').replace(/^tel:/i, '');
-  candidate = candidate.split('@')[0] || candidate;
-  candidate = candidate.split(';')[0] || candidate;
-  candidate = candidate.replace(/[<>"']/g, '').trim();
-
-  const digits = candidate.replace(/\D/g, '');
-  if (!digits) return '';
-  if (/[a-z]/i.test(candidate.replace(/^sip:/i, ''))) return '';
-  if (!options.skipOwnFilter && isOwnInboundNumber(digits, ownNumbers)) return '';
-
-  if (digits.length === 10) return `+1${digits}`;
-  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`;
-  if (/^\d{2,6}$/.test(digits)) return digits;
-  if (candidate.startsWith('+') && digits.length >= 10) return `+${digits}`;
-  return '';
-}
-
-function decodePstnCallerFromClientState(raw: string): string {
-  try {
-    const parsed = JSON.parse(atob(raw)) as {
-      pstnCaller?: string;
-      pstnCallerName?: string;
-    };
-    return (
-      extractPhoneDisplayValue(parsed.pstnCaller, [], { skipOwnFilter: true })
-      || extractPhoneDisplayValue(parsed.pstnCallerName, [], { skipOwnFilter: true })
-    );
-  } catch {
-    return '';
-  }
-}
-
-function decodePstnCallerFromNotification(
+function resolveCallDisplayNumber(
+  call: Call,
+  fallback = '',
   notification?: TelnyxNotificationPayload,
-): string {
-  if (!notification) return '';
+  ownNumbers: string[] = [],
+  pstnCallerHint = '',
+) {
+  const extended = call as CallDisplayFields;
 
-  const scan = (value: unknown, depth = 0): string => {
-    if (!value || depth > 6) return '';
-    if (typeof value === 'string') {
-      if (value.length >= 16 && /^[A-Za-z0-9+/=]+$/.test(value)) {
-        const fromState = decodePstnCallerFromClientState(value);
-        if (fromState) return fromState;
-      }
-      return extractPhoneDisplayValue(value, [], { skipOwnFilter: true });
-    }
-    if (typeof value !== 'object') return '';
+  if (isInboundCall(call)) {
+    const resolution = resolveInboundCallerDisplay(extended, {
+      ownNumbers,
+      pstnCallerHint,
+      notification: notification as InboundCallerNotification | undefined,
+    });
+    logInboundCallerResolution(resolution);
+    return resolution.chosenDisplayNumber;
+  }
 
-    const record = value as Record<string, unknown>;
-    if (typeof record.client_state === 'string') {
-      const fromState = decodePstnCallerFromClientState(record.client_state);
-      if (fromState) return fromState;
-    }
-    if (record.pstnCaller) {
-      const direct = extractPhoneDisplayValue(String(record.pstnCaller), [], { skipOwnFilter: true });
-      if (direct) return direct;
-    }
-
-    for (const nested of Object.values(record)) {
-      const found = scan(nested, depth + 1);
-      if (found) return found;
-    }
-    return '';
-  };
-
-  return scan(notification.payload) || scan(notification);
+  const options = extended.options;
+  return (
+    options?.destinationNumber
+    || options?.remoteCallerNumber
+    || options?.callerNumber
+    || extended.callerNumber
+    || fallback
+    || 'Unknown'
+  );
 }
 
 function extractHangupCause(
@@ -355,101 +305,6 @@ function mapHistoryStatusToServerLog(
   }
 }
 
-function resolveRemoteIdentityNumber(call: CallDisplayFields, ownNumbers: string[]) {
-  const displayName = call.remoteIdentity?.displayName || call.remotePartyName || call.options?.remoteCallerName;
-  const displayNumber = extractPhoneDisplayValue(displayName, ownNumbers, { skipOwnFilter: true })
-    || extractPhoneDisplayValue(displayName, ownNumbers);
-  if (displayNumber) return displayNumber;
-
-  const uri = call.remoteIdentity?.uri;
-  return (
-    extractPhoneDisplayValue(uri?.user, ownNumbers, { skipOwnFilter: true })
-    || extractPhoneDisplayValue(uri?.raw, ownNumbers, { skipOwnFilter: true })
-    || extractPhoneDisplayValue(uri?.toString?.(), ownNumbers, { skipOwnFilter: true })
-    || extractPhoneDisplayValue(uri?.user, ownNumbers)
-    || extractPhoneDisplayValue(uri?.raw, ownNumbers)
-    || extractPhoneDisplayValue(uri?.toString?.(), ownNumbers)
-  );
-}
-
-function findPhoneDisplayValueInPayload(
-  value: unknown,
-  ownNumbers: string[] = [],
-  depth = 0,
-): string {
-  if (!value || depth > 5) return '';
-  if (typeof value === 'string') return extractPhoneDisplayValue(value, ownNumbers);
-  if (typeof value !== 'object') return '';
-
-  const record = value as Record<string, unknown>;
-  const preferredKeys = [
-    'pstnCaller',
-    'pstnCallerName',
-    'from',
-    'remotePartyNumber',
-    'callerNumber',
-    'remoteCallerNumber',
-    'caller_id_number',
-    'callerIdNumber',
-    'ani',
-    'cli',
-    'phone_number',
-  ];
-
-  for (const key of preferredKeys) {
-    const direct = findPhoneDisplayValueInPayload(record[key], ownNumbers, depth + 1);
-    if (direct) return direct;
-  }
-
-  for (const [key, nested] of Object.entries(record)) {
-    if (key === 'call' || key === 'to' || preferredKeys.includes(key)) continue;
-    const found = findPhoneDisplayValueInPayload(nested, ownNumbers, depth + 1);
-    if (found) return found;
-  }
-
-  return '';
-}
-
-function resolveCallDisplayNumber(
-  call: Call,
-  fallback = '',
-  notification?: TelnyxNotificationPayload,
-  ownNumbers: string[] = [],
-  pstnCallerHint = '',
-) {
-  const extended = call as CallDisplayFields;
-  const options = extended.options;
-
-  if (isInboundCall(call)) {
-    return (
-      extractPhoneDisplayValue(pstnCallerHint, ownNumbers, { skipOwnFilter: true })
-      || decodePstnCallerFromNotification(notification)
-      || extractPhoneDisplayValue(
-        extended.remoteIdentity?.displayName || extended.remotePartyName || options?.remoteCallerName,
-        ownNumbers,
-        { skipOwnFilter: true },
-      )
-      || resolveRemoteIdentityNumber(extended, ownNumbers)
-      || extractPhoneDisplayValue(extended.remotePartyNumber, ownNumbers, { skipOwnFilter: true })
-      || extractPhoneDisplayValue(options?.remotePartyNumber, ownNumbers, { skipOwnFilter: true })
-      || findPhoneDisplayValueInPayload(notification?.payload, ownNumbers)
-      || extractPhoneDisplayValue(options?.remoteCallerNumber, ownNumbers, { skipOwnFilter: true })
-      || extractPhoneDisplayValue(extended.callerNumber, ownNumbers, { skipOwnFilter: true })
-      || findPhoneDisplayValueInPayload(notification, ownNumbers)
-      || 'Unknown'
-    );
-  }
-
-  return (
-    options?.destinationNumber
-    || options?.remoteCallerNumber
-    || options?.callerNumber
-    || extended.callerNumber
-    || fallback
-    || 'Unknown'
-  );
-}
-
 function callStatusLabel(state: string) {
   switch (state) {
     case 'active':
@@ -508,20 +363,6 @@ function historyDirectionLabel(direction: CallHistoryRecord['direction']) {
   return direction === 'outbound' ? 'Outgoing' : 'Incoming';
 }
 
-function isInboundCall(call: Call) {
-  const extended = call as Call & {
-    direction?: string;
-    callerNumber?: string;
-    remotePartyNumber?: string;
-    options?: { destinationNumber?: string; remoteCallerNumber?: string };
-  };
-  if (extended.direction?.toLowerCase() === 'inbound') return true;
-  return Boolean(
-    extended.remotePartyNumber
-    || extended.options?.remoteCallerNumber
-    || (extended.callerNumber && !extended.options?.destinationNumber),
-  );
-}
 
 function isTerminalCallState(state: string) {
   return state === 'hangup' || state === 'destroy' || state === 'destroyed' || state === 'purge' || state === 'error';
@@ -634,6 +475,7 @@ function SoftphoneV2Content() {
   const [callSeconds, setCallSeconds] = useState(0);
   const [callState, setCallState] = useState('');
   const [displayNumber, setDisplayNumber] = useState('');
+  const [callerDisplayNameHint, setCallerDisplayNameHint] = useState('');
   const [lastDtmf, setLastDtmf] = useState('');
   const [muted, setMuted] = useState(false);
   const [speakerOn, setSpeakerOn] = useState(true);
@@ -669,6 +511,7 @@ function SoftphoneV2Content() {
   const missedToastTimerRef = useRef<number | null>(null);
   const stopIncomingRingtoneRef = useRef<() => void>(() => {});
   const tearingDownRef = useRef(false);
+  const localMediaStreamRef = useRef<MediaStream | null>(null);
   const reconnectControllerRef = useRef<TelnyxReconnectController | null>(null);
   const registrationSuccessEmittedRef = useRef(false);
   const unwireCallAudioRef = useRef<(() => void) | null>(null);
@@ -959,6 +802,7 @@ function SoftphoneV2Content() {
     setCallDirection('');
     callDirectionRef.current = '';
     setIncomingReceivedAt('');
+    setCallerDisplayNameHint('');
   };
 
   useEffect(() => {
@@ -1044,6 +888,7 @@ function SoftphoneV2Content() {
   useEffect(() => {
     let mounted = true;
     let client: TelnyxRTC | null = null;
+    let unbindTokenLifecycle: (() => void) | null = null;
     tearingDownRef.current = false;
 
     async function boot() {
@@ -1087,6 +932,32 @@ function SoftphoneV2Content() {
         }
 
         client = new TelnyxRTC(buildTelnyxClientOptions(tokenRes.loginToken));
+
+        unbindTokenLifecycle = bindTelnyxTokenLifecycle(client, {
+          expiresInSeconds: tokenRes.expiresInSeconds,
+          fetchLoginToken: async () => (await getSoftphoneToken()).loginToken,
+          isAborted: () => tearingDownRef.current || !mounted,
+          onRefreshed: () => logTelnyx('token.refresh.success'),
+          onRefreshError: (error) => {
+            logTelnyx('token.refresh.error', error);
+            if (tearingDownRef.current || !mounted || !client) return;
+            const activeClient = client;
+            void getSoftphoneToken()
+              .then((next) => {
+                const loginToken = next.loginToken?.trim();
+                if (!loginToken) throw new Error('Empty login token during recovery');
+                const tokenClient = activeClient as TelnyxRTC & { updateToken?: (token: string) => void };
+                if (typeof tokenClient.updateToken === 'function') {
+                  tokenClient.updateToken(loginToken);
+                  return;
+                }
+                reconnectControllerRef.current?.schedule();
+              })
+              .catch(() => {
+                reconnectControllerRef.current?.schedule();
+              });
+          },
+        });
 
         const audioEl = getRemoteAudioElement();
         if (audioEl) {
@@ -1176,6 +1047,9 @@ function SoftphoneV2Content() {
                   pstnCallerHint,
                 );
                 if (isInboundCall(payload.call!)) {
+                  setCallerDisplayNameHint(
+                    resolveInboundCallerNameHint(payload.call! as CallDisplayFields),
+                  );
                   const retained = prev
                     || callSessionRef.current?.number
                     || displayNumberRef.current
@@ -1252,6 +1126,7 @@ function SoftphoneV2Content() {
                   );
                 }
                 clearCallMedia();
+                releaseMicrophoneStream(localMediaStreamRef);
                 stopIncomingRingtoneRef.current();
 
                 const canSaveHistory = Boolean(
@@ -1271,6 +1146,7 @@ function SoftphoneV2Content() {
                 setCallDirection('');
                 callDirectionRef.current = '';
                 setIncomingReceivedAt('');
+                setCallerDisplayNameHint('');
                 setLastDtmf('');
                 setMuted(false);
                 setSpeakerOn(true);
@@ -1302,11 +1178,13 @@ function SoftphoneV2Content() {
           }
           if (mounted) {
             setStatus(`Telnyx error — see console`);
-            setCallState('');
-            setLastDtmf('');
-            setMuted(false);
-            setSpeakerOn(true);
-            setOnHold(false);
+            if (!callSessionRef.current?.reachedActive) {
+              setCallState('');
+              setLastDtmf('');
+              setMuted(false);
+              setSpeakerOn(true);
+              setOnHold(false);
+            }
           }
           if (!tearingDownRef.current && mounted) {
             reconnectControllerRef.current?.schedule();
@@ -1334,6 +1212,8 @@ function SoftphoneV2Content() {
     return () => {
       mounted = false;
       tearingDownRef.current = true;
+      unbindTokenLifecycle?.();
+      unbindTokenLifecycle = null;
       reconnectControllerRef.current?.cancel();
       reconnectControllerRef.current = null;
       setTelnyxReady(false);
@@ -1345,6 +1225,7 @@ function SoftphoneV2Content() {
       stopIncomingRingtoneRef.current();
       stopOutboundRingback(callRef.current);
       clearCallMedia();
+      releaseMicrophoneStream(localMediaStreamRef);
       try {
         callRef.current?.hangup();
         client?.disconnect();
@@ -1381,7 +1262,7 @@ function SoftphoneV2Content() {
 
     try {
       const audioEl = getRemoteAudioElement();
-      const localStream = await acquireMicrophoneStream();
+      const localStream = await acquireMicrophoneStream(localMediaStreamRef);
       logTelnyx('outbound.localStream', {
         trackCount: localStream.getAudioTracks().length,
         tracks: localStream.getAudioTracks().map((track) => ({
@@ -1441,7 +1322,7 @@ function SoftphoneV2Content() {
         };
       };
       const audioEl = getRemoteAudioElement();
-      const localStream = await acquireMicrophoneStream();
+      const localStream = await acquireMicrophoneStream(localMediaStreamRef);
 
       if (extended.options) {
         extended.options.localStream = localStream;
@@ -1709,6 +1590,7 @@ function SoftphoneV2Content() {
       callState={callState}
       callDirection={callDirection}
       displayNumber={displayNumber}
+      callerDisplayNameHint={callerDisplayNameHint}
       incomingReceivedAt={incomingReceivedAt}
       callSeconds={callSeconds}
       muted={muted}

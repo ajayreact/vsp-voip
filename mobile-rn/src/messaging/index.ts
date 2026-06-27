@@ -1,7 +1,16 @@
 export {
-  listConversationMessages,
-  listConversations,
+  fetchConversations,
+  fetchConversationMessages,
   markConversationRead,
-  sendMessage,
+  sendPlatformMessage,
+  uploadMessageAttachment,
+  fetchMessagingSetup,
 } from './messagingService';
-export type { MessageAttachment } from '../api/types';
+export type {
+  MessageAttachment,
+  PlatformConversation,
+  PlatformMessage,
+  MessagingLine,
+  MessagingSetup,
+  AttachmentUploadInput,
+} from './types';

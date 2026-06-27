@@ -1,38 +1,54 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../../shared/theme';
-import { spacing, tokens, typography } from '../../shared/theme';
+import { spacing, typography } from '../../shared/theme';
 
 type VspDialKeyProps = {
   digit: string;
   subLabel?: string;
   onPress: (digit: string) => void;
-  wide?: boolean;
+  onLongPress?: (digit: string) => void;
+  variant?: 'default' | 'iphone';
 };
 
-/**
- * VSP dial pad key — rounded square grid, not iPhone circular keys.
- */
-export function VspDialKey({ digit, subLabel, onPress, wide }: VspDialKeyProps) {
+export function VspDialKey({
+  digit,
+  subLabel,
+  onPress,
+  onLongPress,
+  variant = 'default',
+}: VspDialKeyProps) {
   const { colors } = useTheme();
+  const isIphone = variant === 'iphone';
 
   return (
     <Pressable
       onPress={() => onPress(digit)}
+      onLongPress={onLongPress ? () => onLongPress(digit) : undefined}
+      delayLongPress={400}
       style={({ pressed }) => [
-        styles.key,
-        wide && styles.keyWide,
+        isIphone ? styles.iphoneKey : styles.key,
         {
-          backgroundColor: pressed ? colors.primarySoft : colors.surface,
-          borderColor: colors.border,
+          backgroundColor: pressed
+            ? isIphone
+              ? '#E5E5EA'
+              : colors.primarySoft
+            : isIphone
+              ? '#F2F2F7'
+              : colors.surface,
+          borderColor: isIphone ? 'transparent' : colors.border,
         },
       ]}
       accessibilityRole="button"
       accessibilityLabel={`Dial ${digit}`}
     >
-      <Text style={[styles.digit, { color: colors.text }]}>{digit}</Text>
+      <Text style={[isIphone ? styles.iphoneDigit : styles.digit, { color: colors.text }]}>
+        {digit}
+      </Text>
       {subLabel ? (
-        <Text style={[styles.sub, { color: colors.textMuted }]}>{subLabel}</Text>
+        <Text style={[isIphone ? styles.iphoneSub : styles.sub, { color: colors.textMuted }]}>
+          {subLabel}
+        </Text>
       ) : (
         <View style={styles.subSpacer} />
       )}
@@ -66,19 +82,24 @@ const DIAL_ROWS: { digit: string; sub?: string }[][] = [
 
 type VspDialPadProps = {
   onDigit: (digit: string) => void;
+  variant?: 'default' | 'iphone';
 };
 
-export function VspDialPad({ onDigit }: VspDialPadProps) {
+export function VspDialPad({ onDigit, variant = 'default' }: VspDialPadProps) {
+  const isIphone = variant === 'iphone';
+
   return (
-    <View style={styles.pad}>
+    <View style={isIphone ? styles.iphonePad : styles.pad}>
       {DIAL_ROWS.map((row, ri) => (
-        <View key={ri} style={styles.row}>
+        <View key={ri} style={isIphone ? styles.iphoneRow : styles.row}>
           {row.map((key) => (
             <VspDialKey
               key={key.digit}
               digit={key.digit}
               subLabel={key.sub || undefined}
               onPress={onDigit}
+              onLongPress={key.digit === '0' ? () => onDigit('+') : undefined}
+              variant={variant}
             />
           ))}
         </View>
@@ -87,36 +108,61 @@ export function VspDialPad({ onDigit }: VspDialPadProps) {
   );
 }
 
+const IPHONE_KEY = 78;
+
 const styles = StyleSheet.create({
   pad: {
     gap: spacing.sm,
     paddingHorizontal: spacing.lg,
+  },
+  iphonePad: {
+    gap: spacing.md,
+    paddingHorizontal: spacing.xl,
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'center',
     gap: spacing.sm,
   },
+  iphoneRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: spacing.lg,
+  },
   key: {
-    width: tokens.dialKey,
-    height: tokens.dialKey,
-    borderRadius: tokens.radius.lg,
+    width: 76,
+    height: 76,
+    borderRadius: 18,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  keyWide: {
-    flex: 1,
-    maxWidth: tokens.dialKey * 2 + spacing.sm,
+  iphoneKey: {
+    width: IPHONE_KEY,
+    height: IPHONE_KEY,
+    borderRadius: IPHONE_KEY / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   digit: {
     ...typography.mono,
     fontSize: 26,
     letterSpacing: 0,
   },
+  iphoneDigit: {
+    fontSize: 32,
+    fontWeight: '400',
+    letterSpacing: 0.5,
+  },
   sub: {
     ...typography.caption,
     fontSize: 10,
+    marginTop: 2,
+  },
+  iphoneSub: {
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 1,
     marginTop: 2,
   },
   subSpacer: {
@@ -125,7 +171,7 @@ const styles = StyleSheet.create({
   display: {
     marginHorizontal: spacing.lg,
     marginBottom: spacing.md,
-    borderRadius: tokens.radius.lg,
+    borderRadius: 18,
     borderWidth: 1,
     paddingVertical: spacing.lg,
     paddingHorizontal: spacing.md,

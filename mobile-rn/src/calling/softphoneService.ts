@@ -11,6 +11,9 @@ export type SoftphoneTokenResponse = {
 
 export type SoftphoneConfigResponse = {
   success?: boolean;
+  configured?: boolean;
+  sipUsername?: string | null;
+  credentialConnectionId?: string | null;
   numbers?: { id: string; number: string }[];
   defaultCallerId?: string | null;
 };
@@ -64,5 +67,35 @@ export async function postCallLog(payload: CallLogPayload): Promise<{ success?: 
   return authorizedRequest(endpoints.softphone.callLog, {
     method: 'POST',
     body: payload,
+  });
+}
+
+export type PushTokenPayload = {
+  token: string;
+  platform: 'android' | 'ios';
+  deviceId: string;
+  deviceName?: string;
+  appVersion?: string;
+};
+
+export async function postSoftphonePushToken(payload: PushTokenPayload) {
+  return authorizedRequest<{
+    success?: boolean;
+    registered?: boolean;
+    deviceId?: string;
+    registeredDeviceCount?: number;
+  }>(endpoints.softphone.pushToken, {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export async function postSoftphoneTelemetry(
+  event: string,
+  properties?: Record<string, unknown>,
+) {
+  return authorizedRequest(endpoints.softphone.telemetry, {
+    method: 'POST',
+    body: { event, properties },
   });
 }

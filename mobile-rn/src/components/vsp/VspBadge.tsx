@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { useTheme } from '../../shared/theme';
 import { spacing, tokens, typography } from '../../shared/theme';
@@ -10,7 +10,7 @@ type VspBadgeProps = {
   tone?: BadgeTone;
 };
 
-export function VspBadge({ label, tone = 'muted' }: VspBadgeProps) {
+export const VspBadge = memo(function VspBadge({ label, tone = 'muted' }: VspBadgeProps) {
   const { colors } = useTheme();
   const toneStyle = {
     success: { bg: colors.successSoft, fg: colors.success },
@@ -26,7 +26,7 @@ export function VspBadge({ label, tone = 'muted' }: VspBadgeProps) {
       <Text style={[styles.label, { color: toneStyle.fg }]}>{label}</Text>
     </View>
   );
-}
+});
 
 type VspChipProps = {
   label: string;

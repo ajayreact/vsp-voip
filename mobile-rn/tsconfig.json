@@ -4,6 +4,7 @@
     "strict": true,
     "skipLibCheck": true,
     "ignoreDeprecations": "6.0",
+    "types": ["node"],
     "baseUrl": ".",
     "paths": {
       "@telnyx/react-native-voice-sdk": ["src/types/telnyx-react-native-voice-sdk.d.ts"]

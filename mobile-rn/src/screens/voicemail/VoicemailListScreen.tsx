@@ -1,19 +1,29 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { RefreshControl, StyleSheet, View } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { VoicemailRecord } from '../../api/types';
-import { EmptyState, ErrorScreen, LoadingScreen, VspHero, VspVoicemailRow } from '../../components';
-import type { VoicemailStackParamList } from '../../navigation/types';
+import { EmptyState, VspVoicemailRow } from '../../components';
+import { FriendlyError } from '../../components/ui/FriendlyError';
+import { SkeletonList } from '../../components/ui/SkeletonLoader';
+import { keyExtractorById, LIST_ITEM_HEIGHT } from '../../lib/listConstants';
+import { voicemailRowLayout } from '../../lib/listLayout';
 import { fetchVoicemails } from '../../voicemail';
-import { useAppStore } from '../../store/appStore';
 import { useTheme } from '../../shared/theme';
+import { getFriendlyErrorMessage } from '../../utils/friendlyError';
 import { spacing } from '../../shared/theme';
+import type { CallsStackParamList, YouStackParamList } from '../../navigation/types';
 
-type Props = NativeStackScreenProps<VoicemailStackParamList, 'VoicemailList'>;
+type Nav = NativeStackNavigationProp<CallsStackParamList & YouStackParamList>;
 
-export function VoicemailListScreen({ navigation }: Props) {
+const EMPTY_VOICEMAIL = (
+  <EmptyState icon="🎙️" title="No voicemail" message="New messages will appear here." />
+);
+
+export function VoicemailListScreen() {
+  const navigation = useNavigation<Nav>();
   const { colors } = useTheme();
-  const unreadVm = useAppStore((s) => s.dashboardStats?.unreadVoicemailCount ?? 0);
   const [items, setItems] = useState<VoicemailRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -26,7 +36,7 @@ export function VoicemailListScreen({ navigation }: Props) {
     try {
       setItems(await fetchVoicemails());
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load voicemail');
+      setError(getFriendlyErrorMessage(err, 'voicemail'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -34,43 +44,52 @@ export function VoicemailListScreen({ navigation }: Props) {
   }, []);
 
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
 
-  if (loading) return <LoadingScreen message="Loading voicemail…" />;
-  if (error) return <ErrorScreen message={error} onRetry={() => load()} />;
+  const handleVoicemailPress = useCallback(
+    (voicemailId: string) => {
+      navigation.navigate('VoicemailDetail', { voicemailId });
+    },
+    [navigation],
+  );
+
+  const renderItem = useCallback(
+    ({ item }: { item: VoicemailRecord }) => (
+      <VspVoicemailRow
+        from={item.from}
+        timestamp={item.createdAt}
+        durationSeconds={item.durationSeconds ?? undefined}
+        isRead={item.isRead}
+        onPress={() => handleVoicemailPress(item.id)}
+      />
+    ),
+    [handleVoicemailPress],
+  );
+
+  const onRefresh = useCallback(() => {
+    void load(true);
+  }, [load]);
+
+  const refreshControl = useMemo(
+    () => <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />,
+    [colors.primary, onRefresh, refreshing],
+  );
+
+  if (loading) return <SkeletonList rows={6} />;
+  if (error) return <FriendlyError title="Couldn't load voicemail" message={error} onRetry={() => load()} />;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.header}>
-        <VspHero
-          eyebrow="Voicemail"
-          title={`${unreadVm} unread`}
-          subtitle="Organization mailbox"
-        />
-      </View>
-      <FlatList
+      <FlashList
         data={items}
-        keyExtractor={(item) => item.id}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={colors.primary} />
-        }
-        ListEmptyComponent={
-          <EmptyState
-            icon="🎙️"
-            title="No voicemail"
-            message="Recorded messages from callers will appear here."
-          />
-        }
-        renderItem={({ item }) => (
-          <VspVoicemailRow
-            from={item.from}
-            durationSeconds={item.durationSeconds}
-            isRead={item.isRead}
-            timestamp={item.createdAt}
-            onPress={() => navigation.navigate('VoicemailDetail', { voicemailId: item.id })}
-          />
-        )}
+        keyExtractor={keyExtractorById}
+        drawDistance={LIST_ITEM_HEIGHT.voicemail * 8}
+        overrideItemLayout={voicemailRowLayout}
+        removeClippedSubviews
+        refreshControl={refreshControl}
+        ListEmptyComponent={EMPTY_VOICEMAIL}
+        renderItem={renderItem}
       />
     </View>
   );
@@ -78,8 +97,4 @@ export function VoicemailListScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    padding: spacing.lg,
-    paddingBottom: spacing.sm,
-  },
 });

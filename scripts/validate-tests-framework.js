@@ -37,7 +37,7 @@ const REGRESSION_ITEMS = [
   'extension routing',
 ];
 
-const K6 = ['k6-100-users.js', 'k6-500-users.js', 'k6-1000-users.js', 'k6-5000-users.js'];
+const K6 = ['k6-100-users.js', 'k6-500-users.js', 'k6-1000-users.js', 'k6-5000-users.js', 'k6-messaging.js', 'k6-messaging-smoke.js'];
 
 let failed = 0;
 function pass(m) { console.log(`  ✓ ${m}`); }
@@ -51,12 +51,37 @@ for (const f of TELEPHONY) {
 }
 
 console.log('\nAPI tests:');
-['authentication.test.ts', 'softphone-api.test.ts', 'did-api.test.ts', 'transfer-recording-voicemail.test.ts'].forEach((f) => {
+[
+  'authentication.test.ts',
+  'auth-lifecycle.test.ts',
+  'softphone-api.test.ts',
+  'did-api.test.ts',
+  'messaging-api.test.ts',
+  'transfer-recording-voicemail.test.ts',
+  'rest-coverage.test.ts',
+].forEach((f) => {
   fs.existsSync(path.join(ROOT, 'tests/api', f)) ? pass(f) : fail(`missing api/${f}`);
 });
 
 console.log('\nBrowser tests:');
-fs.existsSync(path.join(ROOT, 'tests/browser/softphone.spec.ts')) ? pass('softphone.spec.ts') : fail('missing browser spec');
+[
+  'softphone.spec.ts',
+  'portal-auth.spec.ts',
+  'portal-navigation.spec.ts',
+].forEach((f) => {
+  fs.existsSync(path.join(ROOT, 'tests/browser', f)) ? pass(f) : fail(`missing browser/${f}`);
+});
+fs.existsSync(path.join(ROOT, 'tests/browser/helpers/auth.ts')) ? pass('helpers/auth.ts') : fail('missing browser helper');
+
+console.log('\nMobile component tests:');
+[
+  'components/error-boundary.test.ts',
+  'components/messaging-states.test.ts',
+  'components/vsp-badge.test.ts',
+  'components/search-bar.test.ts',
+].forEach((f) => {
+  fs.existsSync(path.join(ROOT, 'tests/mobile', f)) ? pass(f) : fail(`missing mobile/${f}`);
+});
 
 console.log('\nRegression suite:');
 const reg = fs.readFileSync(path.join(ROOT, 'tests/regression/deploy-regression.test.ts'), 'utf8').toLowerCase();
@@ -75,7 +100,13 @@ fs.existsSync(path.join(ROOT, 'reports/.gitkeep')) ? pass('reports/') : fail('mi
 
 console.log('\nOrchestration:');
 fs.existsSync(path.join(ROOT, 'scripts/run-qa-suite.js')) ? pass('run-qa-suite.js') : fail('missing run-qa-suite.js');
+fs.existsSync(path.join(ROOT, 'scripts/smoke-deploy.js')) ? pass('smoke-deploy.js') : fail('missing smoke-deploy.js');
+fs.existsSync(path.join(ROOT, 'scripts/run-release-checklist.js')) ? pass('run-release-checklist.js') : fail('missing run-release-checklist.js');
 fs.existsSync(path.join(ROOT, 'vitest.config.ts')) ? pass('vitest.config.ts') : fail('missing vitest.config.ts');
+fs.existsSync(path.join(ROOT, '.github/workflows/qa-automation.yml')) ? pass('qa-automation.yml') : fail('missing qa-automation.yml');
+fs.existsSync(path.join(ROOT, 'docs/qa/release-checklist.md')) ? pass('release-checklist.md') : fail('missing release-checklist.md');
+fs.existsSync(path.join(ROOT, 'docs/qa/production-monitoring.md')) ? pass('production-monitoring.md') : fail('missing production-monitoring.md');
+fs.existsSync(path.join(ROOT, 'tests/lib/endpoints.ts')) ? pass('endpoints.ts registry') : fail('missing endpoints registry');
 fs.existsSync(path.join(ROOT, '.cursor/rules/qa-first.mdc')) ? pass('qa-first.mdc') : fail('missing qa-first.mdc');
 
 console.log(`\n${failed === 0 ? 'PASS' : 'FAIL'} — ${failed} issue(s)`);

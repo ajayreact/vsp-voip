@@ -2,6 +2,7 @@ import type { Call } from '@telnyx/react-voice-commons-sdk';
 import { TelnyxCallState } from '@telnyx/react-voice-commons-sdk';
 import { fetchContacts } from '../contacts/contactsService';
 import { useCallingStore, type CallSessionSnapshot } from '../store/callingStore';
+import { getFriendlyErrorMessage } from '../utils/friendlyError';
 import { syncCallAudioRoute, startCallAudio, stopCallAudio } from './audioRoute';
 import { resolveInboundCallIdentity, resolveLiveCallerIdentity } from './callerIdentity';
 import {
@@ -16,12 +17,32 @@ import {
 } from './callSessionTracker';
 import { postCallAccepted } from './softphoneService';
 import { getTelnyxVoipClient } from './telnyxVoip';
-import { isActiveCallState, isIncomingRinging, mapTelnyxCallToInboundFields } from './telnyxCallMapping';
+import {
+  isActiveCallState,
+  isConnecting,
+  isDurationEligible,
+  isIncomingRinging,
+  isOutboundRinging,
+  isTerminalCallState,
+  mapTelnyxCallToInboundFields,
+} from './telnyxCallMapping';
 import { normalizeDestination } from './dialNormalization';
 
 let contactsCache: Awaited<ReturnType<typeof fetchContacts>> = [];
 let contactsLoadedAt = 0;
 const CONTACTS_TTL_MS = 5 * 60_000;
+
+export class CallInProgressError extends Error {
+  constructor() {
+    super('Unable to place call. Finish or end your current call first.');
+    this.name = 'CallInProgressError';
+  }
+}
+
+export function hasLiveCallSession() {
+  const { activeCall, incomingCall } = useCallingStore.getState();
+  return Boolean(activeCall || incomingCall);
+}
 
 async function ensureContacts(force = false) {
   const stale = Date.now() - contactsLoadedAt > CONTACTS_TTL_MS;
@@ -45,6 +66,7 @@ function mergeUiState(
     showKeypad: previous.showKeypad,
     lastDtmf: previous.lastDtmf,
     speakerOn: previous.speakerOn,
+    duration: isDurationEligible(base.state) ? base.duration : previous.duration,
   };
 }
 
@@ -59,19 +81,39 @@ function buildSnapshot(call: Call, ownNumbers: string[]): CallSessionSnapshot {
     ? resolveInboundCallIdentity(fields, ownNumbers, contactsCache).identity
     : resolveLiveCallerIdentity(normalizeDestination(call.destination), contactsCache);
 
+  const duration = isDurationEligible(call.currentState) ? call.currentDuration : 0;
+
   return {
     call,
     callId: call.callId,
     state: call.currentState,
     isMuted: call.currentIsMuted,
     isHeld: call.currentIsHeld,
-    duration: call.currentDuration,
+    duration,
     isIncoming: call.isIncoming,
     identity,
     showKeypad: false,
     lastDtmf: '',
     speakerOn: false,
   };
+}
+
+function promoteToActiveCall(
+  state: ReturnType<typeof useCallingStore.getState>,
+  base: CallSessionSnapshot,
+) {
+  const merged = mergeUiState(state.activeCall ?? state.incomingCall, base);
+  state.setIncomingCall(null);
+  state.setActiveCall(merged);
+  if (callStateNeedsAudio(base.state)) {
+    startCallAudio(merged.speakerOn);
+    syncCallAudioRoute(merged.speakerOn);
+  }
+  return merged;
+}
+
+function callStateNeedsAudio(state: TelnyxCallState) {
+  return state === TelnyxCallState.ACTIVE || state === TelnyxCallState.HELD;
 }
 
 export async function refreshCallSnapshot(call: Call) {
@@ -81,6 +123,14 @@ export async function refreshCallSnapshot(call: Call) {
   syncTrackedCallState(call);
 
   const base = buildSnapshot(call, ownNumbers);
+  const callState = call.currentState;
+
+  if (isTerminalCallState(callState)) {
+    finalizeTrackedCall(call, call.currentDuration);
+    stopCallAudio();
+    state.resetCalls();
+    return;
+  }
 
   if (isIncomingRinging(call)) {
     beginTrackedCall(call, 'inbound', call.destination);
@@ -89,32 +139,30 @@ export async function refreshCallSnapshot(call: Call) {
     return;
   }
 
-  if (isActiveCallState(call.currentState) || call.currentState === TelnyxCallState.RINGING) {
-    if (!useCallingStore.getState().activeCall && call.currentState === TelnyxCallState.RINGING && call.isOutgoing) {
-      beginTrackedCall(call, 'outbound', call.destination);
-    }
-    const merged = mergeUiState(state.activeCall, base);
-    state.setIncomingCall(null);
-    state.setActiveCall(merged);
-    if (call.currentState === TelnyxCallState.ACTIVE) {
-      startCallAudio(merged.speakerOn);
-      syncCallAudioRoute(merged.speakerOn);
-    }
+  if (isConnecting(call)) {
+    promoteToActiveCall(state, base);
     return;
   }
 
-  if (
-    call.currentState === TelnyxCallState.ENDED
-    || call.currentState === TelnyxCallState.FAILED
-    || call.currentState === TelnyxCallState.DROPPED
-  ) {
-    finalizeTrackedCall(call, call.currentDuration);
-    stopCallAudio();
-    state.resetCalls();
+  if (callState === TelnyxCallState.DROPPED) {
+    promoteToActiveCall(state, { ...base, duration: state.activeCall?.duration ?? 0 });
+    return;
+  }
+
+  if (isActiveCallState(callState) || isOutboundRinging(call)) {
+    if (isOutboundRinging(call)) {
+      beginTrackedCall(call, 'outbound', call.destination);
+    }
+    promoteToActiveCall(state, base);
+    return;
   }
 }
 
 export async function placeOutboundCall(destination: string) {
+  if (hasLiveCallSession()) {
+    throw new CallInProgressError();
+  }
+
   const client = getTelnyxVoipClient();
   const { defaultCallerId, tenantNumbers } = useCallingStore.getState();
   const normalized = normalizeDestination(destination);
@@ -150,17 +198,20 @@ export async function answerIncomingCall() {
   }).catch(() => {});
 
   await incoming.call.answer();
-  const speakerOn = incoming.speakerOn;
-  startCallAudio(speakerOn);
-  syncCallAudioRoute(speakerOn);
+  await refreshCallSnapshot(incoming.call);
 }
 
 export async function declineIncomingCall() {
   const incoming = useCallingStore.getState().incomingCall;
   if (!incoming) return;
   markCallDeclined(incoming.callId);
-  await incoming.call.hangup();
+  try {
+    await incoming.call.hangup();
+  } catch {
+    /* force cleanup below */
+  }
   finalizeTrackedCall(incoming.call, 0);
+  stopCallAudio();
   useCallingStore.getState().setIncomingCall(null);
 }
 
@@ -169,40 +220,62 @@ export async function hangupActiveCall() {
   const incoming = useCallingStore.getState().incomingCall;
   const target = active?.call ?? incoming?.call;
   if (!target) return;
-  if (active && !active.isIncoming && active.state === TelnyxCallState.RINGING) {
+
+  const liveState = target.currentState;
+  if (
+    active
+    && !active.isIncoming
+    && (liveState === TelnyxCallState.RINGING || active.state === TelnyxCallState.RINGING)
+  ) {
     markCallCancelled(target.callId);
   }
-  await target.hangup();
-  finalizeTrackedCall(target, target.currentDuration);
-  stopCallAudio();
-  useCallingStore.getState().resetCalls();
+
+  try {
+    await target.hangup();
+  } catch {
+    /* SDK may reject hangup during DROPPED — still tear down locally */
+  } finally {
+    finalizeTrackedCall(target, target.currentDuration);
+    stopCallAudio();
+    useCallingStore.getState().resetCalls();
+  }
 }
 
 export async function toggleMute() {
   const active = useCallingStore.getState().activeCall;
   if (!active) return;
-  await active.call.toggleMute();
-  useCallingStore.getState().patchActiveCall({ isMuted: active.call.currentIsMuted });
+  try {
+    await active.call.toggleMute();
+    useCallingStore.getState().patchActiveCall({ isMuted: active.call.currentIsMuted });
+  } catch {
+    // SDK control failed — state unchanged
+  }
 }
 
 export async function toggleHold() {
   const active = useCallingStore.getState().activeCall;
   if (!active) return;
-  if (active.call.currentIsHeld) {
-    await active.call.resume();
-  } else {
-    await active.call.hold();
+  try {
+    if (active.call.currentIsHeld) {
+      await active.call.resume();
+    } else {
+      await active.call.hold();
+    }
+    useCallingStore.getState().patchActiveCall({
+      isHeld: active.call.currentIsHeld,
+      state: active.call.currentState,
+    });
+  } catch {
+    // SDK control failed — state unchanged
   }
-  useCallingStore.getState().patchActiveCall({
-    isHeld: active.call.currentIsHeld,
-    state: active.call.currentState,
-  });
 }
 
 export function toggleSpeaker() {
   const active = useCallingStore.getState().activeCall;
   if (!active) return;
   const next = !active.speakerOn;
+  if (!callStateNeedsAudio(active.state)) return;
+  startCallAudio(next);
   syncCallAudioRoute(next);
   useCallingStore.getState().patchActiveCall({ speakerOn: next });
 }
@@ -216,10 +289,14 @@ export function toggleInCallKeypad() {
 export async function sendDtmf(digit: string) {
   const active = useCallingStore.getState().activeCall;
   if (!active) return;
-  await active.call.dtmf(digit);
-  useCallingStore.getState().patchActiveCall({
-    lastDtmf: `${active.lastDtmf}${digit}`.slice(-12),
-  });
+  try {
+    await active.call.dtmf(digit);
+    useCallingStore.getState().patchActiveCall({
+      lastDtmf: `${active.lastDtmf}${digit}`.slice(-12),
+    });
+  } catch {
+    // DTMF failed — ignore
+  }
 }
 
 export function bindCallStreams(call: Call) {
@@ -247,6 +324,7 @@ export function bindCallStreams(call: Call) {
     call.duration$.subscribe((duration) => {
       const { activeCall } = useCallingStore.getState();
       if (activeCall?.callId !== call.callId) return;
+      if (!isDurationEligible(call.currentState)) return;
       useCallingStore.getState().patchActiveCall({ duration });
     }),
   ];
@@ -259,4 +337,11 @@ export function clearContactsCache() {
   contactsCache = [];
   contactsLoadedAt = 0;
   clearTrackedCalls();
+}
+
+export function getFriendlyCallError(error: unknown): string {
+  if (error instanceof CallInProgressError) {
+    return 'Unable to place call. End your current call first.';
+  }
+  return getFriendlyErrorMessage(error, 'calls');
 }

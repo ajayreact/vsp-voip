@@ -29,31 +29,29 @@ type SettingsState = {
 };
 
 export const useSettingsStore = create<SettingsState>((set, get) => ({
-  themeMode: 'dark',
+  themeMode: 'light',
   notificationPrefs: defaultNotificationPrefs,
   hydrated: false,
 
   hydrate: async () => {
     try {
-      const [themeRaw, notifRaw] = await Promise.all([
-        AsyncStorage.getItem(THEME_KEY),
-        AsyncStorage.getItem(NOTIFICATIONS_KEY),
-      ]);
+      const notifRaw = await AsyncStorage.getItem(NOTIFICATIONS_KEY);
       set({
-        themeMode: (themeRaw as ThemeMode) || 'dark',
+        themeMode: 'light',
         notificationPrefs: notifRaw
           ? { ...defaultNotificationPrefs, ...JSON.parse(notifRaw) }
           : defaultNotificationPrefs,
         hydrated: true,
       });
+      await AsyncStorage.setItem(THEME_KEY, 'light');
     } catch {
-      set({ hydrated: true });
+      set({ hydrated: true, themeMode: 'light' });
     }
   },
 
-  setThemeMode: async (mode) => {
-    await AsyncStorage.setItem(THEME_KEY, mode);
-    set({ themeMode: mode });
+  setThemeMode: async () => {
+    await AsyncStorage.setItem(THEME_KEY, 'light');
+    set({ themeMode: 'light' });
   },
 
   setNotificationPrefs: async (prefs) => {

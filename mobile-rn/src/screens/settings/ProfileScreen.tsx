@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Avatar, ErrorScreen, LoadingScreen } from '../../components';
+import { Avatar, ErrorScreen } from '../../components';
+import { SkeletonProfile } from '../../components/ui/SkeletonLoader';
+import { FadeInView } from '../../components/ui/FadeInView';
 import { useAuth } from '../../hooks/useAuth';
 import { fetchTenantProfile } from '../../settings';
 import type { TenantProfile } from '../../api/types';
@@ -43,10 +45,11 @@ export function ProfileScreen() {
     load();
   }, [load]);
 
-  if (loading) return <LoadingScreen message="Loading profile…" />;
+  if (loading) return <SkeletonProfile />;
   if (error) return <ErrorScreen message={error} onRetry={load} />;
 
   return (
+    <FadeInView style={{ flex: 1 }}>
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={styles.content}>
       <View style={[styles.hero, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <Avatar name={user?.name || 'User'} size={72} />
@@ -71,6 +74,7 @@ export function ProfileScreen() {
         <Row label="Timezone" value={profile?.timezone || user?.tenantTimezone || '—'} />
       </View>
     </ScrollView>
+    </FadeInView>
   );
 }
 

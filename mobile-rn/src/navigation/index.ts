@@ -1,13 +1,17 @@
 export { AuthNavigator } from './AuthNavigator';
 export { MainTabNavigator } from './MainTabNavigator';
 export { RootNavigator } from './RootNavigator';
+export { HomeStackNavigator, DashboardStackNavigator } from './HomeStackNavigator';
+export { YouStackNavigator, SettingsStackNavigator } from './YouStackNavigator';
 export type {
   AuthStackParamList,
   CallsStackParamList,
   ContactsStackParamList,
-  DashboardStackParamList,
+  HomeStackParamList,
   MainTabParamList,
   MessagesStackParamList,
+  RecentStackParamList,
   RootStackParamList,
-  SettingsStackParamList,
+  YouStackParamList,
 } from './types';
+export { RecentStackNavigator, CallsStackNavigator } from './RecentStackNavigator';

@@ -32,6 +32,12 @@ yarn-error.*
 
 # local env files
 .env*.local
+.env.production
+.env.production.local
+
+# Firebase / push credentials (provide via GOOGLE_SERVICES_JSON or EAS secrets)
+google-services.json
+GoogleService-Info.plist
 
 # typescript
 *.tsbuildinfo

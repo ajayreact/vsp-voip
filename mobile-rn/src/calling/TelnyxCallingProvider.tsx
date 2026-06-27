@@ -6,6 +6,7 @@ import {
   TelnyxConnectionState,
   TelnyxCallState,
   CallStateHelpers,
+  TelnyxVoipClient,
   type Call,
 } from '@telnyx/react-voice-commons-sdk';
 import { useAuthStore } from '../store/authStore';
@@ -21,6 +22,9 @@ import {
   stopSoftphonePresenceHeartbeat,
 } from './softphonePresence';
 import { getTelnyxVoipClient } from './telnyxVoip';
+import { getTelnyxPushNotificationToken } from '../notifications/pushTokenService';
+import { logger } from '../lib/logger';
+import { friendlySipError } from '../sip/validation';
 
 type Props = {
   children: React.ReactNode;
@@ -34,6 +38,9 @@ function TelnyxRegistrationBridge() {
   const setTenantNumbers = useCallingStore((s) => s.setTenantNumbers);
   const resetCalls = useCallingStore((s) => s.resetCalls);
   const registrationAttempt = useCallingStore((s) => s.registrationAttempt);
+  const pushTokenSyncAttempt = useCallingStore((s) => s.pushTokenSyncAttempt);
+  const activeCall = useCallingStore((s) => s.activeCall);
+  const incomingCall = useCallingStore((s) => s.incomingCall);
 
   useEffect(() => {
     const client = getTelnyxVoipClient();
@@ -107,12 +114,19 @@ function TelnyxRegistrationBridge() {
         return;
       }
 
+      const launchedFromPush = await TelnyxVoipClient.isLaunchedFromPushNotification();
+      if (launchedFromPush) {
+        logger.info('telnyx', 'Push-launched cold start — skipping manual login');
+        return;
+      }
+
       setIsRegistering(true);
       setRegistrationError(null);
       try {
-        const [tokenRes, configRes] = await Promise.all([
+        const [tokenRes, configRes, pushToken] = await Promise.all([
           fetchSoftphoneToken(),
           fetchSoftphoneConfig(),
+          getTelnyxPushNotificationToken(),
         ]);
         if (disposed) return;
 
@@ -125,10 +139,19 @@ function TelnyxRegistrationBridge() {
         const defaultCallerId = configRes.defaultCallerId || numbers[0] || '';
         setTenantNumbers(numbers, defaultCallerId);
 
-        await client.loginWithToken(createTokenConfig(loginToken, { debug: __DEV__ }));
+        await client.loginWithToken(
+          createTokenConfig(loginToken, {
+            debug: __DEV__,
+            pushNotificationDeviceToken: pushToken,
+          }),
+        );
+        logger.telemetry('telnyx_registration_success', { hasPushToken: Boolean(pushToken) });
       } catch (error) {
         if (!disposed) {
-          setRegistrationError(error instanceof Error ? error.message : 'Telnyx registration failed');
+          const message = friendlySipError(error);
+          setRegistrationError(message);
+          logger.error('telnyx', message, error);
+          logger.telemetry('telnyx_registration_failed', { message });
         }
       } finally {
         if (!disposed) setIsRegistering(false);
@@ -145,6 +168,40 @@ function TelnyxRegistrationBridge() {
       stopSoftphonePresenceHeartbeat();
     };
   }, [isAuthenticated, registrationAttempt, resetCalls, setIsRegistering, setRegistrationError, setTenantNumbers]);
+
+  useEffect(() => {
+    if (!isAuthenticated || pushTokenSyncAttempt === 0) return;
+    if (activeCall || incomingCall) return;
+
+    let disposed = false;
+    const client = getTelnyxVoipClient();
+
+    async function syncPushToken() {
+      try {
+        const [tokenRes, pushToken] = await Promise.all([
+          fetchSoftphoneToken(),
+          getTelnyxPushNotificationToken(),
+        ]);
+        if (disposed || !pushToken) return;
+        const loginToken = tokenRes.loginToken?.trim();
+        if (!loginToken) return;
+        await client.loginWithToken(
+          createTokenConfig(loginToken, {
+            debug: __DEV__,
+            pushNotificationDeviceToken: pushToken,
+          }),
+        );
+        logger.info('telnyx', 'Push token synchronized with Telnyx registration');
+      } catch (error) {
+        logger.warn('telnyx', 'Push token sync failed', error);
+      }
+    }
+
+    void syncPushToken();
+    return () => {
+      disposed = true;
+    };
+  }, [isAuthenticated, pushTokenSyncAttempt, activeCall, incomingCall]);
 
   return null;
 }

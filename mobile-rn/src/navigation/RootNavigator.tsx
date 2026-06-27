@@ -1,8 +1,7 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { useColorScheme } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
-import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import {
   NetworkStatusBanner,
@@ -12,6 +11,7 @@ import {
   hideSplashScreen,
 } from '../components';
 import { useAuth } from '../hooks/useAuth';
+import { useSyncAppOnline } from '../hooks/useSyncAppOnline';
 import { useAppStore } from '../store/appStore';
 import { useCallingStore } from '../store/callingStore';
 import { useSettingsStore } from '../store/settingsStore';
@@ -20,12 +20,12 @@ import { MainTabNavigator } from './MainTabNavigator';
 import { CallOverlay } from '../calling/CallOverlay';
 import { TelnyxCallingProvider } from '../calling/TelnyxCallingProvider';
 import { ThemeContext, resolveThemeColors } from '../shared/theme';
+import { navigationRef } from './navigationRef';
 import type { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export function RootNavigator() {
-  const systemScheme = useColorScheme();
   const {
     isAuthenticated,
     isBootstrapping,
@@ -37,14 +37,34 @@ export function RootNavigator() {
   const isOnline = useAppStore((s) => s.isOnline);
   const setOnline = useAppStore((s) => s.setOnline);
   const hasLiveCall = useCallingStore((s) => Boolean(s.activeCall || s.incomingCall));
-  const themeMode = useSettingsStore((s) => s.themeMode);
   const settingsHydrated = useSettingsStore((s) => s.hydrated);
   const hydrateSettings = useSettingsStore((s) => s.hydrate);
   const [showSplash, setShowSplash] = useState(true);
 
-  const resolvedTheme =
-    themeMode === 'system' ? (systemScheme === 'light' ? 'light' : 'dark') : themeMode;
+  const resolvedTheme = 'light' as const;
   const colors = resolveThemeColors(resolvedTheme);
+
+  const themeContextValue = useMemo(
+    () => ({ mode: 'light' as const, resolved: resolvedTheme, colors }),
+    [colors],
+  );
+
+  const navTheme = useMemo(
+    () => ({
+      ...DefaultTheme,
+      colors: {
+        ...DefaultTheme.colors,
+        primary: colors.primary,
+        background: colors.background,
+        card: colors.surface,
+        text: colors.text,
+        border: colors.border,
+      },
+    }),
+    [colors],
+  );
+
+  useSyncAppOnline();
 
   useEffect(() => {
     hydrateSettings();
@@ -53,13 +73,6 @@ export function RootNavigator() {
   useEffect(() => {
     bootstrap();
   }, [bootstrap]);
-
-  useEffect(() => {
-    const unsubscribe = NetInfo.addEventListener((state) => {
-      setOnline(state.isConnected !== false);
-    });
-    return unsubscribe;
-  }, [setOnline]);
 
   useEffect(() => {
     if (!isBootstrapping && settingsHydrated) {
@@ -76,33 +89,13 @@ export function RootNavigator() {
     await logout();
   }, [clearError, logout]);
 
-  const navTheme = resolvedTheme === 'dark'
-    ? {
-        ...DarkTheme,
-        colors: {
-          ...DarkTheme.colors,
-          primary: colors.primary,
-          background: colors.background,
-          card: colors.surface,
-          text: colors.text,
-          border: colors.border,
-        },
-      }
-    : {
-        ...DefaultTheme,
-        colors: {
-          ...DefaultTheme.colors,
-          primary: colors.primary,
-          background: colors.background,
-          card: colors.surface,
-          text: colors.text,
-          border: colors.border,
-        },
-      };
+  const handleOfflineRetry = useCallback(() => {
+    void NetInfo.fetch().then((s) => setOnline(Boolean(s.isConnected)));
+  }, [setOnline]);
 
   if (showSplash || isBootstrapping || !settingsHydrated) {
     return (
-      <ThemeContext.Provider value={{ mode: themeMode, resolved: resolvedTheme, colors }}>
+      <ThemeContext.Provider value={themeContextValue}>
         <SplashScreenView />
       </ThemeContext.Provider>
     );
@@ -112,19 +105,19 @@ export function RootNavigator() {
 
   if (showOfflineGate) {
     return (
-      <ThemeContext.Provider value={{ mode: themeMode, resolved: resolvedTheme, colors }}>
-        <OfflineScreen onRetry={() => NetInfo.fetch().then((s) => setOnline(Boolean(s.isConnected)))} />
+      <ThemeContext.Provider value={themeContextValue}>
+        <OfflineScreen onRetry={handleOfflineRetry} />
       </ThemeContext.Provider>
     );
   }
 
   return (
-    <ThemeContext.Provider value={{ mode: themeMode, resolved: resolvedTheme, colors }}>
+    <ThemeContext.Provider value={themeContextValue}>
       <TelnyxCallingProvider>
         <View style={styles.root}>
           <NetworkStatusBanner />
-          <NavigationContainer theme={navTheme}>
-            <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <NavigationContainer ref={navigationRef} theme={navTheme}>
+            <Stack.Navigator screenOptions={{ headerShown: false, freezeOnBlur: true }}>
               {sessionExpired ? (
                 <Stack.Screen name="SessionExpired">
                   {() => <SessionExpiredScreen onSignIn={handleSessionSignIn} />}

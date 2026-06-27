@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import { TelnyxConnectionState } from '@telnyx/react-voice-commons-sdk';
@@ -7,20 +7,41 @@ import { useCallingStore } from '../store/callingStore';
 import { useTheme } from '../shared/theme';
 import { spacing, typography } from '../shared/theme';
 
+const RECOVERY_DISMISS_MS = 3000;
+
 export function NetworkStatusBanner() {
   const { colors } = useTheme();
   const isOnline = useAppStore((s) => s.isOnline);
+  const networkRecovery = useAppStore((s) => s.networkRecovery);
+  const clearNetworkRecovery = useAppStore((s) => s.clearNetworkRecovery);
   const setOnline = useAppStore((s) => s.setOnline);
   const hasLiveCall = useCallingStore((s) => Boolean(s.activeCall || s.incomingCall));
   const connectionState = useCallingStore((s) => s.connectionState);
+
+  useEffect(() => {
+    if (networkRecovery !== 'connected') return undefined;
+    const timer = setTimeout(clearNetworkRecovery, RECOVERY_DISMISS_MS);
+    return () => clearTimeout(timer);
+  }, [clearNetworkRecovery, networkRecovery]);
+
+  if (networkRecovery === 'connected') {
+    return (
+      <View
+        style={[styles.banner, { backgroundColor: colors.successSoft, borderColor: colors.primary }]}
+        accessibilityRole="alert"
+      >
+        <Text style={[styles.text, { color: colors.primary }]}>Connected</Text>
+      </View>
+    );
+  }
 
   if (isOnline && connectionState !== TelnyxConnectionState.RECONNECTING) return null;
 
   const message = !isOnline
     ? hasLiveCall
-      ? 'Network interrupted — call may recover when connectivity returns.'
-      : 'You are offline. Calls resume when connectivity returns.'
-    : 'Reconnecting to Telnyx…';
+      ? 'Offline — your call may recover when the network returns.'
+      : 'Offline'
+    : 'Reconnecting…';
 
   return (
     <View

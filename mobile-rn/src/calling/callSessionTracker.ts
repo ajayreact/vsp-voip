@@ -40,6 +40,7 @@ export function beginTrackedCall(
   direction: 'inbound' | 'outbound',
   remoteNumber: string,
 ) {
+  if (sessions.has(call.callId)) return;
   const { defaultCallerId, tenantNumbers } = useCallingStore.getState();
   const callerId = defaultCallerId || tenantNumbers[0] || '';
   const parties = resolveCallLogParties(direction, remoteNumber, callerId);

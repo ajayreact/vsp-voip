@@ -1,12 +1,11 @@
 import React from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   StyleSheet,
   Text,
-  View,
   ViewStyle,
 } from 'react-native';
+import { RipplePressable } from './ui/RipplePressable';
 import { useTheme } from '../shared/theme';
 import { spacing, typography } from '../shared/theme';
 
@@ -37,14 +36,13 @@ export function Button({
   }[variant];
 
   return (
-    <Pressable
+    <RipplePressable
       accessibilityRole="button"
       onPress={onPress}
       disabled={isDisabled}
-      style={({ pressed }) => [
+      style={[
         styles.base,
         variantStyle,
-        pressed && !isDisabled && styles.pressed,
         isDisabled && styles.disabled,
         style,
       ]}
@@ -61,20 +59,17 @@ export function Button({
           {label}
         </Text>
       )}
-    </Pressable>
+    </RipplePressable>
   );
 }
 
 const styles = StyleSheet.create({
   base: {
     minHeight: 48,
-    borderRadius: 12,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
-  },
-  pressed: {
-    opacity: 0.85,
   },
   disabled: {
     opacity: 0.5,

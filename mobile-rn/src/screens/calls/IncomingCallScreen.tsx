@@ -1,7 +1,7 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Avatar, VspBadge, VspIconButton } from '../../components';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Avatar } from '../../components';
 import type { CallSessionSnapshot } from '../../store/callingStore';
 import { answerIncomingCall, declineIncomingCall } from '../../calling/callingController';
 import { useTheme } from '../../shared/theme';
@@ -16,72 +16,101 @@ export function IncomingCallScreen({ session }: Props) {
   const { identity } = session;
 
   return (
-    <LinearGradient
-      colors={[colors.heroStart, colors.heroEnd, colors.background]}
-      style={styles.container}
-    >
-      <View style={styles.top}>
-        <VspBadge label="Incoming" tone="primary" />
-        <Text style={styles.ringing}>Ringing…</Text>
-      </View>
-
-      <View style={styles.center}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={styles.header}>
+        <Text style={[styles.status, { color: colors.primary }]}>Incoming call</Text>
+        <Text style={[styles.ringing, { color: colors.textMuted }]}>Ringing…</Text>
         <Avatar name={identity.name} size={96} />
-        <Text style={styles.name}>{identity.name}</Text>
-        <Text style={styles.number}>{identity.number}</Text>
+        <Text style={[styles.name, { color: colors.text }]}>{identity.name}</Text>
+        <Text style={[styles.number, { color: colors.textMuted }]}>{identity.number}</Text>
       </View>
 
       <View style={styles.actions}>
-        <VspIconButton
-          icon="close-outline"
-          label="Decline"
-          variant="danger"
-          size="lg"
-          onPress={() => void declineIncomingCall()}
-        />
-        <VspIconButton
-          icon="checkmark-outline"
-          label="Accept"
-          variant="success"
-          size="lg"
-          onPress={() => void answerIncomingCall()}
-        />
+        <View style={styles.actionItem}>
+          <Pressable
+            onPress={() => void declineIncomingCall()}
+            style={styles.declineButton}
+            accessibilityRole="button"
+            accessibilityLabel="Decline call"
+          >
+            <Ionicons name="close" size={32} color="#fff" />
+          </Pressable>
+          <Text style={[styles.actionLabel, { color: colors.textMuted }]}>Decline</Text>
+        </View>
+        <View style={styles.actionItem}>
+          <Pressable
+            onPress={() => void answerIncomingCall()}
+            style={styles.acceptButton}
+            accessibilityRole="button"
+            accessibilityLabel="Accept call"
+          >
+            <Ionicons name="call" size={32} color="#fff" />
+          </Pressable>
+          <Text style={[styles.actionLabel, { color: colors.textMuted }]}>Accept</Text>
+        </View>
       </View>
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: spacing.xl,
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.xxl,
     justifyContent: 'space-between',
   },
-  top: {
+  header: {
+    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
     gap: spacing.sm,
-    marginTop: spacing.xxl,
+    paddingTop: spacing.xxl,
+  },
+  status: {
+    ...typography.bodyMedium,
+    fontWeight: '600',
   },
   ringing: {
     ...typography.caption,
-    color: '#e0e7ff',
-  },
-  center: {
-    alignItems: 'center',
-    gap: spacing.sm,
+    marginBottom: spacing.md,
   },
   name: {
     ...typography.title,
-    color: '#fff',
     marginTop: spacing.md,
+    textAlign: 'center',
   },
   number: {
     ...typography.body,
-    color: '#c7d2fe',
+    textAlign: 'center',
   },
   actions: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    paddingBottom: spacing.xxl,
+    paddingBottom: spacing.xl,
+  },
+  actionItem: {
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  declineButton: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#FF3B30',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  acceptButton: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#34C759',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionLabel: {
+    ...typography.caption,
+    fontWeight: '600',
   },
 });

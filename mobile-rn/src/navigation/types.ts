@@ -1,13 +1,27 @@
+import type { NavigatorScreenParams } from '@react-navigation/native';
+import type { CallLogEntry } from '../api/types';
+
 export type AuthStackParamList = {
   Login: undefined;
+  QrLogin: undefined;
 };
 
-export type DashboardStackParamList = {
-  DashboardHome: undefined;
+export type HomeStackParamList = {
+  HomeMain: undefined;
+  CallDetails: { callId: string; call?: CallLogEntry };
+  NotificationsCenter: undefined;
 };
 
-export type CallsStackParamList = {
-  CallsHub: undefined;
+export type RecentStackParamList = {
+  RecentMain: undefined;
+  CallDetails: { callId: string; call?: CallLogEntry };
+};
+
+/** @deprecated Use RecentStackParamList */
+export type CallsStackParamList = RecentStackParamList & {
+  CallsHub?: undefined;
+  VoicemailList?: undefined;
+  VoicemailDetail?: { voicemailId: string };
 };
 
 export type MessagesStackParamList = {
@@ -16,8 +30,9 @@ export type MessagesStackParamList = {
     conversationId: string;
     peerLabel: string;
     lineLabel?: string;
+    peerNumber?: string;
   };
-  NewMessage: undefined;
+  NewMessage: { peerNumber?: string; peerLabel?: string } | undefined;
   Attachments: { conversationId?: string };
   MessageSearch: undefined;
 };
@@ -27,26 +42,26 @@ export type ContactsStackParamList = {
   ContactDetail: { contactId: string };
 };
 
-export type VoicemailStackParamList = {
+export type YouStackParamList = {
+  YouHome: undefined;
+  Profile: undefined;
+  Organization: undefined;
+  Extensions: undefined;
+  Numbers: undefined;
+  SipConfiguration: undefined;
+  Theme: undefined;
+  Notifications: undefined;
+  About: undefined;
   VoicemailList: undefined;
   VoicemailDetail: { voicemailId: string };
 };
 
-export type SettingsStackParamList = {
-  SettingsHome: undefined;
-  Profile: undefined;
-  Theme: undefined;
-  Notifications: undefined;
-  About: undefined;
-};
-
 export type MainTabParamList = {
-  Dashboard: undefined;
-  Calls: undefined;
-  Messages: undefined;
-  Contacts: undefined;
-  Voicemail: undefined;
-  Settings: undefined;
+  Recent: NavigatorScreenParams<RecentStackParamList>;
+  Contacts: NavigatorScreenParams<ContactsStackParamList>;
+  Keypad: undefined;
+  Text: NavigatorScreenParams<MessagesStackParamList>;
+  You: NavigatorScreenParams<YouStackParamList>;
 };
 
 export type RootStackParamList = {

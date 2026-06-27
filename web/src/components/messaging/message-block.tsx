@@ -1,7 +1,23 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import type { MessageAttachment } from '@/lib/messaging/types';
+import { refreshMessageAttachmentUrl } from '@/lib/messaging/client';
 import { cn } from '@/lib/utils';
+
+const REFRESH_BEFORE_EXPIRY_MS = 5 * 60 * 1000;
+
+function parseAttachmentExpiry(publicUrl?: string | null) {
+  if (!publicUrl) return null;
+  try {
+    const exp = new URL(publicUrl).searchParams.get('exp');
+    if (!exp) return null;
+    const seconds = Number(exp);
+    return Number.isFinite(seconds) ? seconds * 1000 : null;
+  } catch {
+    return null;
+  }
+}
 
 type MessageBlockProps = {
   body: string;
@@ -60,7 +76,42 @@ type AttachmentChipProps = {
 
 export function AttachmentChip({ attachment }: AttachmentChipProps) {
   const isImage = attachment.mimeType?.startsWith('image/');
-  const href = attachment.publicUrl;
+  const [href, setHref] = useState(attachment.publicUrl || '');
+  const refreshTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    setHref(attachment.publicUrl || '');
+  }, [attachment.publicUrl]);
+
+  useEffect(() => {
+    if (refreshTimerRef.current != null) {
+      window.clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = null;
+    }
+
+    const expiresAtMs = parseAttachmentExpiry(href);
+    if (!expiresAtMs || !attachment.id) return undefined;
+
+    const delay = Math.max(expiresAtMs - Date.now() - REFRESH_BEFORE_EXPIRY_MS, 30_000);
+    refreshTimerRef.current = window.setTimeout(() => {
+      void refreshMessageAttachmentUrl(attachment.id)
+        .then((next) => setHref(next))
+        .catch(() => {});
+    }, delay);
+
+    return () => {
+      if (refreshTimerRef.current != null) {
+        window.clearTimeout(refreshTimerRef.current);
+      }
+    };
+  }, [attachment.id, href]);
+
+  const handleImageError = () => {
+    if (!attachment.id) return;
+    void refreshMessageAttachmentUrl(attachment.id)
+      .then((next) => setHref(next))
+      .catch(() => {});
+  };
 
   return (
     <a
@@ -71,7 +122,7 @@ export function AttachmentChip({ attachment }: AttachmentChipProps) {
     >
       {isImage && href ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={href} alt="" className="h-10 w-10 rounded object-cover" />
+        <img src={href} alt="" className="h-10 w-10 rounded object-cover" onError={handleImageError} />
       ) : (
         <span className="flex h-10 w-10 items-center justify-center rounded bg-indigo-100 text-indigo-600">
           📎

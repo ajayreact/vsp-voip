@@ -1,5 +1,6 @@
 import React, { ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { RipplePressable } from './ui/RipplePressable';
 import { useTheme } from '../shared/theme';
 import { spacing, typography } from '../shared/theme';
 
@@ -60,15 +61,12 @@ export function ListItem({ title, subtitle, onPress, right, left }: ListItemProp
 
   if (onPress) {
     return (
-      <Pressable
+      <RipplePressable
         onPress={onPress}
-        style={({ pressed }) => [
-          styles.row,
-          { borderBottomColor: colors.border, backgroundColor: pressed ? colors.backgroundAlt : colors.surface },
-        ]}
+        style={[styles.row, { borderBottomColor: colors.border, backgroundColor: colors.surface }]}
       >
         {content}
-      </Pressable>
+      </RipplePressable>
     );
   }
 
@@ -101,7 +99,7 @@ const styles = StyleSheet.create({
   card: {
     flex: 1,
     minWidth: '45%',
-    borderRadius: 14,
+    borderRadius: 18,
     padding: spacing.md,
     borderWidth: 1,
     gap: spacing.xs,

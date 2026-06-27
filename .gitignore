@@ -16,3 +16,7 @@ playwright-report/
 # Android release signing (never commit)
 mobile/android/key.properties
 mobile/android/keystore/
+
+# React Native build / verification artifacts (never commit)
+mobile-rn/.verify-apk/
+*.apk

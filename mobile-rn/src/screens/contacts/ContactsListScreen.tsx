@@ -1,14 +1,20 @@
 import React, { useCallback, useEffect, useMemo } from 'react';
-import { Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { ContactEntry } from '../../api/types';
-import { Avatar, EmptyState, ErrorScreen, LoadingScreen, SearchBar } from '../../components';
+import { EmptyState, ErrorScreen, SearchBar } from '../../components';
+import { ContactRow } from '../../components/contacts/ContactRow';
+import { RipplePressable } from '../../components/ui/RipplePressable';
+import { SkeletonList } from '../../components/ui/SkeletonLoader';
 import { filterContacts } from '../../contacts';
 import { useContacts } from '../../hooks/useContacts';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import type { ContactsStackParamList } from '../../navigation/types';
 import { useFavoritesStore } from '../../store/favoritesStore';
 import { useTheme } from '../../shared/theme';
+import { keyExtractorById, LIST_ITEM_HEIGHT } from '../../lib/listConstants';
+import { contactRowLayout } from '../../lib/listLayout';
 import { spacing, typography } from '../../shared/theme';
 
 type Props = NativeStackScreenProps<ContactsStackParamList, 'ContactsList'>;
@@ -17,6 +23,7 @@ export function ContactsListScreen({ navigation }: Props) {
   const { colors } = useTheme();
   const { favoriteIds, hydrate, hydrated } = useFavoritesStore();
   const [search, setSearch] = React.useState('');
+  const debouncedSearch = useDebouncedValue(search, 250);
   const [showFavoritesOnly, setShowFavoritesOnly] = React.useState(false);
   const { data: contacts = [], isLoading, isRefetching, error, refetch } = useContacts();
 
@@ -24,43 +31,63 @@ export function ContactsListScreen({ navigation }: Props) {
     hydrate();
   }, [hydrate]);
 
+  const favoriteSet = useMemo(() => new Set(favoriteIds), [favoriteIds]);
+
   const filtered = useMemo(() => {
-    let list = filterContacts(contacts, search);
+    let list = filterContacts(contacts, debouncedSearch);
     if (showFavoritesOnly) {
-      list = list.filter((c) => favoriteIds.includes(c.id));
+      list = list.filter((c) => favoriteSet.has(c.id));
+    } else {
+      list = [...list].sort((a, b) => {
+        const aFav = favoriteSet.has(a.id) ? 0 : 1;
+        const bFav = favoriteSet.has(b.id) ? 0 : 1;
+        if (aFav !== bFav) return aFav - bFav;
+        return a.name.localeCompare(b.name);
+      });
     }
     return list;
-  }, [contacts, search, showFavoritesOnly, favoriteIds]);
+  }, [contacts, debouncedSearch, showFavoritesOnly, favoriteSet]);
 
-  const renderItem = useCallback(({ item }: { item: ContactEntry }) => (
-    <Pressable
-      onPress={() => navigation.navigate('ContactDetail', { contactId: item.id })}
-      style={({ pressed }) => [
-        styles.row,
-        {
-          backgroundColor: pressed ? colors.backgroundAlt : colors.surface,
-          borderBottomColor: colors.border,
-        },
-      ]}
-    >
-      <Avatar name={item.name} online={item.isOnline} />
-      <View style={styles.rowText}>
-        <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
-          {item.name}
-        </Text>
-        <Text style={[styles.meta, { color: colors.textMuted }]} numberOfLines={1}>
-          Ext {item.extensionNumber}
-          {item.department ? ` · ${item.department}` : ''}
-        </Text>
-      </View>
-      {hydrated && favoriteIds.includes(item.id) ? (
-        <Text style={{ color: colors.warning }}>★</Text>
-      ) : null}
-    </Pressable>
-  ), [colors, favoriteIds, hydrated, navigation]);
+  const handleContactPress = useCallback(
+    (contactId: string) => {
+      navigation.navigate('ContactDetail', { contactId });
+    },
+    [navigation],
+  );
+
+  const renderItem = useCallback(
+    ({ item }: { item: ContactEntry }) => (
+      <ContactRow item={item} isFavorite={hydrated && favoriteSet.has(item.id)} onPress={handleContactPress} />
+    ),
+    [favoriteSet, handleContactPress, hydrated],
+  );
+
+  const onRefresh = useCallback(() => {
+    void refetch();
+  }, [refetch]);
+
+  const refreshControl = useMemo(
+    () => <RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={colors.primary} />,
+    [colors.primary, isRefetching, onRefresh],
+  );
+
+  const listEmpty = useMemo(
+    () => (
+      <EmptyState
+        icon="👥"
+        title={showFavoritesOnly ? 'No favorites yet' : 'No contacts found'}
+        message={
+          showFavoritesOnly
+            ? 'Star contacts from their detail screen to add them here.'
+            : 'Active extensions in your organization appear here.'
+        }
+      />
+    ),
+    [showFavoritesOnly],
+  );
 
   if (isLoading && contacts.length === 0) {
-    return <LoadingScreen message="Loading directory…" />;
+    return <SkeletonList rows={8} />;
   }
 
   if (error && contacts.length === 0) {
@@ -78,7 +105,7 @@ export function ContactsListScreen({ navigation }: Props) {
         <Text style={[styles.title, { color: colors.text }]}>Contacts</Text>
         <SearchBar value={search} onChangeText={setSearch} placeholder="Search name, ext, department" />
         <View style={styles.filters}>
-          <Pressable
+          <RipplePressable
             onPress={() => setShowFavoritesOnly(false)}
             style={[
               styles.chip,
@@ -89,8 +116,8 @@ export function ContactsListScreen({ navigation }: Props) {
             ]}
           >
             <Text style={{ color: !showFavoritesOnly ? '#fff' : colors.text }}>All</Text>
-          </Pressable>
-          <Pressable
+          </RipplePressable>
+          <RipplePressable
             onPress={() => setShowFavoritesOnly(true)}
             style={[
               styles.chip,
@@ -101,27 +128,18 @@ export function ContactsListScreen({ navigation }: Props) {
             ]}
           >
             <Text style={{ color: showFavoritesOnly ? '#fff' : colors.text }}>Favorites</Text>
-          </Pressable>
+          </RipplePressable>
         </View>
       </View>
 
       <FlashList
         data={filtered}
-        keyExtractor={(item) => item.id}
-        refreshControl={
-          <RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} tintColor={colors.primary} />
-        }
-        ListEmptyComponent={
-          <EmptyState
-            icon="👥"
-            title={showFavoritesOnly ? 'No favorites yet' : 'No contacts found'}
-            message={
-              showFavoritesOnly
-                ? 'Star contacts from their detail screen to add them here.'
-                : 'Active extensions in your organization appear here.'
-            }
-          />
-        }
+        keyExtractor={keyExtractorById}
+        drawDistance={LIST_ITEM_HEIGHT.contact * 8}
+        overrideItemLayout={contactRowLayout}
+        removeClippedSubviews
+        refreshControl={refreshControl}
+        ListEmptyComponent={listEmpty}
         renderItem={renderItem}
       />
     </View>
@@ -143,15 +161,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
   },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  rowText: { flex: 1, minWidth: 0 },
-  name: { ...typography.body, fontWeight: '600' },
-  meta: { ...typography.caption, marginTop: 2 },
 });

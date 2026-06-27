@@ -1,6 +1,7 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSettingsStore } from '../../store/settingsStore';
+import { usePushRegistrationStore } from '../../notifications';
 import { useTheme } from '../../shared/theme';
 import { spacing, typography } from '../../shared/theme';
 
@@ -35,11 +36,22 @@ export function NotificationsScreen() {
   const { colors } = useTheme();
   const prefs = useSettingsStore((s) => s.notificationPrefs);
   const setNotificationPrefs = useSettingsStore((s) => s.setNotificationPrefs);
+  const pushStatus = usePushRegistrationStore((s) => s.status);
+  const pushError = usePushRegistrationStore((s) => s.lastError);
+  const pushPreview = usePushRegistrationStore((s) => s.tokenPreview);
+
+  const pushStatusLabel = {
+    idle: 'Initializing…',
+    registering: 'Registering…',
+    registered: pushPreview ? `Registered (${pushPreview})` : 'Registered',
+    unavailable: 'Unavailable — rebuild with Firebase / VoIP credentials',
+    error: pushError || 'Registration failed',
+  }[pushStatus];
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }}>
       <Text style={[styles.intro, { color: colors.textMuted }]}>
-        Notification delivery requires push setup in a future phase. Preferences are saved locally now.
+        Push delivery status: {pushStatusLabel}
       </Text>
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <ToggleRow

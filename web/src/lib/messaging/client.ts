@@ -66,6 +66,13 @@ export async function uploadMessageAttachment(file: File): Promise<MessageAttach
   return res.attachment;
 }
 
+export async function refreshMessageAttachmentUrl(attachmentId: string): Promise<string> {
+  const res = await apiFetch<{ success: boolean; publicUrl: string }>(
+    `/api/messages/attachments/${attachmentId}/url`,
+  );
+  return res.publicUrl;
+}
+
 export async function fetchMessagingLines() {
   const config = await getSmsConfig();
   return {
