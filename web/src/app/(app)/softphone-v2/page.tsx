@@ -34,7 +34,7 @@ import {
   resolveInboundCallerNameHint,
   type InboundCallerNotification,
 } from '@/lib/inbound-caller-display';
-import { isInboundCall, extractCallFromNotification, isLikelyInboundRingingInvite } from '@/lib/softphone-call-utils';
+import { isInboundCall, extractCallFromNotification, isLikelyInboundRingingInvite, looksLikeTelnyxCredentialUsername, shouldIgnoreOutboundStrayLeg } from '@/lib/softphone-call-utils';
 import { isTerminalSdkState, normalizeSdkCallState } from '@/lib/telephony/telnyx-mapper';
 import { LIVE_CALL_PHASES } from '@/lib/telephony/types';
 import { selectIsConnected } from '@/lib/telephony/selectors';
@@ -1051,9 +1051,23 @@ function SoftphoneV2Content() {
           const payload = notification as TelnyxNotificationPayload;
           const notificationCall = extractCallFromNotification(payload) ?? payload.call ?? null;
           if (notificationCall) {
-            callRef.current = notificationCall;
             const normalized = normalizeCallState(notificationCall.state);
             const prevState = normalizeCallPrevState(notificationCall);
+            const snapForGuard = orchestrator.getSnapshot();
+            const callId = notificationCall.id ?? '';
+            const outboundSessionLive = snapForGuard.session?.direction === 'outbound'
+              && LIVE_CALL_PHASES.has(snapForGuard.callPhase);
+            if (shouldIgnoreOutboundStrayLeg(snapForGuard.session?.callId, callId, outboundSessionLive)) {
+              logTelnyx('notification.stray-leg-ignored', {
+                watchedCallId: snapForGuard.session?.callId,
+                notificationCallId: callId,
+                type: payload.type,
+                state: normalized,
+              });
+              return;
+            }
+
+            callRef.current = notificationCall;
             logTelnyx('telnyx.notification.call', {
               type: payload.type,
               id: notificationCall.id,
@@ -1075,13 +1089,10 @@ function SoftphoneV2Content() {
             if (mounted) {
               const ownedInboundNumbers = getOwnedInboundNumbers();
               const snap = orchestrator.getSnapshot();
-              const callId = notificationCall.id ?? '';
               const terminal = isTerminalSdkState(normalized);
               const callAlreadyFinalized = Boolean(
                 callId && finalizedCallIdsRef.current.has(callId),
               );
-              const outboundSessionLive = snap.session?.direction === 'outbound'
-                && LIVE_CALL_PHASES.has(snap.callPhase);
               const notificationIsInbound = isLikelyInboundRingingInvite(
                 notificationCall,
                 outboundSessionLive,
@@ -1107,7 +1118,10 @@ function SoftphoneV2Content() {
                 const next = resolved !== 'Unknown' ? resolved : retained;
                 displayNumberRef.current = next;
                 orchestrator.updateSessionLabel(next, hint);
-              } else if (resolved !== 'Unknown') {
+              } else if (
+                resolved !== 'Unknown'
+                && !looksLikeTelnyxCredentialUsername(resolved)
+              ) {
                 displayNumberRef.current = resolved;
                 orchestrator.updateSessionLabel(resolved);
               }

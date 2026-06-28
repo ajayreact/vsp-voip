@@ -3,6 +3,7 @@ import {
   parseInternalExtensionDestination,
   isPstnDestination,
   isCredentialConnectionOutbound,
+  loadTargetExtensionByDid,
 } from '../../lib/internalExtensionDial.js';
 
 describe('parked WebRTC outbound routing helpers', () => {
@@ -31,5 +32,9 @@ describe('parked WebRTC outbound routing helpers', () => {
       connection_id: 'cred-conn-1',
       direction: 'incoming',
     }, platform)).toBe(false);
+  });
+
+  it('exports loadTargetExtensionByDid helper', () => {
+    expect(typeof loadTargetExtensionByDid).toBe('function');
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Call } from '@telnyx/webrtc';
-import { isInboundCall, isLikelyInboundRingingInvite } from '@/lib/softphone-call-utils';
+import { isInboundCall, isLikelyInboundRingingInvite, looksLikeTelnyxCredentialUsername, shouldIgnoreOutboundStrayLeg } from '@/lib/softphone-call-utils';
 
 function mockCall(overrides: Record<string, unknown> = {}): Call {
   return overrides as Call;
@@ -48,5 +48,19 @@ describe('isLikelyInboundRingingInvite', () => {
       state: 'ringing',
       direction: 'inbound',
     }), true)).toBe(false);
+  });
+});
+
+describe('outbound stray leg guards', () => {
+  it('detects Telnyx credential usernames', () => {
+    expect(looksLikeTelnyxCredentialUsername('gencredewJOH8jhDkOrX6xZ')).toBe(true);
+    expect(looksLikeTelnyxCredentialUsername('+13135551212')).toBe(false);
+    expect(looksLikeTelnyxCredentialUsername('Basha')).toBe(false);
+  });
+
+  it('ignores notifications for a different call id during live outbound', () => {
+    expect(shouldIgnoreOutboundStrayLeg('call-a', 'call-b', true)).toBe(true);
+    expect(shouldIgnoreOutboundStrayLeg('call-a', 'call-a', true)).toBe(false);
+    expect(shouldIgnoreOutboundStrayLeg('call-a', 'call-b', false)).toBe(false);
   });
 });

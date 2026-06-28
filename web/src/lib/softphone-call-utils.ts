@@ -63,6 +63,27 @@ export function isLikelyInboundRingingInvite(
   return !options?.destinationNumber;
 }
 
+/** Telnyx auto-generated SIP usernames must not replace human-readable call labels. */
+export function looksLikeTelnyxCredentialUsername(value: string | null | undefined): boolean {
+  const trimmed = String(value || '').trim();
+  if (!trimmed) return false;
+  if (/^gencred[a-z0-9]+$/i.test(trimmed)) return true;
+  if (/^sip:gencred[a-z0-9]+@/i.test(trimmed)) return true;
+  return /^[a-z0-9]{20,}$/i.test(trimmed) && !/\d{7,}/.test(trimmed);
+}
+
+export function shouldIgnoreOutboundStrayLeg(
+  sessionCallId: string | null | undefined,
+  notificationCallId: string | null | undefined,
+  hasOutboundLiveSession: boolean,
+): boolean {
+  if (!hasOutboundLiveSession) return false;
+  const watched = String(sessionCallId || '').trim();
+  const incoming = String(notificationCallId || '').trim();
+  if (!watched || !incoming || watched === 'pending') return false;
+  return watched !== incoming;
+}
+
 export function resolveRemoteCallerNumber(call: Call | null | undefined) {
   if (!call) return '';
 
