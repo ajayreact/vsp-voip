@@ -12,6 +12,7 @@ const { parseDurationSeconds, classifyCallType } = require('./lib/callLogMeta');
 const { applyNumberRoutingToGreeting } = require('./lib/numberRouting');
 const { getCachedTenant, refreshTenantCache, setCachedTenant, getTenantCacheSize } = require('./lib/tenantCache');
 const { claimGreetingSession, clearGreetingSession } = require('./lib/greetingDedup');
+const { evaluateTelnyxWebhookDedup } = require('./lib/telnyxWebhookDedup');
 const { isTenantOperational } = require('./lib/tenantGuard');
 const { buildGreetingTexml, buildSayAndHangupTexml } = require('./lib/texml');
 const { buildInboundCallTexml } = require('./lib/callRouting');
@@ -550,8 +551,13 @@ async function handleTelnyxCallRecordingWebhook(req, res) {
 }
 
 async function handleTelnyxCallControlWebhook(req, res) {
-    const eventType = req.body?.data?.event_type || '(unknown)';
+    const dedup = await evaluateTelnyxWebhookDedup(req.body, { source: 'call-control' });
+    const eventType = dedup.eventType;
     console.log('📲 Call Control webhook:', eventType);
+
+    if (!dedup.process) {
+        return res.status(200).json({ received: true, duplicate: true });
+    }
 
     res.status(200).json({ received: true });
 
@@ -571,8 +577,13 @@ async function handleTelnyxCallControlWebhook(req, res) {
 }
 
 async function handleTelnyxVoiceWebhook(req, res) {
-    const eventType = req.body?.data?.event_type || '(unknown)';
+    const dedup = await evaluateTelnyxWebhookDedup(req.body, { source: 'voice' });
+    const eventType = dedup.eventType;
     console.log('📡 Telnyx voice event:', eventType);
+
+    if (!dedup.process) {
+        return res.status(200).json({ received: true, duplicate: true });
+    }
 
     res.status(200).json({ received: true });
 

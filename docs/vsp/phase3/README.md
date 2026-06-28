@@ -1,7 +1,7 @@
 # Phase 3 — Production Readiness
 
 **Status:** Phase 2 feature-complete. Feature development **frozen**.  
-**Current increment:** 3.1 — Production Audit (read-only; no fixes until audit approved)
+**Current increment:** 3.2 — Production hardening (3.2.1 webhook deduplication shipped)
 
 ---
 
@@ -11,13 +11,29 @@ Prepare VSP PBX for production deployment: stability, reliability, scalability, 
 
 | Increment | Focus | Status |
 |-----------|-------|--------|
-| 3.1 | Production audit | **Complete** (this folder) |
-| 3.2 | Production hardening | Pending audit approval |
+| 3.1 | Production audit | **Complete** |
+| 3.2.1 | Webhook idempotency / event deduplication | **Complete** |
+| 3.2 | Remaining production hardening | In progress |
 | 3.3 | Multi-tenant validation | Pending |
 | 3.4 | Security audit (remediation) | Pending |
 | 3.5 | Performance | Pending |
 | 3.6 | Production deployment | Pending |
 | 3.7 | End-to-end production validation | Pending |
+
+### Phase 3.2.1 — Webhook deduplication
+
+Telnyx delivers Call Control webhooks **at-least-once**. Duplicate deliveries are dropped at ingress using `data.id` as a global idempotency key (shared across `/webhook/call-control` and `/webhook/voice`).
+
+| Item | Detail |
+|------|--------|
+| Module | `lib/telnyxWebhookDedup.js` |
+| Storage | Redis `SET key NX EX ttl` when `REDIS_URL` is set; in-process TTL map fallback |
+| Key | `telnyx:webhook:event:{data.id}` |
+| TTL | `TELNYX_WEBHOOK_DEDUP_TTL_SEC` (default **86400**, min 60, max 604800) |
+| Migration | None — Redis keys expire automatically |
+| API change | Webhook 200 responses may include `{ duplicate: true }` for ignored retries (Telnyx-facing only) |
+
+Ignored duplicates log `telnyx_webhook_duplicate_ignored` with `eventId`, `eventType`, `source`, and Telnyx `meta.attempt` when present.
 
 ---
 
