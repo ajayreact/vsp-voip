@@ -68,13 +68,23 @@ export type LocalAudioSenderStatus = {
   }>;
 };
 
+type CallWithMuteIntent = Call & {
+  muteAudio?: () => void;
+  unmuteAudio?: () => void;
+  localStream?: MediaStream;
+  isAudioMuted?: boolean;
+  _vspMuteIntent?: boolean;
+};
+
+function isLocalAudioIntentionallyMuted(call: Call): boolean {
+  const extended = call as CallWithMuteIntent;
+  return Boolean(extended._vspMuteIntent ?? extended.isAudioMuted);
+}
+
 /** Enable and verify local microphone send path (inbound + outbound). */
 export function setLocalAudioMuted(call: Call, muted: boolean) {
-  const extended = call as Call & {
-    muteAudio?: () => void;
-    unmuteAudio?: () => void;
-    localStream?: MediaStream;
-  };
+  const extended = call as CallWithMuteIntent;
+  extended._vspMuteIntent = muted;
 
   try {
     if (muted) {
@@ -131,15 +141,11 @@ export function verifyLocalAudioSenders(
   pc?: RTCPeerConnection,
 ): LocalAudioSenderStatus {
   const peerPc = pc ?? resolvePeerConnection(call) ?? undefined;
-  enableStreamTracks((call as Call & { localStream?: MediaStream }).localStream);
-  enableSenderTracks(peerPc);
+  const muted = isLocalAudioIntentionallyMuted(call);
 
-  const extended = call as Call & {
-    unmuteAudio?: () => void;
-    isAudioMuted?: boolean;
-  };
-  if (extended.isAudioMuted) {
-    extended.unmuteAudio?.();
+  if (!muted) {
+    enableStreamTracks((call as Call & { localStream?: MediaStream }).localStream);
+    enableSenderTracks(peerPc);
   }
 
   const senders = (peerPc?.getSenders() ?? [])
@@ -173,10 +179,19 @@ export function collectRemoteStream(pc: RTCPeerConnection | undefined): MediaStr
 }
 
 function resolveRemoteStream(call: Call, pc: RTCPeerConnection | undefined): MediaStream | null {
-  if (call.remoteStream?.getAudioTracks().length) {
-    return call.remoteStream;
+  const sdkStream = call.remoteStream;
+  if (sdkStream?.getAudioTracks().length) {
+    return sdkStream;
   }
   return collectRemoteStream(pc);
+}
+
+/** Telnyx SDK may expose remote media on call.remoteStream before peer.instance is populated. */
+export function canWireRemoteCallAudio(call: Call): boolean {
+  if (resolvePeerConnection(call)) return true;
+  if (call.remoteStream?.getAudioTracks().length) return true;
+  const state = normalizeSdkCallState(call.state);
+  return state === 'active' || state === 'early' || state === 'held';
 }
 
 export async function attachRemoteCallAudio(
@@ -263,7 +278,7 @@ export function wireWebCallAudio(
     };
   }
 
-  const timerId = window.setInterval(refresh, 800);
+  const timerId = window.setInterval(refresh, 250);
 
   return () => window.clearInterval(timerId);
 }

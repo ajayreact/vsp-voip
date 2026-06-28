@@ -36,10 +36,11 @@ import {
 } from '@/lib/inbound-caller-display';
 import { isInboundCall } from '@/lib/softphone-call-utils';
 import { isTerminalSdkState, normalizeSdkCallState } from '@/lib/telephony/telnyx-mapper';
+import { LIVE_CALL_PHASES } from '@/lib/telephony/types';
 import {
+  attachRemoteCallAudio,
+  canWireRemoteCallAudio,
   detachRemoteCallAudio,
-  readCallAudioMuted,
-  readCallHeld,
   resolvePeerConnection,
   setLocalAudioMuted,
   wireWebCallAudio,
@@ -571,17 +572,20 @@ function SoftphoneV2Content() {
 
     const wireOnce = () => {
       if (unwireCallAudioRef.current) return true;
+      if (!canWireRemoteCallAudio(call)) return false;
+      void attachRemoteCallAudio(call, audioEl);
       const pc = resolvePeerConnection(call);
-      if (!pc) return false;
       unwireCallAudioRef.current = wireWebCallAudio(call, audioEl, () => {
         logTelnyx('media.playback-blocked', { label });
       });
-      registerWebRtcDiagnosticsSnapshot(call, pc);
-      sendPathProbeStopRef.current?.();
-      sendPathProbeStopRef.current = startWebRtcSendPathProbe(call, label);
-      void logPeerConnectionDiagnostics(call, label).then(() => {
-        logTelnyx('media.diagnostics', { label });
-      });
+      if (pc) {
+        registerWebRtcDiagnosticsSnapshot(call, pc);
+        sendPathProbeStopRef.current?.();
+        sendPathProbeStopRef.current = startWebRtcSendPathProbe(call, label);
+        void logPeerConnectionDiagnostics(call, label).then(() => {
+          logTelnyx('media.diagnostics', { label });
+        });
+      }
       return true;
     };
 
@@ -1051,8 +1055,9 @@ function SoftphoneV2Content() {
               const callAlreadyFinalized = Boolean(
                 callId && finalizedCallIdsRef.current.has(callId),
               );
-              const notificationIsInbound = isInboundCall(payload.call)
-                && snap.session?.direction !== 'outbound';
+              const outboundSessionLive = snap.session?.direction === 'outbound'
+                && LIVE_CALL_PHASES.has(snap.callPhase);
+              const notificationIsInbound = isInboundCall(payload.call) && !outboundSessionLive;
               const notificationIsOutboundLeg = snap.session?.direction === 'outbound'
                 || callSessionRef.current?.direction === 'outbound';
 
@@ -1123,16 +1128,27 @@ function SoftphoneV2Content() {
                 }
               }
 
-              if (normalized === 'active' && callId) {
+              const shouldAttachMedia = normalized === 'active'
+                || (normalized === 'early' && !notificationIsInbound);
+              if (shouldAttachMedia && callId) {
                 attachCallMedia(
                   payload.call,
-                  notificationIsInbound ? 'inbound:active' : 'outbound:active',
+                  notificationIsInbound
+                    ? `inbound:${normalized}`
+                    : `outbound:${normalized}`,
                 );
                 stopIncomingRingtoneRef.current();
                 if (!notificationIsInbound) {
                   orchestrator.dispatchSdkNotification(payload.call, payload.type);
                 }
               } else if (normalized === 'held' && callId && snap.session) {
+                orchestrator.dispatchSdkNotification(payload.call, payload.type);
+              } else if (
+                callId
+                && payload.type
+                && notificationIsInbound
+                && !terminal
+              ) {
                 orchestrator.dispatchSdkNotification(payload.call, payload.type);
               } else if (
                 callId
@@ -1552,8 +1568,13 @@ function SoftphoneV2Content() {
     if (!call || !inCallMediaReady) return;
     try {
       const nextMuted = !telephonyMuted;
+      if (nextMuted) {
+        call.muteAudio?.();
+      } else {
+        call.unmuteAudio?.();
+      }
       setLocalAudioMuted(call, nextMuted);
-      orchestrator.setMuted(readCallAudioMuted(call) || nextMuted);
+      orchestrator.setMuted(nextMuted);
       logTelnyx('mute.toggle', { muted: nextMuted });
     } catch (err) {
       logTelnyx('mute.error', err);
@@ -1563,19 +1584,25 @@ function SoftphoneV2Content() {
   const onToggleHold = () => {
     const call = callRef.current as CallWithControls | null;
     if (!call || !inCallMediaReady) return;
+    const nextHold = !telephonyOnHold;
     void (async () => {
       try {
-        if (telephonyOnHold) {
-          await call.unhold?.();
-        } else {
-          await call.hold?.();
-        }
-        if (readCallHeld(call)) {
+        if (nextHold) {
+          if (typeof call.hold !== 'function') {
+            logTelnyx('hold.unavailable');
+            return;
+          }
+          await call.hold();
           orchestrator.holdStarted();
-        } else if (normalizeCallState(call.state) === 'active') {
+        } else {
+          if (typeof call.unhold !== 'function') {
+            logTelnyx('unhold.unavailable');
+            return;
+          }
+          await call.unhold();
           orchestrator.holdEnded();
         }
-        logTelnyx('hold.toggle', { onHold: readCallHeld(call) });
+        logTelnyx('hold.toggle', { onHold: nextHold });
       } catch (err) {
         logTelnyx('hold.error', err);
       }

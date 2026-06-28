@@ -24,7 +24,7 @@ export function isInboundCall(call: Call | null | undefined) {
     (call as Call & { direction?: string }).direction || '',
   ).toLowerCase();
 
-  if (direction === 'inbound') return true;
+  if (direction === 'inbound' || direction === 'incoming') return true;
 
   const options = (call as Call & {
     options?: { destinationNumber?: string; remoteCallerNumber?: string };
