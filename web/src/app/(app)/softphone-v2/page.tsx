@@ -93,7 +93,7 @@ const DTMF_ROWS = [
   ['*', '0', '#'],
 ] as const;
 
-export const SOFTPHONE_AUDIO_CONSTRAINTS: MediaTrackConstraints = {
+const SOFTPHONE_AUDIO_CONSTRAINTS: MediaTrackConstraints = {
   echoCancellation: true,
   noiseSuppression: true,
   autoGainControl: true,

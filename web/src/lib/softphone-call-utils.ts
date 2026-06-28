@@ -1,3 +1,4 @@
+import type { Call } from '@telnyx/webrtc';
 import { isTerminalCallState, normalizeCallState } from '@/lib/telnyx-debug';
 import { resolveInboundCallerDisplay } from './inbound-caller-display';
 
