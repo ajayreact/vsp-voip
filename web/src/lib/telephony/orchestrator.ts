@@ -12,6 +12,7 @@ import { syncRingbackWithSnapshot } from './ringback-controller';
 import {
   mapSdkStateToCallEvents,
   normalizeSdkCallState,
+  PSTN_SECOND_ACTIVE_SOURCE,
   shouldConfirmRemoteAnswer,
 } from './telnyx-mapper';
 import type {
@@ -78,16 +79,26 @@ export class TelephonyOrchestrator {
         userAnswered,
       });
       if (confirm.confirmed) {
-        logDiagnosticTimeline('answer.REMOTE_ANSWER_CONFIRMED.dispatch', this.snapshot, {
-          callId,
-          source: confirm.source,
-          reason: confirm.reason,
-        });
-        this.dispatchCall({
-          type: 'REMOTE_ANSWER_CONFIRMED',
-          callId,
-          source: confirm.source,
-        });
+        const alreadyConfirmed = this.snapshot.session?.connectedAt != null;
+        if (confirm.source === PSTN_SECOND_ACTIVE_SOURCE && alreadyConfirmed) {
+          logDiagnosticTimeline('answer.REMOTE_ANSWER_CONFIRMED.skipped', this.snapshot, {
+            callId,
+            source: confirm.source,
+            reason: 'already_confirmed',
+            connectedAt: this.snapshot.session?.connectedAt ?? null,
+          });
+        } else {
+          logDiagnosticTimeline('answer.REMOTE_ANSWER_CONFIRMED.dispatch', this.snapshot, {
+            callId,
+            source: confirm.source,
+            reason: confirm.reason,
+          });
+          this.dispatchCall({
+            type: 'REMOTE_ANSWER_CONFIRMED',
+            callId,
+            source: confirm.source,
+          });
+        }
       }
     }
 

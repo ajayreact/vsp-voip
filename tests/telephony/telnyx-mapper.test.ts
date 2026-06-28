@@ -3,9 +3,9 @@ import type { Call } from '@telnyx/webrtc';
 import { shouldConfirmRemoteAnswer } from '@/lib/telephony/telnyx-mapper';
 import type { CallSessionContext } from '@/lib/telephony/types';
 
-function mockCall(state: string, prevState?: string): Call {
+function mockCall(state: string, prevState?: string, id = 'call-1'): Call {
   return {
-    id: 'call-1',
+    id,
     state,
     prevState: prevState ?? '',
   } as Call;
@@ -53,10 +53,59 @@ describe('shouldConfirmRemoteAnswer', () => {
     expect(result.confirmed).toBe(true);
   });
 
-  it('defers outbound active after early media without ringing', () => {
+  it('defers first outbound active after early media (Bug #2 guard)', () => {
     const result = shouldConfirmRemoteAnswer({
       call: mockCall('active', 'early'),
-      session: baseSession({ remoteRingSeen: true }),
+      session: baseSession({ remoteRingSeen: true, activeTransitionCount: 1 }),
+    });
+    expect(result.confirmed).toBe(false);
+    expect(result.source).toBe('pstn_deferred');
+  });
+
+  it('confirms outbound PSTN on second active after early media without prevState=ringing', () => {
+    const result = shouldConfirmRemoteAnswer({
+      call: mockCall('active', 'active'),
+      session: baseSession({ remoteRingSeen: true, activeTransitionCount: 2 }),
+    });
+    expect(result.confirmed).toBe(true);
+    expect(result.source).toBe('pstn_second_active');
+  });
+
+  it('defers second active when remote ring was never seen', () => {
+    const result = shouldConfirmRemoteAnswer({
+      call: mockCall('active', 'active'),
+      session: baseSession({ remoteRingSeen: false, activeTransitionCount: 2 }),
+    });
+    expect(result.confirmed).toBe(false);
+    expect(result.source).toBe('pstn_deferred');
+  });
+
+  it('defers third outbound active — no repeat pstn_second_active', () => {
+    const result = shouldConfirmRemoteAnswer({
+      call: mockCall('active', 'active'),
+      session: baseSession({ remoteRingSeen: true, activeTransitionCount: 3 }),
+    });
+    expect(result.confirmed).toBe(false);
+    expect(result.source).toBe('pstn_deferred');
+  });
+
+  it('defers pstn_second_active when connectedAt is already set', () => {
+    const result = shouldConfirmRemoteAnswer({
+      call: mockCall('active', 'active'),
+      session: baseSession({
+        remoteRingSeen: true,
+        activeTransitionCount: 2,
+        connectedAt: Date.now(),
+      }),
+    });
+    expect(result.confirmed).toBe(false);
+    expect(result.source).toBe('pstn_deferred');
+  });
+
+  it('defers pstn_second_active when call id does not match session', () => {
+    const result = shouldConfirmRemoteAnswer({
+      call: mockCall('active', 'active', 'other-call'),
+      session: baseSession({ remoteRingSeen: true, activeTransitionCount: 2, callId: 'call-1' }),
     });
     expect(result.confirmed).toBe(false);
     expect(result.source).toBe('pstn_deferred');

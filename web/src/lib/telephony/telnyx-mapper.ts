@@ -56,11 +56,33 @@ function normalizeCallPrevState(call: Call): string {
 /** Telnyx early media can reach `active` before the far end answers — only prior ring/answer states count. */
 const ANSWER_CONFIRM_PREV_STATES = new Set(['ringing', 'answering']);
 
-function canConfirmFromSession(call: Call): boolean {
+function isActiveOrHeldSdkCall(call: Call): boolean {
   const state = normalizeSdkCallState(call.state);
-  if (state !== 'active' && state !== 'held') return false;
+  return state === 'active' || state === 'held';
+}
+
+function canConfirmFromSession(call: Call): boolean {
+  if (!isActiveOrHeldSdkCall(call)) return false;
   const prev = normalizeCallPrevState(call);
   return ANSWER_CONFIRM_PREV_STATES.has(prev);
+}
+
+/** Source tag for the PSTN early-media second-active answer fallback. */
+export const PSTN_SECOND_ACTIVE_SOURCE = 'pstn_second_active';
+
+/**
+ * After early media, Telnyx may reach `active` before the far end answers (prevState=early).
+ * A later `callUpdate` may still be `active` with prevState=active — not ringing — when the
+ * callee actually answers. Confirm only on the first valid second SDK active transition.
+ */
+function canConfirmPstnSecondActive(session: CallSessionContext, call: Call): boolean {
+  if (session.kind !== 'pstn') return false;
+  if (!session.remoteRingSeen) return false;
+  if (session.activeTransitionCount !== 2) return false;
+  if (session.connectedAt != null) return false;
+  const callId = String(call.id ?? '').trim();
+  if (!callId || callId !== session.callId) return false;
+  return isActiveOrHeldSdkCall(call);
 }
 
 export function shouldConfirmRemoteAnswer(input: {
@@ -88,6 +110,8 @@ export function shouldConfirmRemoteAnswer(input: {
     }
   } else if (canConfirmFromSession(call)) {
     result = { confirmed: true, source: eventType ? `pstn_${eventType}` : 'pstn_active' };
+  } else if (canConfirmPstnSecondActive(session, call)) {
+    result = { confirmed: true, source: PSTN_SECOND_ACTIVE_SOURCE };
   } else {
     result = { confirmed: false, source: 'pstn_deferred' };
   }
