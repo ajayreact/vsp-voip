@@ -136,6 +136,19 @@ describe('shouldConfirmRemoteAnswer', () => {
     expect(result.source).toBe(PSTN_SECOND_ACTIVE_SOURCE);
   });
 
+  it('defers internal extension first active after server answers parked leg', () => {
+    const result = shouldConfirmRemoteAnswer({
+      call: mockCall('active', 'answering'),
+      session: baseSession({
+        kind: 'internal_extension',
+        remoteRingSeen: true,
+        activeTransitionCount: 1,
+      }),
+    });
+    expect(result.confirmed).toBe(false);
+    expect(result.source).toBe('pstn_deferred');
+  });
+
   it('defers internal extension second active when remote ring was never seen', () => {
     const result = shouldConfirmRemoteAnswer({
       call: mockCall('active', 'active'),

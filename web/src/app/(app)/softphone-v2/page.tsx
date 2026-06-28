@@ -34,9 +34,10 @@ import {
   resolveInboundCallerNameHint,
   type InboundCallerNotification,
 } from '@/lib/inbound-caller-display';
-import { isInboundCall, extractCallFromNotification } from '@/lib/softphone-call-utils';
+import { isInboundCall, extractCallFromNotification, isLikelyInboundRingingInvite } from '@/lib/softphone-call-utils';
 import { isTerminalSdkState, normalizeSdkCallState } from '@/lib/telephony/telnyx-mapper';
 import { LIVE_CALL_PHASES } from '@/lib/telephony/types';
+import { selectIsConnected } from '@/lib/telephony/selectors';
 import {
   attachRemoteCallAudio,
   canWireRemoteCallAudio,
@@ -566,17 +567,23 @@ function SoftphoneV2Content() {
     detachRemoteCallAudio(getRemoteAudioElement());
   };
 
-  const attachCallMedia = (call: Call, label: string) => {
+  const attachCallMedia = (call: Call, label: string, options?: { forceRewire?: boolean }) => {
     const audioEl = getRemoteAudioElement();
     const snap = orchestrator.getSnapshot();
     logDiagnosticTimeline('media.attachCallMedia', snap, {
       label,
+      forceRewire: options?.forceRewire ?? false,
       sdkState: normalizeCallState(call.state),
       sdkPrevState: normalizeCallPrevState(call),
       callPhase: snap.callPhase,
       ringbackSource: getActiveLocalToneSourceForDiagnostics(),
       hasRemoteAudioEl: Boolean(audioEl),
     });
+
+    if (options?.forceRewire) {
+      unwireCallAudioRef.current?.();
+      unwireCallAudioRef.current = null;
+    }
 
     const wireOnce = () => {
       if (unwireCallAudioRef.current) return true;
@@ -884,6 +891,14 @@ function SoftphoneV2Content() {
     return () => stopIncomingRingtone();
   }, [showIncomingOverlay]);
 
+  useEffect(() => {
+    if (!telephonyConnected) return;
+    const call = callRef.current;
+    const snap = orchestrator.getSnapshot();
+    if (!call || snap.session?.kind !== 'internal_extension') return;
+    attachCallMedia(call, 'internal_extension:bridge-connected', { forceRewire: true });
+  }, [telephonyConnected]);
+
   useEffect(() => () => {
     stopIncomingRingtone();
     stopOutboundRingback(callRef.current);
@@ -1067,7 +1082,10 @@ function SoftphoneV2Content() {
               );
               const outboundSessionLive = snap.session?.direction === 'outbound'
                 && LIVE_CALL_PHASES.has(snap.callPhase);
-              const notificationIsInbound = isInboundCall(notificationCall) && !outboundSessionLive;
+              const notificationIsInbound = isLikelyInboundRingingInvite(
+                notificationCall,
+                outboundSessionLive,
+              );
               const notificationIsOutboundLeg = snap.session?.direction === 'outbound'
                 || callSessionRef.current?.direction === 'outbound';
 
@@ -1081,7 +1099,7 @@ function SoftphoneV2Content() {
                 pstnCallerHint,
               );
 
-              if (isInboundCall(notificationCall)) {
+              if (isInboundCall(notificationCall) || notificationIsInbound) {
                 const hint = resolveInboundCallerNameHint(notificationCall as CallDisplayFields);
                 const retained = prevLabel
                   || callSessionRef.current?.number
@@ -1138,35 +1156,41 @@ function SoftphoneV2Content() {
                 }
               }
 
-              const shouldAttachMedia = normalized === 'active'
-                || (normalized === 'early' && !notificationIsInbound);
+              const sessionKind = snap.session?.kind;
+              const isInternalExtension = sessionKind === 'internal_extension';
+
+              if (
+                callId
+                && payload.type
+                && !terminal
+                && (notificationIsInbound
+                  || (!notificationIsInbound && notificationIsOutboundLeg))
+              ) {
+                orchestrator.dispatchSdkNotification(notificationCall, payload.type);
+              }
+
+              const snapAfterDispatch = orchestrator.getSnapshot();
+              const bridgeConnected = selectIsConnected(snapAfterDispatch);
+              const shouldAttachMedia = (
+                (normalized === 'early' && !notificationIsInbound && !isInternalExtension)
+                || (normalized === 'active' && notificationIsInbound && bridgeConnected)
+                || (normalized === 'active' && !notificationIsInbound && (
+                  bridgeConnected
+                  || (!isInternalExtension && sessionKind === 'pstn')
+                ))
+              );
+
               if (shouldAttachMedia && callId) {
                 attachCallMedia(
                   notificationCall,
                   notificationIsInbound
                     ? `inbound:${normalized}`
                     : `outbound:${normalized}`,
+                  {
+                    forceRewire: bridgeConnected && isInternalExtension,
+                  },
                 );
                 stopIncomingRingtoneRef.current();
-                if (!notificationIsInbound) {
-                  orchestrator.dispatchSdkNotification(notificationCall, payload.type);
-                }
-              } else if (normalized === 'held' && callId && snap.session) {
-                orchestrator.dispatchSdkNotification(notificationCall, payload.type);
-              } else if (
-                callId
-                && payload.type
-                && notificationIsInbound
-                && !terminal
-              ) {
-                orchestrator.dispatchSdkNotification(notificationCall, payload.type);
-              } else if (
-                callId
-                && payload.type
-                && !notificationIsInbound
-                && notificationIsOutboundLeg
-              ) {
-                orchestrator.dispatchSdkNotification(notificationCall, payload.type);
               }
 
               if (terminal) {

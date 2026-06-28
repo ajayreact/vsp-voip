@@ -81,18 +81,20 @@ function isFirstActiveAfterEarlyMedia(session: CallSessionContext, call: Call): 
 }
 
 /**
- * Internal extension Park Outbound: server may answer the WebRTC leg before the desk phone.
- * Confirm only after ringing/answering prevState or the second documented `active` callUpdate.
+ * Internal extension Park Outbound: server answers the parked WebRTC leg before the desk
+ * phone bridges. Confirm only on the second documented `active` callUpdate (bridge complete).
+ * @see Telnyx Pattern 1 — first active = parked leg answered; second active = bridge_on_answer
  */
 function canConfirmInternalExtensionAnswer(session: CallSessionContext, call: Call): boolean {
   if (session.kind !== 'internal_extension') return false;
   if (session.connectedAt != null) return false;
-  if (canConfirmFromSession(call)) return true;
+  if (!isActiveOrHeldSdkCall(call)) return false;
+  if (isFirstActiveAfterEarlyMedia(session, call)) return false;
   if (!session.remoteRingSeen) return false;
-  if (session.activeTransitionCount !== 2) return false;
+  if (session.activeTransitionCount < 2) return false;
   const callId = String(call.id ?? '').trim();
   if (!callId || callId !== session.callId) return false;
-  return isActiveOrHeldSdkCall(call);
+  return true;
 }
 
 /**

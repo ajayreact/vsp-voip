@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Call } from '@telnyx/webrtc';
-import { isInboundCall } from '@/lib/softphone-call-utils';
+import { isInboundCall, isLikelyInboundRingingInvite } from '@/lib/softphone-call-utils';
 
 function mockCall(overrides: Record<string, unknown> = {}): Call {
   return overrides as Call;
@@ -32,5 +32,21 @@ describe('isInboundCall', () => {
     expect(isInboundCall(mockCall({
       remotePartyNumber: '+13135551212',
     }))).toBe(true);
+  });
+});
+
+describe('isLikelyInboundRingingInvite', () => {
+  it('detects ringing invite when idle and no destinationNumber', () => {
+    expect(isLikelyInboundRingingInvite(mockCall({
+      state: 'ringing',
+      options: {},
+    }), false)).toBe(true);
+  });
+
+  it('rejects when outbound session is live', () => {
+    expect(isLikelyInboundRingingInvite(mockCall({
+      state: 'ringing',
+      direction: 'inbound',
+    }), true)).toBe(false);
   });
 });

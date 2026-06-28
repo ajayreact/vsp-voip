@@ -229,7 +229,13 @@ export function OutgoingCallScreen({
   return (
     <div className="absolute inset-0 z-50 flex flex-col bg-[#1C1C1E] text-white">
       <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-        <p className="text-sm font-medium text-white/55">Calling</p>
+        <p className="text-sm font-medium text-white/55">
+          {callState === 'ringing'
+            ? 'Ringing'
+            : callState === 'requesting'
+              ? 'Connecting'
+              : 'Calling'}
+        </p>
         <h1 className="mt-3 max-w-full text-4xl font-light tracking-tight">
           {hasCallerName ? callerName : formattedNumber}
         </h1>

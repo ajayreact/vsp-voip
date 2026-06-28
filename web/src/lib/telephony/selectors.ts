@@ -57,7 +57,7 @@ export function selectUiCallState(snapshot: TelephonySnapshot): string {
   if (
     session?.direction === 'outbound'
     && !CONNECTED_PHASES.has(callPhase)
-    && (callPhase === 'calling' || callPhase === 'remote_ringing')
+    && callPhase === 'remote_ringing'
   ) {
     return 'ringing';
   }
@@ -66,6 +66,7 @@ export function selectUiCallState(snapshot: TelephonySnapshot): string {
     case 'idle':
       return '';
     case 'dialing':
+      return 'requesting';
     case 'calling':
       return 'requesting';
     case 'remote_ringing':

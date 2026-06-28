@@ -1,4 +1,3 @@
-import type { Call } from '@telnyx/webrtc';
 import { isTerminalCallState, normalizeCallState } from '@/lib/telnyx-debug';
 import { resolveInboundCallerDisplay } from './inbound-caller-display';
 
@@ -39,6 +38,28 @@ export function isInboundCall(call: Call | null | undefined) {
 
   // Outbound calls always set destinationNumber; inbound INVITEs expose remote caller instead.
   return Boolean(options?.remoteCallerNumber && !options?.destinationNumber);
+}
+
+/**
+ * Inbound INVITE heuristic when Telnyx omits direction on the first callUpdate.
+ * Idle client + ringing/progress state + no outbound destinationNumber ⇒ inbound.
+ */
+export function isLikelyInboundRingingInvite(
+  call: Call | null | undefined,
+  hasOutboundLiveSession: boolean,
+): boolean {
+  if (hasOutboundLiveSession) return false;
+  if (isInboundCall(call)) return true;
+  if (!call) return false;
+
+  const state = normalizeCallState(call.state);
+  if (!isConnectingCallState(state)) return false;
+
+  const options = (call as Call & {
+    options?: { destinationNumber?: string };
+  }).options;
+
+  return !options?.destinationNumber;
 }
 
 export function resolveRemoteCallerNumber(call: Call | null | undefined) {

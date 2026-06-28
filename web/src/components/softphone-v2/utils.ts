@@ -123,6 +123,7 @@ export function callStatusLabel(state: string) {
     case 'held':
       return 'On Hold';
     case 'ringing':
+      return 'Ringing…';
     case 'trying':
     case 'early':
     case 'answering':
