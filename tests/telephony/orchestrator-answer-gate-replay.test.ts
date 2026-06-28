@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Call } from '@telnyx/webrtc';
 import { createTelephonyOrchestrator } from '@/lib/telephony/orchestrator';
+import { PSTN_SECOND_ACTIVE_SOURCE } from '@/lib/telephony/telnyx-mapper';
 import { setTelephonyLogSink, type TelephonyLogEntry } from '@/lib/telephony/logger';
 
 vi.mock('@/lib/call-sounds', () => ({
@@ -22,7 +23,7 @@ function mockCall(input: {
   } as Call;
 }
 
-describe('orchestrator answer-gate replay (Bug #7 live log sequence)', () => {
+describe('orchestrator answer-gate replay', () => {
   let events: TelephonyLogEntry[];
 
   beforeEach(() => {
@@ -30,7 +31,7 @@ describe('orchestrator answer-gate replay (Bug #7 live log sequence)', () => {
     setTelephonyLogSink((entry) => events.push(entry));
   });
 
-  it('PSTN early media: deferred first active, pstn_second_active on second active', () => {
+  it('PSTN early media: deferred first active, connected on second active', () => {
     const orchestrator = createTelephonyOrchestrator();
     const callId = 'pstn-webrtc-1';
 
@@ -54,10 +55,10 @@ describe('orchestrator answer-gate replay (Bug #7 live log sequence)', () => {
     );
 
     expect(events.some((e) => e.event === 'answer.shouldConfirmRemoteAnswer'
-      && e.detail?.source === 'pstn_second_active'
+      && e.detail?.source === 'pstn_callUpdate'
       && e.detail?.activeTransitionCount === 2)).toBe(true);
     expect(events.some((e) => e.event === 'answer.REMOTE_ANSWER_CONFIRMED.dispatch'
-      && e.detail?.source === 'pstn_second_active')).toBe(true);
+      && e.detail?.source === 'pstn_callUpdate')).toBe(true);
     expect(events.some((e) => e.event === 'state.transition'
       && e.detail?.toPhase === 'connected')).toBe(true);
     expect(events.some((e) => e.event === 'timer.connectedAt.assigned')).toBe(true);
@@ -66,7 +67,24 @@ describe('orchestrator answer-gate replay (Bug #7 live log sequence)', () => {
     expect(orchestrator.getSnapshot().session?.connectedAt).not.toBeNull();
   });
 
-  it('internal extension: same outbound answer gate as PSTN after early media', () => {
+  it('PSTN Park Outbound: single active callUpdate connects UI', () => {
+    const orchestrator = createTelephonyOrchestrator();
+    const callId = 'pstn-park-bridge-1';
+
+    orchestrator.dispatchCall({ type: 'DIAL_REQUESTED', destination: '+13135551212', kind: 'pstn' });
+    orchestrator.dispatchCall({ type: 'DIAL_ACCEPTED', callId });
+    orchestrator.dispatchSdkNotification(mockCall({ id: callId, state: 'trying' }), 'callUpdate');
+    orchestrator.dispatchSdkNotification(
+      mockCall({ id: callId, state: 'active', prevState: 'trying' }),
+      'callUpdate',
+    );
+
+    expect(events.filter((e) => e.event === 'answer.REMOTE_ANSWER_CONFIRMED.dispatch')).toHaveLength(1);
+    expect(orchestrator.getSnapshot().callPhase).toBe('connected');
+    expect(events.some((e) => e.event === 'ringback.stop')).toBe(true);
+  });
+
+  it('internal extension: same outbound answer gate as before after early media', () => {
     const orchestrator = createTelephonyOrchestrator();
     const callId = 'ext-webrtc-1';
 
@@ -89,7 +107,7 @@ describe('orchestrator answer-gate replay (Bug #7 live log sequence)', () => {
     );
 
     expect(events.some((e) => e.event === 'answer.REMOTE_ANSWER_CONFIRMED.dispatch'
-      && e.detail?.source === 'pstn_second_active')).toBe(true);
+      && e.detail?.source === PSTN_SECOND_ACTIVE_SOURCE)).toBe(true);
     expect(orchestrator.getSnapshot().callPhase).toBe('connected');
   });
 
@@ -121,7 +139,7 @@ describe('orchestrator answer-gate replay (Bug #7 live log sequence)', () => {
     expect(events.some((e) => e.event === 'answer.REMOTE_ANSWER_CONFIRMED.skipped')).toBe(false);
   });
 
-  it('reconnect-style third active: no repeat pstn_second_active confirm', () => {
+  it('reconnect-style third active: no repeat confirm after connected', () => {
     const orchestrator = createTelephonyOrchestrator();
     const callId = 'pstn-reconnect-1';
 
@@ -139,7 +157,6 @@ describe('orchestrator answer-gate replay (Bug #7 live log sequence)', () => {
 
     const confirms = events.filter((e) => e.event === 'answer.REMOTE_ANSWER_CONFIRMED.dispatch');
     expect(confirms).toHaveLength(1);
-    expect(confirms[0]?.detail?.source).toBe('pstn_second_active');
 
     orchestrator.dispatchSdkNotification(
       mockCall({ id: callId, state: 'active', prevState: 'active' }),
@@ -148,7 +165,7 @@ describe('orchestrator answer-gate replay (Bug #7 live log sequence)', () => {
 
     expect(events.filter((e) => e.event === 'answer.REMOTE_ANSWER_CONFIRMED.dispatch')).toHaveLength(1);
     expect(events.some((e) => e.event === 'answer.shouldConfirmRemoteAnswer'
-      && e.detail?.source === 'pstn_deferred'
+      && e.detail?.source === 'already_connected'
       && e.detail?.activeTransitionCount === 3)).toBe(true);
   });
 });

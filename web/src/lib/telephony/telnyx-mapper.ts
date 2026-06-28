@@ -67,22 +67,45 @@ function canConfirmFromSession(call: Call): boolean {
   return ANSWER_CONFIRM_PREV_STATES.has(prev);
 }
 
-/** Source tag for the PSTN early-media second-active answer fallback. */
+/** Source tag for the internal-extension early-media second-active answer fallback. */
 export const PSTN_SECOND_ACTIVE_SOURCE = 'pstn_second_active';
 
 /**
- * After early media, Telnyx may reach `active` before the far end answers (prevState=early).
- * A later `callUpdate` may still be `active` with prevState=active — not ringing — when the
- * callee actually answers. Confirm only on the first valid second SDK active transition.
+ * Bug #2: first `active` after `early` is early media, not a far-end answer.
+ * Telnyx INotification documents `early` as a distinct pre-connect progress state.
  */
-function canConfirmPstnSecondActive(session: CallSessionContext, call: Call): boolean {
-  if (session.kind !== 'pstn' && session.kind !== 'internal_extension') return false;
+function isFirstActiveAfterEarlyMedia(session: CallSessionContext, call: Call): boolean {
+  if (session.connectedAt != null) return false;
+  if (session.activeTransitionCount > 1) return false;
+  return normalizeCallPrevState(call) === 'early';
+}
+
+/**
+ * Internal extension Park Outbound: server may answer the WebRTC leg before the desk phone.
+ * Confirm only after ringing/answering prevState or the second documented `active` callUpdate.
+ */
+function canConfirmInternalExtensionAnswer(session: CallSessionContext, call: Call): boolean {
+  if (session.kind !== 'internal_extension') return false;
+  if (session.connectedAt != null) return false;
+  if (canConfirmFromSession(call)) return true;
   if (!session.remoteRingSeen) return false;
   if (session.activeTransitionCount !== 2) return false;
-  if (session.connectedAt != null) return false;
   const callId = String(call.id ?? '').trim();
   if (!callId || callId !== session.callId) return false;
   return isActiveOrHeldSdkCall(call);
+}
+
+/**
+ * Outbound PSTN: Telnyx documents `callUpdate` + `state: active` as connected (start timer).
+ * @see docs/telnyx/javascript-sdk/reference/inotification.md — `active` = media flowing
+ * @see docs/telnyx/javascript-sdk/explanation/call-state-lifecycle.md — ringing → active
+ */
+function canConfirmPstnOutboundAnswer(session: CallSessionContext, call: Call): boolean {
+  if (session.kind !== 'pstn') return false;
+  if (session.connectedAt != null) return false;
+  if (!isActiveOrHeldSdkCall(call)) return false;
+  if (isFirstActiveAfterEarlyMedia(session, call)) return false;
+  return true;
 }
 
 export function shouldConfirmRemoteAnswer(input: {
@@ -100,10 +123,17 @@ export function shouldConfirmRemoteAnswer(input: {
     } else {
       result = { confirmed: false, source: 'inbound_deferred' };
     }
-  } else if (canConfirmFromSession(call)) {
+  } else if (session.connectedAt != null) {
+    result = { confirmed: false, source: 'already_connected' };
+  } else if (session.kind === 'pstn' && canConfirmPstnOutboundAnswer(session, call)) {
     result = { confirmed: true, source: eventType ? `pstn_${eventType}` : 'pstn_active' };
-  } else if (canConfirmPstnSecondActive(session, call)) {
-    result = { confirmed: true, source: PSTN_SECOND_ACTIVE_SOURCE };
+  } else if (canConfirmInternalExtensionAnswer(session, call)) {
+    result = {
+      confirmed: true,
+      source: canConfirmFromSession(call)
+        ? (eventType ? `pstn_${eventType}` : 'pstn_active')
+        : PSTN_SECOND_ACTIVE_SOURCE,
+    };
   } else {
     result = { confirmed: false, source: 'pstn_deferred' };
   }
