@@ -2,6 +2,8 @@
 
 Internal reference for how VSP Phone implements multi-tenant PBX on Telnyx Call Control + WebRTC.
 
+**Phase 2 (approved):** [../phase2/README.md](../phase2/README.md) — mobile-primary, browser admin-only.
+
 **Start here:** [01-system-architecture.md](./01-system-architecture.md)
 
 ---

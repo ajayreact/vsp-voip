@@ -6,6 +6,7 @@ Search here **first** (Step 1) before `docs/telnyx/` or source code.
 
 | Topic | Location |
 |-------|----------|
+| **Phase 2 architecture (approved)** | [phase2/README.md](./phase2/README.md) |
 | **PBX architecture KB** | [pbx/README.md](./pbx/README.md) |
 | Feature status matrix | [features.md](./features.md) |
 | Architecture decisions (ADRs) | [architecture-decisions/README.md](./architecture-decisions/README.md) |
