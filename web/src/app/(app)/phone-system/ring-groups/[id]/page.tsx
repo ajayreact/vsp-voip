@@ -161,7 +161,7 @@ export default function RingGroupDetailPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <Link href="/phone-system/ring-groups" className="text-sm text-indigo-600 hover:text-indigo-700">
+          <Link href="/ring-groups" className="text-sm text-indigo-600 hover:text-indigo-700">
             ← Ring groups
           </Link>
           <h2 className="mt-2 text-lg font-medium text-slate-900">{group.name}</h2>

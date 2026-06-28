@@ -38,7 +38,7 @@ export default function NewRingGroupPage() {
         voicemailEnabled,
         callRecordingEnabled,
       });
-      router.push(`/phone-system/ring-groups/${res.ringGroup.id}`);
+      router.push(`/ring-groups/${res.ringGroup.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not create ring group');
       setSaving(false);
@@ -147,7 +147,7 @@ export default function NewRingGroupPage() {
             Create ring group
           </button>
           <Link
-            href="/phone-system/ring-groups"
+            href="/ring-groups"
             className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
             Cancel

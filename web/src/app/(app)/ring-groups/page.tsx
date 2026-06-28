@@ -1,1 +1,5 @@
-export { default } from '../phone-system/ring-groups/page';
+import { RingGroupsManagerPage } from '@/components/portal/ring-groups-manager';
+
+export default function RingGroupsPage() {
+  return <RingGroupsManagerPage />;
+}

@@ -20,7 +20,7 @@ Enterprise PBX administration portal. **UI and workflow only** — backend telep
 | Dashboard | `/dashboard` | `GET /api/dashboard/stats`, extension stats, devices, users, ring groups, calls |
 | Employees | `/employees` | `GET/POST /api/tenant/users` |
 | Extensions | `/extensions` | `GET /api/tenant/extensions`, provisioning, SIP config |
-| Phone Numbers | `/phone-numbers` | `GET /api/numbers/mine`, `PUT /api/numbers/:id` |
+| Phone Numbers | `/phone-numbers` | `GET /api/numbers/mine`, `PATCH /api/tenant/extensions/:id/primary-phone-number` |
 | Devices | `/devices` | `GET /api/tenant/extensions/devices` |
 | Ring Groups | `/ring-groups` | `GET/POST /api/tenant/ring-groups` |
 | Call History | `/calls` | `GET /api/calls` |
@@ -38,12 +38,12 @@ Legacy routes (`/phone-system/*`, `/my-numbers`, `/settings/team`) redirect to c
 
 | Increment | Scope |
 |-----------|-------|
-| 2.7.1 | Admin gate, nav IA, dashboard, route aliases |
-| 2.7.2 | Employees page, extensions UX (Config/QR actions) |
-| 2.7.3 | Phone numbers, devices pages |
-| 2.7.4 | Ring groups, call history polish |
-| 2.7.5 | Recordings, voicemail, reports |
-| 2.7.6 | Billing hub, settings reorganization |
+| 2.7.1 | Admin gate, nav IA, dashboard, extensions hub, employees, route aliases |
+| 2.7.2 | Phone numbers (DID management), devices, ring groups list UX |
+| 2.7.3 | Call history polish, remaining phone-system legacy cleanup |
+| 2.7.4 | Recordings, voicemail polish |
+| 2.7.5 | Reports, billing hub |
+| 2.7.6 | Settings reorganization |
 
 ---
 
