@@ -48,7 +48,7 @@ Checklist for Phases 2.1–2.7. **Start next phase only after prior phase is dep
 - [ ] Hold, mute, transfer parity with requirements
 - [ ] Voicemail list/detail against API
 - [ ] Presence heartbeat (`softphonePresence.ts`)
-- [ ] Mark Flutter `mobile/` deprecated in README
+- [x] Mark Flutter `mobile/` deprecated in README → **removed Phase 2.8**
 - [ ] Mobile E2E or manual test checklist in `mobile-rn/docs/`
 
 ### Do not
@@ -112,6 +112,17 @@ Checklist for Phases 2.1–2.7. **Start next phase only after prior phase is dep
 - [ ] Billing hub
 
 See [07-tenant-portal-redesign.md](./07-tenant-portal-redesign.md).
+
+---
+
+## Phase 2.8 — Repository cleanup ✅
+
+- [x] Remove deprecated Flutter `mobile/` application
+- [x] Remove Flutter build scripts
+- [x] Update validation scripts for `mobile-rn`
+- [x] Remove unreferenced `lib/inboundRoutingAuditLog.js`
+
+See [08-repository-cleanup.md](./08-repository-cleanup.md).
 
 ---
 

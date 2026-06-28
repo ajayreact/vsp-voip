@@ -71,8 +71,8 @@ Modules and paths **still present in the codebase** but **not part of the Phase 
 
 | Status | Path | Reason | Phase |
 |--------|------|--------|-------|
-| 🟢 | `mobile-rn/` | **Primary** Phase 2 telephony client | 2.3 |
-| 🟡 | `mobile/` (Flutter) | Duplicate mobile stack | 2.3 decision / deprecate |
+| 🟢 | `mobile-rn/` | **Primary** Phase 2 telephony client | 2.3+ |
+| 🔴 | ~~`mobile/` (Flutter)~~ | Removed Phase 2.8 | 2.8 |
 
 ---
 

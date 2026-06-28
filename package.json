@@ -59,9 +59,10 @@
     "validate:pbx-ownership": "tsx scripts/validate-pbx-ownership.js",
     "validate:pbx-production": "tsx scripts/validate-pbx-production.ts",
     "validate:ring-group-routing": "tsx scripts/validate-ring-group-routing.ts",
-    "build:mobile:android": "powershell -ExecutionPolicy Bypass -File scripts/build-mobile-android.ps1",
-    "build:mobile:android:release": "powershell -ExecutionPolicy Bypass -File scripts/build-mobile-android.ps1 -Release",
-    "dev:mobile": "echo Run: cd mobile && flutter pub get && flutter run --dart-define=API_BASE_URL=http://vspphone.com:3000"
+    "build:mobile:android": "echo Build with: cd mobile-rn && npx eas build --platform android",
+    "build:mobile:android:release": "echo Build with: cd mobile-rn && npx eas build --platform android --profile production",
+    "build:mobile:ios": "echo Build with: cd mobile-rn && npx eas build --platform ios",
+    "dev:mobile": "echo Run: cd mobile-rn && npm start"
   },
   "keywords": [],
   "author": "",

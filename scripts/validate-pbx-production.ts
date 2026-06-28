@@ -208,12 +208,11 @@ async function main() {
     }
 
     // --- 5. Mobile → Extension ---
-    const mobileSrc = read('mobile/lib/features/softphone/dial_normalization.dart');
-    if (!mobileSrc.includes('isInternalExtensionDial')) {
-      fail('5 Mobile → Extension', 'Mobile softphone missing isInternalExtensionDial');
-    }
-    if (mobileSrc.includes("if (digits.isNotEmpty) return '+$digits'")) {
-      fail('5 Mobile → Extension', 'Mobile still normalizes short codes to +E.164');
+    const mobileSrc = read('mobile-rn/src/calling/dialNormalization.ts');
+    if (!mobileSrc.includes('isExtensionDialInput')) {
+      fail('5 Mobile → Extension', 'mobile-rn missing isExtensionDialInput');
+    } else {
+      pass('5 Mobile → Extension', 'mobile-rn extension dial detection present');
     }
     if (ext102) {
       const mobileResolution = await resolveExtensionRingTargets(prisma, ext102, connectionId);

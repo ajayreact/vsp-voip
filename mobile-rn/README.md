@@ -1,6 +1,6 @@
-# VSP Phone — React Native
+# VSP Phone — React Native (primary mobile client)
 
-Expo-based React Native client for the VSP Phone platform.
+Expo-based React Native client for the VSP Phone platform. This is the **only supported mobile application** — the legacy Flutter `mobile/` app was removed in Phase 2.8.
 
 ## Phase 2A — Application shell
 
