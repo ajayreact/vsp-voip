@@ -54,7 +54,7 @@ const { assertTenantActive } = require('../lib/tenantGuard');
 const { loadPlatformSettings } = require('../lib/platformSettings');
 const { getTelnyxConnectionConfig } = require('../lib/telnyxConfig');
 const { createSoftphoneLoginToken, getOrCreateUserTelephonyCredential, setSoftphonePresence, loadCredentialConnectionId } = require('../lib/softphone');
-const { markAgentWebRtcAccepted } = require('../lib/inboundCallControl');
+const { markAgentWebRtcAccepted, getPendingInboundCallerForAgent } = require('../lib/inboundCallControl');
 const {
   registerUserDevice,
   listUserDevices,
@@ -895,6 +895,31 @@ router.post('/softphone/presence', authMiddleware, async (req, res) => {
     res.json({ success: true, ...result });
   } catch (error) {
     res.status(error.status || 500).json({ error: error.message || 'Failed to update softphone presence' });
+  }
+});
+
+/** Pending PSTN caller for the agent's ringing WebRTC leg (read-only; no bridge side effects). */
+router.get('/softphone/pending-inbound-caller', authMiddleware, async (req, res) => {
+  try {
+    if (!req.user.tenantId) {
+      return res.status(403).json({ error: 'No organization linked to this account' });
+    }
+
+    const prisma = await getPrisma();
+    await assertTenantActive(prisma, req.user.tenantId);
+    const user = await prisma.user.findFirst({
+      where: { id: req.user.sub, tenantId: req.user.tenantId },
+      select: { telnyxSipUsername: true },
+    });
+    if (!user?.telnyxSipUsername) {
+      return res.status(400).json({ error: 'WebRTC SIP credentials are not provisioned for this user' });
+    }
+
+    const result = await getPendingInboundCallerForAgent(user.telnyxSipUsername);
+    res.json({ success: result.ok, ...result });
+  } catch (error) {
+    console.error('[pending-inbound-caller] handler error', error);
+    res.status(error.status || 500).json({ error: error.message || 'Failed to resolve pending inbound caller' });
   }
 });
 

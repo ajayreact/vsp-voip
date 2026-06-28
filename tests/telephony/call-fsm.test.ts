@@ -69,6 +69,25 @@ describe('telephony call FSM', () => {
     expect(snap.callPhase).toBe('connected');
   });
 
+  it('SESSION_LABEL does not overwrite known caller with Unknown', () => {
+    let snap = createInitialTelephonySnapshot();
+    snap = reduceCallEvent(snap, {
+      type: 'INBOUND_RECEIVED',
+      callId: 'in-1',
+      remoteLabel: '+13135551212',
+      logFrom: '+13135551212',
+      logTo: '+13135559999',
+      callerNameHint: 'Jane Doe',
+    });
+    snap = reduceCallEvent(snap, {
+      type: 'SESSION_LABEL',
+      remoteLabel: 'Unknown',
+      callerNameHint: '',
+    });
+    expect(snap.session?.remoteLabel).toBe('+13135551212');
+    expect(snap.session?.callerNameHint).toBe('Jane Doe');
+  });
+
   it('ignores duplicate inbound received while session is live', () => {
     let snap = createInitialTelephonySnapshot();
     snap = reduceCallEvent(snap, {

@@ -30,6 +30,15 @@ export type CallAcceptedDiagnostic = {
 };
 
 const CALL_ACCEPTED_PATH = '/api/softphone/call-accepted';
+const PENDING_INBOUND_CALLER_PATH = '/api/softphone/pending-inbound-caller';
+
+export type PendingInboundCallerResult = {
+  ok: boolean;
+  pstnCaller?: string | null;
+  pstnCallerName?: string | null;
+  reason?: string;
+  inboundCallControlId?: string;
+};
 
 function logCallAcceptedDiagnostic(label: string, detail: unknown) {
   console.error(`[softphone-v2] postCallAccepted.${label}`, detail);
@@ -155,6 +164,46 @@ export async function postCallAccepted(): Promise<CallAcceptedDiagnostic> {
   }
 
   return diagnostic;
+}
+
+export async function fetchPendingInboundCaller(): Promise<PendingInboundCallerResult> {
+  const url = `${API_URL}${PENDING_INBOUND_CALLER_PATH}`;
+  const token = getToken();
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: 'GET',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+  } catch (err) {
+    const networkError = err instanceof Error ? err.message : String(err);
+    console.error('[softphone-v2] fetchPendingInboundCaller.networkError', networkError);
+    return { ok: false, reason: networkError };
+  }
+
+  const body = await res.json().catch(() => ({})) as PendingInboundCallerResult & {
+    success?: boolean;
+  };
+
+  if (!res.ok) {
+    return {
+      ok: false,
+      reason: typeof body === 'object' && body && 'error' in body
+        ? String((body as { error: unknown }).error)
+        : `HTTP ${res.status}`,
+    };
+  }
+
+  return {
+    ok: body.ok === true || body.success === true,
+    pstnCaller: body.pstnCaller ?? null,
+    pstnCallerName: body.pstnCallerName ?? null,
+    reason: body.reason,
+    inboundCallControlId: body.inboundCallControlId,
+  };
 }
 
 export type BlindTransferResult = {

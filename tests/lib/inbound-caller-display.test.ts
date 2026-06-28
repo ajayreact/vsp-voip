@@ -3,6 +3,7 @@ import {
   resolveInboundCallerDisplay,
   extractPhoneDisplayValue,
   isForbiddenInboundCallerValue,
+  mergeInboundCallerLabel,
 } from '@/lib/inbound-caller-display';
 
 const TENANT_DIDS = ['+15559876543', '+15551112222'];
@@ -61,7 +62,7 @@ describe('resolveInboundCallerDisplay', () => {
     expect(result.source).toBe('remotePartyNumber');
   });
 
-  it('anonymous caller: resolves to Unknown', () => {
+  it('anonymous caller: shows intentional Anonymous label', () => {
     const call = inboundCall({
       remotePartyNumber: 'Anonymous',
       remotePartyName: 'Anonymous',
@@ -69,19 +70,30 @@ describe('resolveInboundCallerDisplay', () => {
 
     const result = resolveInboundCallerDisplay(call, { ownNumbers: TENANT_DIDS });
 
-    expect(result.chosenDisplayNumber).toBe('Unknown');
-    expect(result.source).toBe('unknown');
+    expect(result.chosenDisplayNumber).toBe('Anonymous');
+    expect(result.source).toBe('restrictedCaller');
   });
 
-  it('blocked caller: resolves to Unknown', () => {
+  it('private caller: shows Private Number label', () => {
+    const call = inboundCall({
+      remotePartyNumber: 'Private',
+    });
+
+    const result = resolveInboundCallerDisplay(call, { ownNumbers: TENANT_DIDS });
+
+    expect(result.chosenDisplayNumber).toBe('Private Number');
+    expect(result.source).toBe('restrictedCaller');
+  });
+
+  it('blocked caller: resolves to Blocked label', () => {
     const call = inboundCall({
       remotePartyNumber: 'Blocked',
     });
 
     const result = resolveInboundCallerDisplay(call, { ownNumbers: TENANT_DIDS });
 
-    expect(result.chosenDisplayNumber).toBe('Unknown');
-    expect(result.source).toBe('unknown');
+    expect(result.chosenDisplayNumber).toBe('Blocked');
+    expect(result.source).toBe('restrictedCaller');
   });
 
   it('caller with display name: number from remotePartyNumber, name preserved in snapshot', () => {
@@ -185,5 +197,22 @@ describe('resolveInboundCallerDisplay', () => {
 
     expect(result.chosenDisplayNumber).toBe('Unknown');
     expect(extractPhoneDisplayValue('Acme Corp', TENANT_DIDS, call)).toBe('');
+  });
+
+  it('PSTN bridge: uses remotePartyName when remotePartyNumber is tenant DID', () => {
+    const call = inboundCall({
+      remotePartyNumber: '+15559876543',
+      remotePartyName: '+15551234567',
+    });
+
+    const result = resolveInboundCallerDisplay(call, { ownNumbers: TENANT_DIDS });
+
+    expect(result.chosenDisplayNumber).toBe('+15551234567');
+    expect(result.source).toBe('remotePartyName');
+  });
+
+  it('mergeInboundCallerLabel keeps established caller over Unknown', () => {
+    expect(mergeInboundCallerLabel('+15551234567', 'Unknown')).toBe('+15551234567');
+    expect(mergeInboundCallerLabel('', '+15551234567')).toBe('+15551234567');
   });
 });

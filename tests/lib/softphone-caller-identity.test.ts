@@ -69,18 +69,25 @@ describe('resolveInboundCallerNameHint', () => {
     expect(resolveInboundCallerNameHint({
       remotePartyName: 'John Smith',
       remotePartyNumber: '+13095551212',
-    })).toBe('John Smith');
+    }).nameHint).toBe('John Smith');
   });
 
   it('ignores phone-number-like remotePartyName values', () => {
     expect(resolveInboundCallerNameHint({
       remotePartyName: '+13095551212',
-    })).toBe('');
+    }).nameHint).toBe('');
   });
 
   it('falls back to options.remoteCallerName', () => {
     expect(resolveInboundCallerNameHint({
       options: { remoteCallerName: 'Acme Corp' },
-    })).toBe('Acme Corp');
+    }).nameHint).toBe('Acme Corp');
+  });
+
+  it('prefers caller_id_name over remotePartyName', () => {
+    expect(resolveInboundCallerNameHint({
+      remotePartyName: 'Legacy Name',
+      options: { caller_id_name: 'John Smith' },
+    }).nameHint).toBe('John Smith');
   });
 });

@@ -13,6 +13,7 @@ Prepare VSP PBX for production deployment: stability, reliability, scalability, 
 |-----------|-------|--------|
 | 3.1 | Production audit | **Complete** |
 | 3.2.1 | Webhook idempotency / event deduplication | **Complete** |
+| 3.2.1b | Inbound caller ID validation (Softphone V2) | **Complete** — [09-inbound-caller-id-validation.md](./09-inbound-caller-id-validation.md) |
 | 3.2 | Remaining production hardening | In progress |
 | 3.3 | Multi-tenant validation | Pending |
 | 3.4 | Security audit (remediation) | Pending |

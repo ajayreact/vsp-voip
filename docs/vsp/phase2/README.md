@@ -4,7 +4,9 @@ Approved architecture and implementation plan. **Do not add telephony features u
 
 | Phase | Status | Document |
 |-------|--------|----------|
-| **2.1** Architecture freeze | **Current** | [01-architecture-freeze.md](./01-architecture-freeze.md) |
+| **2.1** Architecture freeze | **Done** | [01-architecture-freeze.md](./01-architecture-freeze.md) |
+| **Pre-2.2** Multi-tenant isolation audit | **Done** | [05-multi-tenant-extension-isolation-audit.md](./05-multi-tenant-extension-isolation-audit.md) |
+| **Planning** Architecture review | **Done** | [04-architecture-review-and-plan.md](./04-architecture-review-and-plan.md) |
 | 2.2 Browser → admin portal | Pending approval | [03-implementation-phases.md](./03-implementation-phases.md#phase-22--browser-becomes-admin-portal) |
 | 2.3 Mobile primary client | Pending | [03-implementation-phases.md](./03-implementation-phases.md#phase-23--mobile-becomes-primary-client) |
 | 2.4 Extension architecture | Pending | [03-implementation-phases.md](./03-implementation-phases.md#phase-24--extension-architecture) |

@@ -6,7 +6,7 @@ import { TelnyxRTC } from '@telnyx/webrtc';
 import type { Call } from '@telnyx/webrtc';
 import { getSoftphoneConfig, getSoftphoneToken, getExtensions, getMe, isUnauthorizedError } from '@/lib/api';
 import { persistStoredCallerId, resolveStoredCallerId } from '@/lib/softphone-caller-id';
-import { postServerCallLog, postCallAccepted, postBlindTransfer } from '@/lib/softphone-call-log-client';
+import { postServerCallLog, postCallAccepted, postBlindTransfer, fetchPendingInboundCaller } from '@/lib/softphone-call-log-client';
 import { isSoftphoneV2Enabled, isBrowserCallingEnabled } from '@/lib/softphone-config';
 import {
   isValidDialInput,
@@ -29,9 +29,11 @@ import {
 } from '@/lib/telnyx-softphone-session';
 import { logPeerConnectionDiagnostics } from '@/lib/telnyx-debug';
 import {
+  isUnknownInboundCallerLabel,
   logInboundCallerResolution,
+  mergeInboundCallerLabel,
   resolveInboundCallerDisplay,
-  resolveInboundCallerNameHint,
+  resolveInboundSessionIdentity,
   type InboundCallerNotification,
 } from '@/lib/inbound-caller-display';
 import { isInboundCall, extractCallFromNotification, isLikelyInboundRingingInvite, looksLikeTelnyxCredentialUsername, shouldIgnoreDuplicateInboundNotification, shouldIgnoreInboundStrayLeg, shouldIgnoreOutboundStrayLeg } from '@/lib/softphone-call-utils';
@@ -243,6 +245,7 @@ function resolveCallDisplayNumber(
       ownNumbers,
       pstnCallerHint,
       notification: notification as InboundCallerNotification | undefined,
+      call: extended,
     });
     logInboundCallerResolution(resolution);
     return resolution.chosenDisplayNumber;
@@ -676,6 +679,55 @@ function SoftphoneV2Content() {
     callerNumberRef.current,
     ...tenantNumbersRef.current,
   ].filter(Boolean);
+
+  const buildInboundNotificationContext = (
+    notificationCall: Call,
+    payload: TelnyxNotificationPayload,
+    pstnCallerHint: string,
+  ) => ({
+    ownNumbers: getOwnedInboundNumbers(),
+    pstnCallerHint,
+    notification: payload as InboundCallerNotification,
+    call: notificationCall as CallDisplayFields,
+  });
+
+  const applyPendingInboundCallerHint = (pstnCaller?: string | null, pstnCallerName?: string | null) => {
+    const normalizedCaller = pstnCaller ? (normalizeDialNumber(pstnCaller) || pstnCaller) : '';
+    if (!normalizedCaller) return;
+
+    if (callSessionRef.current) {
+      callSessionRef.current.pstnCaller = normalizedCaller;
+    }
+
+    const snap = orchestrator.getSnapshot();
+    const currentLabel = snap.session?.remoteLabel ?? displayNumberRef.current;
+    if (!isUnknownInboundCallerLabel(currentLabel)) return;
+
+    displayNumberRef.current = normalizedCaller;
+    orchestrator.updateSessionLabel(
+      normalizedCaller,
+      pstnCallerName?.trim() || snap.session?.callerNameHint || undefined,
+    );
+
+    if (callSessionRef.current?.direction === 'inbound') {
+      const parties = resolveCallLogParties('inbound', normalizedCaller, callerNumberRef.current);
+      callSessionRef.current.number = normalizedCaller;
+      callSessionRef.current.logFrom = parties.from;
+      callSessionRef.current.logTo = parties.to;
+      orchestrator.updateSessionLogParties(parties.from, parties.to);
+    }
+
+    logTelnyx('inbound.pendingCallerApplied', { pstnCaller: normalizedCaller, pstnCallerName });
+  };
+
+  const hydratePendingInboundCaller = () => {
+    void fetchPendingInboundCaller().then((result) => {
+      if (!result.ok || !result.pstnCaller) return;
+      applyPendingInboundCallerHint(result.pstnCaller, result.pstnCallerName);
+    }).catch((err) => {
+      logTelnyx('inbound.pendingCaller.error', err);
+    });
+  };
 
   stopIncomingRingtoneRef.current = stopIncomingRingtone;
 
@@ -1137,7 +1189,6 @@ function SoftphoneV2Content() {
               ringbackSource: getActiveLocalToneSourceForDiagnostics(),
             });
             if (mounted) {
-              const ownedInboundNumbers = getOwnedInboundNumbers();
               const snap = orchestrator.getSnapshot();
               const terminal = isTerminalSdkState(normalized);
               const callAlreadyFinalized = Boolean(
@@ -1153,20 +1204,45 @@ function SoftphoneV2Content() {
 
               const pstnCallerHint = callSessionRef.current?.pstnCaller || '';
               const prevLabel = snap.session?.remoteLabel ?? displayNumberRef.current;
-              const resolved = resolveCallDisplayNumber(
+              const inboundContext = buildInboundNotificationContext(
                 notificationCall,
-                prevLabel,
                 payload,
-                ownedInboundNumbers,
                 pstnCallerHint,
               );
+              const inboundIdentity = (isInboundCall(notificationCall) || notificationIsInbound)
+                ? resolveInboundSessionIdentity(
+                  notificationCall as CallDisplayFields,
+                  inboundContext,
+                )
+                : null;
+              const resolved = inboundIdentity?.displayNumber
+                ?? resolveCallDisplayNumber(
+                  notificationCall,
+                  prevLabel,
+                  payload,
+                  inboundContext.ownNumbers,
+                  pstnCallerHint,
+                );
 
               if (isInboundCall(notificationCall) || notificationIsInbound) {
-                const hint = resolveInboundCallerNameHint(notificationCall as CallDisplayFields);
-                const retained = prevLabel
-                  || callSessionRef.current?.number
-                  || '';
-                const next = resolved !== 'Unknown' ? resolved : retained;
+                const next = mergeInboundCallerLabel(prevLabel, inboundIdentity?.displayNumber ?? resolved);
+                const hint = inboundIdentity?.nameHint
+                  ?? snap.session?.callerNameHint
+                  ?? undefined;
+                if (inboundIdentity?.fieldSnapshot) {
+                  logTelnyx('inbound.callerFields', {
+                    callId,
+                    notificationType: payload.type,
+                    sdkState: normalized,
+                    fieldSnapshot: inboundIdentity.fieldSnapshot,
+                    resolved: {
+                      displayNumber: inboundIdentity.displayNumber,
+                      numberSource: inboundIdentity.source,
+                      nameHint: inboundIdentity.nameHint,
+                      nameSource: inboundIdentity.nameSource,
+                    },
+                  });
+                }
                 displayNumberRef.current = next;
                 orchestrator.updateSessionLabel(next, hint);
               } else if (
@@ -1184,13 +1260,11 @@ function SoftphoneV2Content() {
                 && !callAlreadyFinalized
                 && !inboundSessionLive
               ) {
-                const inboundNumber = resolveCallDisplayNumber(
-                  notificationCall,
-                  '',
-                  payload,
-                  ownedInboundNumbers,
-                  pstnCallerHint,
+                const inboundNumber = mergeInboundCallerLabel(
+                  prevLabel,
+                  inboundIdentity?.displayNumber ?? resolved,
                 );
+                const inboundNameHint = inboundIdentity?.nameHint ?? undefined;
                 let sessionAction: 'created' | 'reused' = 'reused';
                 if (
                   !callSessionRef.current
@@ -1199,7 +1273,7 @@ function SoftphoneV2Content() {
                   sessionAction = 'created';
                   const parties = resolveCallLogParties(
                     'inbound',
-                    inboundNumber,
+                    isUnknownInboundCallerLabel(inboundNumber) ? '' : inboundNumber,
                     callerNumberRef.current,
                   );
                   orchestrator.receiveInbound({
@@ -1207,10 +1281,13 @@ function SoftphoneV2Content() {
                     remoteLabel: inboundNumber,
                     logFrom: parties.from,
                     logTo: parties.to,
-                    callerNameHint: resolveInboundCallerNameHint(notificationCall as CallDisplayFields),
+                    callerNameHint: inboundNameHint,
                   });
                   beginCallSession(callId, inboundNumber, 'inbound');
-                } else if (inboundNumber !== 'Unknown') {
+                  if (isUnknownInboundCallerLabel(inboundNumber)) {
+                    hydratePendingInboundCaller();
+                  }
+                } else if (!isUnknownInboundCallerLabel(inboundNumber)) {
                   const historySession = callSessionRef.current;
                   const normalizedNumber = normalizeDialNumber(inboundNumber) || inboundNumber;
                   if (historySession.direction === 'inbound' && historySession.number !== normalizedNumber) {
@@ -1218,7 +1295,7 @@ function SoftphoneV2Content() {
                     historySession.number = normalizedNumber;
                     historySession.logFrom = parties.from;
                     historySession.logTo = parties.to;
-                    orchestrator.updateSessionLabel(normalizedNumber);
+                    orchestrator.updateSessionLabel(normalizedNumber, inboundNameHint);
                     orchestrator.updateSessionLogParties(parties.from, parties.to);
                   }
                 }
@@ -1530,16 +1607,7 @@ function SoftphoneV2Content() {
           }
           const pstnCaller = acceptRes.ok ? acceptRes.pstnCaller : null;
           if (pstnCaller && callSessionRef.current) {
-            callSessionRef.current.pstnCaller = pstnCaller;
-            const normalized = normalizeDialNumber(pstnCaller) || pstnCaller;
-            callSessionRef.current.number = normalized;
-            const parties = resolveCallLogParties('inbound', normalized, callerNumberRef.current);
-            callSessionRef.current.logFrom = parties.from;
-            callSessionRef.current.logTo = parties.to;
-            displayNumberRef.current = normalized;
-            orchestrator.updateSessionLabel(normalized);
-            orchestrator.updateSessionLogParties(parties.from, parties.to);
-            logTelnyx('answer.pstnCaller', { pstnCaller: normalized });
+            applyPendingInboundCallerHint(pstnCaller, null);
           }
         }).catch((err) => {
           logTelnyx('answer.callAccepted.error', err);
@@ -1556,7 +1624,7 @@ function SoftphoneV2Content() {
         getOwnedInboundNumbers(),
         callSessionRef.current?.pstnCaller || '',
       );
-      if (resolved !== 'Unknown') {
+      if (!isUnknownInboundCallerLabel(resolved)) {
         orchestrator.updateSessionLabel(resolved);
       }
       if (isInbound && call.id) {

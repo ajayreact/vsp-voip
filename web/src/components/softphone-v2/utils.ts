@@ -1,11 +1,16 @@
 import type { CallHistoryRecord, CallHistoryStatus, ContactEntry } from '@/components/softphone-v2/types';
+import { isRestrictedCallerDisplayLabel } from '@/lib/inbound-caller-display';
 
 export function normalizePhoneKey(value: string) {
   return value.replace(/\D/g, '');
 }
 
 export function formatPhoneDisplay(value: string) {
-  if (/^\d{2,6}$/.test(value.trim())) {
+  const trimmed = value.trim();
+  if (isRestrictedCallerDisplayLabel(trimmed)) {
+    return trimmed;
+  }
+  if (/^\d{2,6}$/.test(trimmed)) {
     return `Ext ${value.trim()}`;
   }
   const digits = value.replace(/\D/g, '');

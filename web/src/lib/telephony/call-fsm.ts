@@ -5,6 +5,10 @@ import type {
   TelephonySnapshot,
 } from './types';
 import { LIVE_CALL_PHASES } from './types';
+import {
+  mergeInboundCallerLabel,
+  mergeInboundCallerNameHint,
+} from '../inbound-caller-display';
 import { logDiagnosticTimeline, logTransition } from './logger';
 
 const CONNECTED_OR_ENDING_PHASES = new Set<CallPhase>([
@@ -259,8 +263,8 @@ export function reduceCallEvent(
           callControlId: null,
           direction: 'inbound',
           kind: 'inbound',
-          remoteLabel: event.remoteLabel,
-          callerNameHint: event.callerNameHint ?? null,
+          remoteLabel: mergeInboundCallerLabel(null, event.remoteLabel),
+          callerNameHint: mergeInboundCallerNameHint(null, event.callerNameHint ?? null),
           logFrom: event.logFrom,
           logTo: event.logTo,
           startedAt: Date.now(),
@@ -277,9 +281,12 @@ export function reduceCallEvent(
     case 'SESSION_LABEL': {
       const session = cloneSession(snapshot.session);
       if (!session) return snapshot;
-      session.remoteLabel = event.remoteLabel;
+      session.remoteLabel = mergeInboundCallerLabel(session.remoteLabel, event.remoteLabel);
       if (event.callerNameHint !== undefined) {
-        session.callerNameHint = event.callerNameHint;
+        session.callerNameHint = mergeInboundCallerNameHint(
+          session.callerNameHint,
+          event.callerNameHint,
+        );
       }
       return { ...snapshot, session };
     }

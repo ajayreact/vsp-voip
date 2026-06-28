@@ -1,18 +1,31 @@
 /**
  * Inbound caller identity resolution for VSP Softphone UI.
  *
- * Priority (Telnyx WebRTC SDK + VSP enrichment):
- * 1. call.remotePartyNumber
- * 2. options.remoteCallerNumber
- * 3. notification.from
- * 4. pstnCaller (backend hint / client_state)
- * 5. filtered remoteIdentity
- * 6. "Unknown"
+ * Telnyx WebRTC SDK (callUpdate @ ringing, inbound):
+ * - Maps `telnyx_rtc.ringing` caller_id_number → Call.remotePartyNumber
+ * - Maps caller_id_name → Call.remotePartyName
+ * - Call Control PSTN bridge: remotePartyNumber is often tenant DID; PSTN caller
+ *   is in remotePartyName (fromDisplayName) and/or dial client_state.pstnCaller
  *
- * Never use as inbound caller: localPartyNumber, options.callerNumber, tenant DIDs, callee extension.
+ * Number precedence:
+ * 1. caller_id_number / options.callerIdNumber (when not tenant DID)
+ * 2. remotePartyNumber (when not tenant DID)
+ * 3. remotePartyName (when value is E.164, not CNAM text)
+ * 4. options.remoteCallerNumber / options.remotePartyNumber
+ * 5. client_state.pstnCaller (Call Control dial metadata)
+ * 6. notification.from / pstnCallerHint / notification scan
+ * 7. remoteIdentity (filtered)
+ * 8. Unknown (only when Telnyx provides no usable caller ID)
+ *
+ * Name precedence (separate from number — UI shows both):
+ * 1. caller_id_name / options.callerIdName
+ * 2. remotePartyName (when not phone-like)
+ * 3. options.remoteCallerName
+ * 4. client_state.pstnCallerName
  *
  * @see docs/telnyx/javascript-sdk/reference/call.md
  * @see docs/telnyx/javascript-sdk/explanation/call-state-lifecycle.md
+ * @see docs/telnyx/webrtc/js-sdk/anatomy.md (telnyx_rtc.ringing fields)
  */
 
 export type InboundCallerCallFields = {
@@ -35,6 +48,14 @@ export type InboundCallerCallFields = {
     callerNumber?: string;
     remoteCallerName?: string;
     destinationNumber?: string;
+    callerIdName?: string;
+    callerIdNumber?: string;
+    caller_id_name?: string;
+    caller_id_number?: string;
+    remote_caller_id_name?: string;
+    remote_caller_id_number?: string;
+    clientState?: string;
+    client_state?: string;
   };
 };
 
@@ -46,8 +67,41 @@ export type InboundCallerNotification = {
 export type InboundCallerContext = {
   ownNumbers?: string[];
   pstnCallerHint?: string;
+  pstnCallerNameHint?: string;
   notification?: InboundCallerNotification;
+  /** Telnyx Call object — scanned for client_state / custom fields on bridged PSTN legs. */
+  call?: InboundCallerCallFields;
 };
+
+export function isUnknownInboundCallerLabel(label?: string | null): boolean {
+  const normalized = String(label ?? '').trim().toLowerCase();
+  if (isRestrictedCallerDisplayLabel(label)) return false;
+  return UNKNOWN_CALLER_LABELS.has(normalized);
+}
+
+/** Prefer an established caller label over empty / Unknown placeholders. */
+export function mergeInboundCallerLabel(
+  current?: string | null,
+  next?: string | null,
+): string {
+  const trimmedNext = String(next ?? '').trim();
+  if (!isUnknownInboundCallerLabel(trimmedNext)) return trimmedNext;
+  const trimmedCurrent = String(current ?? '').trim();
+  if (!isUnknownInboundCallerLabel(trimmedCurrent)) return trimmedCurrent;
+  return trimmedNext || trimmedCurrent;
+}
+
+/** Never clear a known display name when a later notification omits caller name. */
+export function mergeInboundCallerNameHint(
+  current?: string | null,
+  next?: string | null,
+  provided = true,
+): string | null {
+  const trimmedNext = String(next ?? '').trim();
+  if (trimmedNext) return trimmedNext;
+  if (!provided) return current ?? null;
+  return current ?? null;
+}
 
 export type InboundCallerDebugSnapshot = {
   direction?: string;
@@ -59,18 +113,72 @@ export type InboundCallerDebugSnapshot = {
 };
 
 export type InboundCallerSource =
+  | 'options.callerIdNumber'
   | 'remotePartyNumber'
+  | 'remotePartyName'
   | 'options.remoteCallerNumber'
   | 'options.remotePartyNumber'
+  | 'options.clientState'
   | 'notification.from'
   | 'pstnCallerHint'
   | 'notification.pstnCaller'
   | 'remoteIdentity'
+  | 'restrictedCaller'
   | 'unknown';
+
+export type InboundCallerNameSource =
+  | 'options.callerIdName'
+  | 'remotePartyName'
+  | 'options.remoteCallerName'
+  | 'clientState.pstnCallerName'
+  | 'pstnCallerNameHint'
+  | 'none';
+
+export type InboundCallerFieldSnapshot = {
+  notificationType?: string;
+  remotePartyNumber?: string;
+  remotePartyName?: string;
+  callerIdNumber?: string;
+  callerIdName?: string;
+  remoteCallerIdNumber?: string;
+  remoteCallerIdName?: string;
+  clientState?: string;
+  customHeaders?: unknown;
+  localPartyNumber?: string;
+  remoteIdentityDisplayName?: string;
+  notificationFrom?: string;
+  pstnCallerHint?: string;
+};
+
+const UNKNOWN_CALLER_LABELS = new Set(['', 'unknown', 'unknown caller']);
 
 export type InboundCallerResolution = InboundCallerDebugSnapshot;
 
 const BLOCKED_LABELS = /^(anonymous|blocked|unknown|restricted|unavailable|private)$/i;
+
+const RESTRICTED_CALLER_DISPLAY: Record<string, string> = {
+  anonymous: 'Anonymous',
+  private: 'Private Number',
+  blocked: 'Blocked',
+  restricted: 'Restricted',
+  unavailable: 'Unavailable',
+};
+
+/** Map Telnyx/network privacy labels to intentional UI copy (not "Unknown Caller"). */
+export function normalizeRestrictedCallerLabel(value?: string | null): string | null {
+  const trimmed = String(value ?? '').trim();
+  if (!trimmed) return null;
+  const mapped = RESTRICTED_CALLER_DISPLAY[trimmed.toLowerCase()];
+  return mapped ?? null;
+}
+
+export function isRestrictedCallerDisplayLabel(label?: string | null): boolean {
+  const trimmed = String(label ?? '').trim();
+  if (!trimmed) return false;
+  return Object.values(RESTRICTED_CALLER_DISPLAY).some(
+    (display) => display.toLowerCase() === trimmed.toLowerCase(),
+  );
+}
 
 export function phoneDigits(value?: string | null): string {
   return String(value || '').replace(/\D/g, '');
@@ -170,6 +278,89 @@ export function decodePstnCallerFromClientState(raw: string): string {
   }
 }
 
+export function decodePstnCallerNameFromClientState(raw: string): string {
+  try {
+    const parsed = JSON.parse(atob(raw)) as { pstnCallerName?: string };
+    const name = String(parsed.pstnCallerName || '').trim();
+    if (!name || BLOCKED_LABELS.test(name) || looksLikePhoneNumberLabel(name)) return '';
+    return name;
+  } catch {
+    return '';
+  }
+}
+
+export function looksLikePhoneNumberLabel(value: string): boolean {
+  const trimmed = String(value || '').trim();
+  if (!trimmed) return false;
+  const digits = phoneDigits(trimmed);
+  if (digits.length >= 10) return true;
+  if (/^\+\d/.test(trimmed)) return true;
+  if (/^\d{2,6}$/.test(trimmed)) return true;
+  return false;
+}
+
+function readCallOptionString(
+  call: InboundCallerCallFields,
+  keys: string[],
+): string {
+  const options = call.options as Record<string, unknown> | undefined;
+  if (!options) return '';
+  for (const key of keys) {
+    const value = options[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return '';
+}
+
+/** Raw Telnyx invite / ringing fields before VSP filtering. */
+export function extractTelnyxRawCallerFields(call: InboundCallerCallFields) {
+  return {
+    callerIdNumber: readCallOptionString(call, [
+      'caller_id_number',
+      'callerIdNumber',
+      'remote_caller_id_number',
+      'remoteCallerIdNumber',
+    ]),
+    callerIdName: readCallOptionString(call, [
+      'caller_id_name',
+      'callerIdName',
+      'remote_caller_id_name',
+      'remoteCallerIdName',
+    ]),
+    clientState: readCallOptionString(call, [
+      'client_state',
+      'clientState',
+      'customData',
+      'custom_data',
+    ]),
+    customHeaders: (call.options as Record<string, unknown> | undefined)?.customHeaders
+      ?? (call.options as Record<string, unknown> | undefined)?.custom_headers,
+  };
+}
+
+/** Capture all inbound caller identity fields from a Telnyx notification for diagnostics. */
+export function collectInboundCallerFieldSnapshot(
+  call: InboundCallerCallFields,
+  context: InboundCallerContext = {},
+): InboundCallerFieldSnapshot {
+  const raw = extractTelnyxRawCallerFields(call);
+  return {
+    notificationType: context.notification?.type,
+    remotePartyNumber: call.remotePartyNumber,
+    remotePartyName: call.remotePartyName,
+    callerIdNumber: raw.callerIdNumber,
+    callerIdName: raw.callerIdName,
+    remoteCallerIdNumber: raw.callerIdNumber,
+    remoteCallerIdName: raw.callerIdName,
+    clientState: raw.clientState,
+    customHeaders: raw.customHeaders,
+    localPartyNumber: call.localPartyNumber,
+    remoteIdentityDisplayName: call.remoteIdentity?.displayName,
+    notificationFrom: extractNotificationFrom(context.notification),
+    pstnCallerHint: context.pstnCallerHint,
+  };
+}
+
 export function extractNotificationFrom(notification?: InboundCallerNotification): string {
   if (!notification?.payload) return '';
   const from = notification.payload.from;
@@ -249,6 +440,37 @@ function pickCallerField(
   return buildResolution(call, normalized, source);
 }
 
+function decodePstnCallerFromCallOptions(call?: InboundCallerCallFields): string {
+  const options = call?.options as Record<string, unknown> | undefined;
+  if (!options) return '';
+
+  for (const key of ['clientState', 'client_state', 'customData', 'custom_data']) {
+    const value = options[key];
+    if (typeof value !== 'string') continue;
+    const fromState = decodePstnCallerFromClientState(value);
+    if (fromState) return fromState;
+  }
+  return '';
+}
+
+function pickRestrictedCallerLabel(
+  call: InboundCallerCallFields,
+  rawFields: ReturnType<typeof extractTelnyxRawCallerFields>,
+): InboundCallerResolution | null {
+  const candidates = [
+    call.remotePartyNumber,
+    call.remotePartyName,
+    rawFields.callerIdNumber,
+    rawFields.callerIdName,
+    call.options?.remoteCallerName,
+  ];
+  for (const candidate of candidates) {
+    const label = normalizeRestrictedCallerLabel(candidate);
+    if (label) return buildResolution(call, label, 'restrictedCaller');
+  }
+  return null;
+}
+
 function buildResolution(
   call: InboundCallerCallFields,
   chosenDisplayNumber: string,
@@ -272,36 +494,81 @@ export function resolveInboundCallerDisplay(
   context: InboundCallerContext = {},
 ): InboundCallerResolution {
   const ownNumbers = context.ownNumbers ?? [];
+  const resolvedCall = context.call ?? call;
+  const raw = extractTelnyxRawCallerFields(resolvedCall);
 
   const chain: Array<[InboundCallerSource, string | undefined | null]> = [
-    ['remotePartyNumber', call.remotePartyNumber],
-    ['options.remoteCallerNumber', call.options?.remoteCallerNumber],
-    ['options.remotePartyNumber', call.options?.remotePartyNumber],
+    ['options.callerIdNumber', raw.callerIdNumber],
+    ['remotePartyNumber', resolvedCall.remotePartyNumber],
+    ['options.remoteCallerNumber', resolvedCall.options?.remoteCallerNumber],
+    ['options.remotePartyNumber', resolvedCall.options?.remotePartyNumber],
+    // Call Control PSTN bridge: PSTN E.164 often in fromDisplayName → remotePartyName.
+    ['remotePartyName', resolvedCall.remotePartyName],
+    ['options.clientState', decodePstnCallerFromCallOptions(resolvedCall)],
     ['notification.from', extractNotificationFrom(context.notification)],
     ['pstnCallerHint', context.pstnCallerHint],
     ['notification.pstnCaller', decodePstnCallerFromNotification(context.notification)],
-    ['remoteIdentity', resolveFilteredRemoteIdentity(call, ownNumbers)],
+    ['remoteIdentity', resolveFilteredRemoteIdentity(resolvedCall, ownNumbers)],
   ];
 
   for (const [source, raw] of chain) {
-    const picked = pickCallerField(source, raw, call, ownNumbers);
+    const picked = pickCallerField(source, raw, resolvedCall, ownNumbers);
     if (picked) return picked;
   }
 
-  return buildResolution(call, 'Unknown', 'unknown');
+  const restricted = pickRestrictedCallerLabel(resolvedCall, raw);
+  if (restricted) return restricted;
+
+  return buildResolution(resolvedCall, 'Unknown', 'unknown');
 }
 
-/** Telnyx display name for inbound UI when no contact match (remotePartyName / remoteCallerName). */
-export function resolveInboundCallerNameHint(call: InboundCallerCallFields): string {
-  const candidates = [call.remotePartyName, call.options?.remoteCallerName];
-  for (const candidate of candidates) {
+/** Resolve inbound caller number + Telnyx name hint from the first ringing notification. */
+export function resolveInboundSessionIdentity(
+  call: InboundCallerCallFields,
+  context: InboundCallerContext = {},
+): {
+  displayNumber: string;
+  nameHint: string;
+  source: InboundCallerSource;
+  nameSource: InboundCallerNameSource;
+  fieldSnapshot: InboundCallerFieldSnapshot;
+} {
+  const fieldSnapshot = collectInboundCallerFieldSnapshot(call, { ...context, call });
+  const resolution = resolveInboundCallerDisplay(call, { ...context, call });
+  const nameResolution = resolveInboundCallerNameHint(call, context);
+  return {
+    displayNumber: resolution.chosenDisplayNumber,
+    nameHint: nameResolution.nameHint,
+    source: resolution.source,
+    nameSource: nameResolution.source,
+    fieldSnapshot,
+  };
+}
+
+/** Telnyx display name for inbound UI when no contact match. */
+export function resolveInboundCallerNameHint(
+  call: InboundCallerCallFields,
+  context: InboundCallerContext = {},
+): { nameHint: string; source: InboundCallerNameSource } {
+  const raw = extractTelnyxRawCallerFields(call);
+  const clientStateRaw = raw.clientState || decodePstnCallerFromCallOptions(call);
+
+  const chain: Array<[InboundCallerNameSource, string | undefined | null]> = [
+    ['options.callerIdName', raw.callerIdName],
+    ['remotePartyName', call.remotePartyName],
+    ['options.remoteCallerName', call.options?.remoteCallerName],
+    ['clientState.pstnCallerName', clientStateRaw ? decodePstnCallerNameFromClientState(clientStateRaw) : ''],
+    ['pstnCallerNameHint', context.pstnCallerNameHint],
+  ];
+
+  for (const [source, candidate] of chain) {
     const trimmed = String(candidate || '').trim();
     if (!trimmed || BLOCKED_LABELS.test(trimmed)) continue;
-    if (phoneDigits(trimmed).length >= 10) continue;
-    if (/^\+\d/.test(trimmed)) continue;
-    return trimmed;
+    if (looksLikePhoneNumberLabel(trimmed)) continue;
+    return { nameHint: trimmed, source };
   }
-  return '';
+
+  return { nameHint: '', source: 'none' };
 }
 
 /** Development-only debug log (browser or NODE_ENV=development). */
