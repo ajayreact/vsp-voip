@@ -12,9 +12,19 @@
 /lib/
 /routes/
 /web/
+/mobile/
+/uploads/
+/landing/
 
 /mobile-rn/node_modules/
 /mobile-rn/android/
 /mobile-rn/ios/
 /mobile-rn/.expo/
 /mobile-rn/.build-fixtures/
+/mobile-rn/.verify-apk/
+/mobile-rn/.verify-deps/
+/mobile-rn/docs/
+/mobile-rn/*.tgz
+*.apk
+**/*.apk
+**/.verify-apk/

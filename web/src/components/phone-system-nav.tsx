@@ -18,14 +18,14 @@ export function PhoneSystemNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="flex flex-wrap gap-2 border-b border-slate-200 pb-4">
+    <nav className="-mx-4 flex gap-2 overflow-x-auto border-b border-slate-200 px-4 pb-4 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
       {links.map((link) => {
         const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
         return (
           <Link
             key={link.href}
             href={link.href}
-            className={cn('filter-btn', active && 'filter-btn-active')}
+            className={cn('filter-btn shrink-0 whitespace-nowrap', active && 'filter-btn-active')}
           >
             {link.label}
           </Link>

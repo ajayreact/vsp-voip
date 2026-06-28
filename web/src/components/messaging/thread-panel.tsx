@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useRef, useEffect, type KeyboardEvent } from 'react';
+import { ChevronLeft } from 'lucide-react';
 import type { MessageAttachment, PlatformConversation, PlatformMessage } from '@/lib/messaging/types';
 import {
   formatMessagingTime,
@@ -191,6 +192,8 @@ type ThreadPanelProps = {
   onSend: () => void;
   onLoadOlder: () => void;
   onRetryThread?: () => void;
+  onBack?: () => void;
+  showBackButton?: boolean;
 };
 
 export function ThreadPanel({
@@ -216,6 +219,8 @@ export function ThreadPanel({
   onSend,
   onLoadOlder,
   onRetryThread,
+  onBack,
+  showBackButton = false,
 }: ThreadPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const shouldStickToBottomRef = useRef(true);
@@ -280,14 +285,28 @@ export function ThreadPanel({
   return (
     <div className="flex h-full min-h-[420px] flex-col overflow-hidden panel-card lg:min-h-[560px]">
       <header className="border-b border-slate-200 px-4 py-3">
-        <p className="font-semibold text-slate-900">{peerLabel}</p>
-        {conversation ? (
-          <p className="text-xs text-slate-500">
-            Business line {formatPhoneDisplay(conversation.line)}
-          </p>
-        ) : (
-          <p className="text-xs text-slate-500">Enter a client mobile number to start</p>
-        )}
+        <div className="flex items-start gap-2">
+          {showBackButton && onBack ? (
+            <button
+              type="button"
+              onClick={onBack}
+              className="mt-0.5 rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 lg:hidden"
+              aria-label="Back to conversations"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+          ) : null}
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-semibold text-slate-900">{peerLabel}</p>
+            {conversation ? (
+              <p className="text-xs text-slate-500">
+                Business line {formatPhoneDisplay(conversation.line)}
+              </p>
+            ) : (
+              <p className="text-xs text-slate-500">Enter a client mobile number to start</p>
+            )}
+          </div>
+        </div>
       </header>
 
       {threadError ? (

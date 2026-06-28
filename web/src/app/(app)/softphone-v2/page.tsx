@@ -19,6 +19,7 @@ import {
   formatTelnyxErrorMessage,
   type TelnyxReconnectController,
 } from '@/lib/softphone-v2-reconnect';
+import { primeCallAudio } from '@/lib/call-sounds';
 import { stopOutboundRingback, syncOutboundRingback } from '@/lib/softphone-v2-ringback';
 import {
   canConfirmOutboundAnswer,
@@ -508,6 +509,7 @@ function SoftphoneV2Content() {
   const [lastTelemetryEvent, setLastTelemetryEvent] = useState<SoftphoneTelemetrySnapshot | null>(null);
 
   const timerIntervalRef = useRef<number | null>(null);
+  const callStartTimeRef = useRef<number | null>(null);
   const callSecondsRef = useRef(0);
   const callSessionRef = useRef<ActiveCallSession | null>(null);
   const callerNumberRef = useRef('');
@@ -639,20 +641,36 @@ function SoftphoneV2Content() {
 
   const resetTimer = () => {
     stopTimer();
+    callStartTimeRef.current = null;
+    callSecondsRef.current = 0;
     setCallSeconds(0);
   };
 
   const startTimer = () => {
     if (timerIntervalRef.current != null) return;
-    setCallSeconds(0);
-    timerIntervalRef.current = window.setInterval(() => {
-      setCallSeconds((prev) => prev + 1);
-    }, 1000);
+
+    if (callStartTimeRef.current == null) {
+      callStartTimeRef.current = Date.now();
+    }
+
+    const tick = () => {
+      const startedAt = callStartTimeRef.current;
+      if (startedAt == null) return;
+      const elapsed = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+      callSecondsRef.current = elapsed;
+      setCallSeconds(elapsed);
+    };
+
+    tick();
+    timerIntervalRef.current = window.setInterval(tick, 1000);
   };
 
   const syncTimerWithCallState = (state: string | number | undefined | null) => {
     const normalized = normalizeCallState(state);
-    if (normalized === 'active' && callAnswered) {
+    if (
+      (normalized === 'active' || normalized === 'held')
+      && callAnsweredRef.current
+    ) {
       startTimer();
       return;
     }
@@ -974,6 +992,14 @@ function SoftphoneV2Content() {
   useEffect(() => {
     callSecondsRef.current = callSeconds;
   }, [callSeconds]);
+
+  useEffect(() => {
+    if (callAnswered && (callState === 'active' || callState === 'held')) {
+      startTimer();
+      return stopTimer;
+    }
+    return undefined;
+  }, [callAnswered, callState]);
 
   const showIncomingOverlay = callDirection === 'inbound'
     && isConnectingCallState(callState);
@@ -1307,6 +1333,7 @@ function SoftphoneV2Content() {
 
                 resetCallTelemetry();
                 resetOutboundAnswerGate();
+                resetTimer();
                 callSessionRef.current = null;
                 setCallDirection('');
                 callDirectionRef.current = '';
@@ -1323,7 +1350,9 @@ function SoftphoneV2Content() {
 
         client.on('telnyx.error', (event: unknown) => {
           logTelnyx('telnyx.error', event);
-          stopTimer();
+          if (!callSessionRef.current?.reachedActive) {
+            stopTimer();
+          }
           trackSoftphoneEvent('Registration Failed', {
             reason: formatTelnyxErrorMessage(event),
             phase: 'runtime',
@@ -1430,6 +1459,7 @@ function SoftphoneV2Content() {
     resetInCallControls();
     resetOutboundAnswerGate();
     setDisplayNumber(destinationNumber);
+    await primeCallAudio(getRemoteAudioElement());
 
     if (isExtension) {
       try {
@@ -1611,6 +1641,7 @@ function SoftphoneV2Content() {
     finalizeCallSession();
     callRef.current = null;
     setCallState('');
+    resetTimer();
     resetInCallControls();
   };
 
@@ -1619,7 +1650,8 @@ function SoftphoneV2Content() {
     logTelnyx('hangup.click', call ? { id: call.id, state: call.state } : null);
     if (!call) return;
     stopIncomingRingtone();
-    stopTimer();
+    stopOutboundRingback(call);
+    resetTimer();
     if (callSessionRef.current && !callSessionRef.current.reachedActive) {
       if (callSessionRef.current.direction === 'outbound') {
         callSessionRef.current.userCancelled = true;

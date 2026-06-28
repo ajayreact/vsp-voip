@@ -83,6 +83,7 @@ export function MessagingInbox() {
   const [conversations, setConversations] = useState<PlatformConversation[]>([]);
   const [conversationCursor, setConversationCursor] = useState<string | null>(null);
   const [hasMoreConversations, setHasMoreConversations] = useState(false);
+  const [mobileShowThread, setMobileShowThread] = useState(false);
   const [listLoading, setListLoading] = useState(false);
   const [listLoadingMore, setListLoadingMore] = useState(false);
   const [search, setSearch] = useState('');
@@ -269,6 +270,7 @@ export function MessagingInbox() {
     setSendError('');
     setThreadError('');
     setFromLine(conversation.line);
+    setMobileShowThread(true);
     void loadThread(conversation.id);
   }
 
@@ -283,6 +285,16 @@ export function MessagingInbox() {
     setThreadError('');
     setMessageCursor(null);
     setHasOlderMessages(false);
+    setMobileShowThread(true);
+  }
+
+  function closeMobileThread() {
+    setMobileShowThread(false);
+    setIsNewMessage(false);
+    setSelected(null);
+    setMessages([]);
+    setThreadError('');
+    setSendError('');
   }
 
   async function onAttachFiles(files: FileList | null) {
@@ -450,55 +462,61 @@ export function MessagingInbox() {
         />
       ) : null}
 
-      <div className="grid min-h-[560px] gap-4 lg:grid-cols-[320px_1fr]">
-        <ConversationListPanel
-          conversations={filteredConversations}
-          selectedId={selected?.id || null}
-          search={search}
-          loading={listLoading}
-          loadingMore={listLoadingMore}
-          hasMore={hasMoreConversations}
-          error={listError}
-          totalCount={conversations.length}
-          onSearchChange={setSearch}
-          onSelect={openConversation}
-          onLoadMore={() => loadConversations(conversationCursor, true)}
-          onNewMessage={startNewMessage}
-          onRetry={() => loadConversations()}
-        />
+      <div className="grid min-h-[480px] gap-4 lg:min-h-[560px] lg:grid-cols-[320px_1fr]">
+        <div className={mobileShowThread ? 'hidden lg:block' : 'block'}>
+          <ConversationListPanel
+            conversations={filteredConversations}
+            selectedId={selected?.id || null}
+            search={search}
+            loading={listLoading}
+            loadingMore={listLoadingMore}
+            hasMore={hasMoreConversations}
+            error={listError}
+            totalCount={conversations.length}
+            onSearchChange={setSearch}
+            onSelect={openConversation}
+            onLoadMore={() => loadConversations(conversationCursor, true)}
+            onNewMessage={startNewMessage}
+            onRetry={() => loadConversations()}
+          />
+        </div>
 
-        <ThreadPanel
-          conversation={selected}
-          messages={messages}
-          threadLoading={threadLoading}
-          loadingOlder={loadingOlder}
-          hasOlder={hasOlderMessages}
-          threadError={threadError}
-          lines={lines}
-          fromLine={fromLine}
-          draft={draft}
-          sending={sending}
-          pendingAttachments={pendingAttachments}
-          newPeer={newPeer}
-          isNewMessage={isNewMessage}
-          offline={offline}
-          onFromLineChange={setFromLine}
-          onDraftChange={setDraft}
-          onNewPeerChange={setNewPeer}
-          onAttachFiles={onAttachFiles}
-          onRemoveAttachment={(id) =>
-            setPendingAttachments((prev) => prev.filter((item) => item.id !== id))
-          }
-          onSend={() => void onSend()}
-          onLoadOlder={() => {
-            if (selected?.id && messageCursor) {
-              void loadThread(selected.id, messageCursor, true);
+        <div className={mobileShowThread || isNewMessage || selected ? 'block' : 'hidden lg:block'}>
+          <ThreadPanel
+            conversation={selected}
+            messages={messages}
+            threadLoading={threadLoading}
+            loadingOlder={loadingOlder}
+            hasOlder={hasOlderMessages}
+            threadError={threadError}
+            lines={lines}
+            fromLine={fromLine}
+            draft={draft}
+            sending={sending}
+            pendingAttachments={pendingAttachments}
+            newPeer={newPeer}
+            isNewMessage={isNewMessage}
+            offline={offline}
+            onFromLineChange={setFromLine}
+            onDraftChange={setDraft}
+            onNewPeerChange={setNewPeer}
+            onAttachFiles={onAttachFiles}
+            onRemoveAttachment={(id) =>
+              setPendingAttachments((prev) => prev.filter((item) => item.id !== id))
             }
-          }}
-          onRetryThread={() => {
-            if (selected?.id) void loadThread(selected.id);
-          }}
-        />
+            onSend={() => void onSend()}
+            onLoadOlder={() => {
+              if (selected?.id && messageCursor) {
+                void loadThread(selected.id, messageCursor, true);
+              }
+            }}
+            onRetryThread={() => {
+              if (selected?.id) void loadThread(selected.id);
+            }}
+            onBack={closeMobileThread}
+            showBackButton={mobileShowThread}
+          />
+        </div>
       </div>
     </div>
   );

@@ -168,7 +168,9 @@ export async function playOutboundRingback(call: { playRingback?: () => void; st
   try {
     call.playRingback?.();
   } catch (err) {
-    console.warn('Telnyx ringback failed, using local fallback:', err);
-    await startLocalRingback();
+    console.warn('Telnyx ringback unavailable:', err);
   }
+  // Always play local ringback — Telnyx playRingback is a no-op when there is no
+  // carrier early-media ringback (e.g. desk SIP, internal extension bridge legs).
+  await startLocalRingback();
 }

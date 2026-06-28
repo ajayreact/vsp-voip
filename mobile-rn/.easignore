@@ -7,7 +7,10 @@ web-build/
 .build-fixtures/
 .verify-apk/
 .verify-deps/
+*.apk
+**/*.apk
 *.tgz
+**/*.tgz
 .git/
 coverage/
 *.log

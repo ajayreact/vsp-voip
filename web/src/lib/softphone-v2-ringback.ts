@@ -1,13 +1,25 @@
 import { playOutboundRingback, stopLocalRingback } from '@/lib/call-sounds';
 
 const OUTBOUND_RINGBACK_STATES = new Set([
+  'new',
   'requesting',
   'trying',
   'ringing',
   'early',
   'answering',
 ]);
-const RINGBACK_STOP_STATES = new Set(['active', 'held', 'hangup', 'destroy', 'error']);
+const RINGBACK_STOP_STATES = new Set([
+  'active',
+  'held',
+  'hangup',
+  'destroy',
+  'error',
+  'busy',
+  'failed',
+  'rejected',
+  'cancelled',
+  'no-answer',
+]);
 
 export function isOutboundRingbackState(state: string) {
   return OUTBOUND_RINGBACK_STATES.has(state);
@@ -22,8 +34,8 @@ export async function syncOutboundRingback(
   callDirection: 'inbound' | 'outbound' | '',
   callState: string,
 ) {
-  if (callDirection === 'outbound' && call && isOutboundRingbackState(callState)) {
-    await playOutboundRingback(call);
+  if (callDirection === 'outbound' && isOutboundRingbackState(callState)) {
+    await playOutboundRingback(call ?? {});
     return;
   }
 
