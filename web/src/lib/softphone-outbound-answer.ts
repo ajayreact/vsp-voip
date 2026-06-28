@@ -63,6 +63,66 @@ export function canConfirmOutboundAnswer(
   return OUTBOUND_REMOTE_RING_STATES.has(prev);
 }
 
+const OUTBOUND_RINGBACK_PLAY_STATES = new Set([
+  'new',
+  'requesting',
+  'trying',
+  'ringing',
+  'early',
+  'answering',
+]);
+
+const OUTBOUND_RINGBACK_STOP_TERMINAL = new Set([
+  'hangup',
+  'destroy',
+  'error',
+  'busy',
+  'failed',
+  'rejected',
+  'cancelled',
+  'no-answer',
+  '',
+]);
+
+/** Keep local ringback until the far end is confirmed answered or the call ends. */
+export function shouldPlayOutboundRingback(
+  callDirection: 'inbound' | 'outbound' | '',
+  callAnswered: boolean,
+  callState: string,
+): boolean {
+  if (callDirection !== 'outbound' || callAnswered) return false;
+  const normalized = callState.trim().toLowerCase();
+  if (OUTBOUND_RINGBACK_PLAY_STATES.has(normalized)) return true;
+  // Answer gate / internal bridge: WebRTC may be active while the desk phone still rings.
+  if (normalized === 'active' || normalized === 'early') return true;
+  return false;
+}
+
+export function shouldStopOutboundRingback(
+  callState: string,
+  callAnswered: boolean,
+): boolean {
+  const normalized = callState.trim().toLowerCase();
+  if (OUTBOUND_RINGBACK_STOP_TERMINAL.has(normalized)) return true;
+  return callAnswered && (normalized === 'active' || normalized === 'held');
+}
+
+/**
+ * Internal Call Control bridge: the agent WebRTC leg goes active when auto-answered.
+ * Confirm only after a second active transition (desk bridged) or standard PSTN-style
+ * progress on the same leg (trying/ringing then active).
+ */
+export function canConfirmInternalBridgeAnswer(
+  call: Call,
+  tracker: OutboundAnswerTracker,
+  activeTransitionCount: number,
+): boolean {
+  const state = String(call.state ?? '').trim().toLowerCase();
+  if (state !== 'active' && state !== 'held') return false;
+  if (activeTransitionCount >= 2) return true;
+  return canConfirmOutboundAnswer(call, tracker);
+}
+
 /** UI label state — keep "Calling…" until the remote party is confirmed answered. */
 export function resolveOutboundUiCallState(
   callState: string,

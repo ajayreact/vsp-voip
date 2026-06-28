@@ -39,6 +39,25 @@ export type CallLogPayload = {
   userCancelled?: boolean;
 };
 
+export type InternalExtensionCallResponse = {
+  success?: boolean;
+  callControlId: string;
+  targetExtensionNumber: string;
+  targetDisplayName: string | null;
+  ringStrategy?: string;
+  targetCount?: number;
+  policyAction?: string;
+};
+
+export async function postInternalExtensionCall(
+  extensionNumber: string,
+): Promise<InternalExtensionCallResponse> {
+  return authorizedRequest<InternalExtensionCallResponse>(endpoints.softphone.internalCall, {
+    method: 'POST',
+    body: { extensionNumber },
+  });
+}
+
 export async function fetchSoftphoneToken(): Promise<SoftphoneTokenResponse> {
   return authorizedRequest<SoftphoneTokenResponse>(endpoints.softphone.token, {
     method: 'POST',

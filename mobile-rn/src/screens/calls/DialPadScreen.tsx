@@ -5,7 +5,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { VspDialPad } from '../../components';
 import { placeOutboundCall, getFriendlyCallError } from '../../calling/callingController';
 import { useCanPlaceCalls } from '../../calling/TelnyxCallingProvider';
-import { usePhoneConnection } from '../../hooks/usePhoneConnection';
 import { useTheme } from '../../shared/theme';
 import { formatPhone } from '../../utils/format';
 import { spacing, typography } from '../../shared/theme';
@@ -16,7 +15,6 @@ export function DialPadScreen() {
   const [placing, setPlacing] = useState(false);
   const [callError, setCallError] = useState<string | null>(null);
   const canPlace = useCanPlaceCalls();
-  const { connectionState } = usePhoneConnection();
 
   function append(d: string) {
     setDigits((prev) => prev + d);
@@ -28,11 +26,7 @@ export function DialPadScreen() {
   }
 
   async function handlePlaceCall() {
-    console.log('Dial button pressed');
-    console.log('connectionState', connectionState);
-    console.log('number', digits);
     if (!canPlace || digits.length < 3) {
-      console.log('Call blocked', { canPlace, digitsLength: digits.length });
       if (!canPlace) {
         setCallError('Phone not connected. Wait for registration to finish.');
       }

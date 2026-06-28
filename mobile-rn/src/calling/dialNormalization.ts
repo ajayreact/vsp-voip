@@ -7,3 +7,9 @@ export function normalizeDestination(value: string) {
   if (value.trim().startsWith('+')) return `+${digits}`;
   return value.trim();
 }
+
+/** Internal PBX extension (2–6 digits), not PSTN. */
+export function isExtensionDialInput(value: string) {
+  const digits = value.trim().replace(/\D/g, '');
+  return /^\d{2,6}$/.test(digits);
+}

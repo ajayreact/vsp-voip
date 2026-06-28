@@ -96,6 +96,24 @@ function stopLoopingSound(getAudio: () => HTMLAudioElement | null) {
   stopWebAudioTone();
 }
 
+/** Prime autoplay during dial — bounded wait so outbound setup is not blocked. */
+export async function primeCallAudioForDial(
+  remoteAudioEl: HTMLAudioElement | null,
+  timeoutMs = 750,
+): Promise<boolean> {
+  let settled = false;
+  const result = await Promise.race([
+    primeCallAudio(remoteAudioEl).then((ok) => {
+      settled = true;
+      return ok;
+    }),
+    new Promise<boolean>((resolve) => {
+      window.setTimeout(() => resolve(settled), timeoutMs);
+    }),
+  ]);
+  return result;
+}
+
 /** Unlock browser autoplay after a user gesture (Call, Answer, dial pad). */
 export async function primeCallAudio(remoteAudioEl: HTMLAudioElement | null): Promise<boolean> {
   stopWebAudioTone();

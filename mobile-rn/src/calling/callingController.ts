@@ -15,7 +15,7 @@ import {
   syncTrackedCallState,
   updateTrackedRemoteNumber,
 } from './callSessionTracker';
-import { postCallAccepted } from './softphoneService';
+import { postCallAccepted, postInternalExtensionCall } from './softphoneService';
 import { getTelnyxVoipClient } from './telnyxVoip';
 import {
   isActiveCallState,
@@ -26,7 +26,113 @@ import {
   isTerminalCallState,
   mapTelnyxCallToInboundFields,
 } from './telnyxCallMapping';
-import { normalizeDestination } from './dialNormalization';
+import { normalizeDestination, isExtensionDialInput } from './dialNormalization';
+
+const INTERNAL_BRIDGE_TIMEOUT_MS = 60_000;
+
+type PendingInternalDial = {
+  targetNumber: string;
+  targetDisplayName: string;
+  callControlId: string;
+  startedAt: number;
+  bridgeAutoAnswered: boolean;
+};
+
+let pendingInternalDial: PendingInternalDial | null = null;
+
+function clearPendingInternalDial() {
+  pendingInternalDial = null;
+}
+
+function isInternalBridgeCandidate(call: Call): boolean {
+  if (!call.isIncoming) return false;
+  const underlying = call.telnyxCall as unknown as {
+    options?: { destinationNumber?: string };
+  };
+  if (underlying?.options?.destinationNumber) return false;
+  return true;
+}
+
+function canAutoAnswerInternalBridge(call: Call): boolean {
+  if (!pendingInternalDial || pendingInternalDial.bridgeAutoAnswered) return false;
+  if (Date.now() - pendingInternalDial.startedAt > INTERNAL_BRIDGE_TIMEOUT_MS) return false;
+  if (!isInternalBridgeCandidate(call)) return false;
+  const { activeCall, incomingCall } = useCallingStore.getState();
+  if (activeCall && activeCall.callId !== call.callId) return false;
+  if (incomingCall && incomingCall.callId !== call.callId) return false;
+  return true;
+}
+
+async function autoAnswerInternalBridgeCall(call: Call) {
+  if (!pendingInternalDial) return false;
+  pendingInternalDial.bridgeAutoAnswered = true;
+  try {
+    await call.answer();
+    beginTrackedCall(call, 'outbound', pendingInternalDial.targetDisplayName);
+    await refreshCallSnapshot(call);
+    return true;
+  } catch {
+    pendingInternalDial.bridgeAutoAnswered = false;
+    return false;
+  }
+}
+
+async function maybeAutoAnswerInternalBridge(call: Call) {
+  if (!canAutoAnswerInternalBridge(call)) return false;
+  return autoAnswerInternalBridgeCall(call);
+}
+
+async function placeInternalExtensionCall(extensionDigits: string) {
+  const displayFallback = `Ext ${extensionDigits}`;
+  pendingInternalDial = {
+    targetNumber: extensionDigits,
+    targetDisplayName: displayFallback,
+    callControlId: '',
+    startedAt: Date.now(),
+    bridgeAutoAnswered: false,
+  };
+
+  try {
+    const result = await postInternalExtensionCall(extensionDigits);
+    if (!result.callControlId) {
+      throw new Error('Internal extension call did not return a call control id.');
+    }
+    pendingInternalDial.callControlId = result.callControlId;
+    pendingInternalDial.targetDisplayName = result.targetDisplayName?.trim() || displayFallback;
+
+    const client = getTelnyxVoipClient();
+    let answered = false;
+    const sub = client.calls$.subscribe((calls) => {
+      if (answered || !pendingInternalDial) return;
+      for (const call of calls) {
+        if (canAutoAnswerInternalBridge(call)) {
+          answered = true;
+          void autoAnswerInternalBridgeCall(call);
+          break;
+        }
+      }
+    });
+
+    setTimeout(() => sub.unsubscribe(), INTERNAL_BRIDGE_TIMEOUT_MS);
+
+    for (const call of await new Promise<Call[]>((resolve) => {
+      const once = client.calls$.subscribe((calls) => {
+        once.unsubscribe();
+        resolve(calls);
+      });
+    })) {
+      if (await maybeAutoAnswerInternalBridge(call)) {
+        answered = true;
+        break;
+      }
+    }
+
+    return null;
+  } catch (error) {
+    clearPendingInternalDial();
+    throw error;
+  }
+}
 
 let contactsCache: Awaited<ReturnType<typeof fetchContacts>> = [];
 let contactsLoadedAt = 0;
@@ -124,6 +230,10 @@ function callStateNeedsAudio(state: TelnyxCallState) {
 }
 
 export async function refreshCallSnapshot(call: Call) {
+  if (isIncomingRinging(call)) {
+    await maybeAutoAnswerInternalBridge(call);
+  }
+
   const state = useCallingStore.getState();
   const ownNumbers = state.tenantNumbers;
   await ensureContacts();
@@ -135,6 +245,7 @@ export async function refreshCallSnapshot(call: Call) {
   if (isTerminalCallState(callState)) {
     finalizeTrackedCall(call, call.currentDuration);
     stopCallAudio();
+    clearPendingInternalDial();
     state.resetCalls();
     return;
   }
@@ -165,7 +276,7 @@ export async function refreshCallSnapshot(call: Call) {
   }
 }
 
-export async function placeOutboundCall(destination: string) {
+export async function placeOutboundCall(destination: string): Promise<Call | null> {
   if (hasLiveCallSession()) {
     throw new CallInProgressError();
   }
@@ -175,9 +286,16 @@ export async function placeOutboundCall(destination: string) {
     throw new CallNotConnectedError();
   }
 
-  const client = getTelnyxVoipClient();
   const normalized = normalizeDestination(destination);
   if (!normalized) throw new Error('Enter a valid phone number or extension.');
+
+  if (isExtensionDialInput(destination)) {
+    const extensionDigits = destination.trim().replace(/\D/g, '');
+    await ensureContacts(true);
+    return placeInternalExtensionCall(extensionDigits);
+  }
+
+  const client = getTelnyxVoipClient();
   const callerNumber = defaultCallerId || tenantNumbers[0] || undefined;
   await ensureContacts(true);
   const call = await client.newCall(normalized, undefined, callerNumber);
@@ -248,6 +366,7 @@ export async function hangupActiveCall() {
   } finally {
     finalizeTrackedCall(target, target.currentDuration);
     stopCallAudio();
+    clearPendingInternalDial();
     useCallingStore.getState().resetCalls();
   }
 }
@@ -347,6 +466,7 @@ export function bindCallStreams(call: Call) {
 export function clearContactsCache() {
   contactsCache = [];
   contactsLoadedAt = 0;
+  clearPendingInternalDial();
   clearTrackedCalls();
 }
 

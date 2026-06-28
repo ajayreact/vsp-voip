@@ -17,6 +17,7 @@ export const endpoints = {
     extension: (id: string) => `/api/tenant/extensions/${id}`,
   },
   softphone: {
+    internalCall: '/api/softphone/internal-call',
     token: '/api/softphone/token',
     config: '/api/softphone/config',
     presence: '/api/softphone/presence',
