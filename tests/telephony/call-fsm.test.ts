@@ -28,12 +28,11 @@ describe('telephony call FSM', () => {
       kind: 'internal_extension',
     });
     expect(snap.callPhase).toBe('dialing');
-    expect(snap.pendingInternal?.targetNumber).toBe('101');
+    expect(snap.session?.kind).toBe('internal_extension');
 
     snap = reduceCallEvent(snap, {
       type: 'DIAL_ACCEPTED',
-      callId: 'cc-1',
-      callControlId: 'cc-1',
+      callId: 'webrtc-1',
     });
     expect(snap.callPhase).toBe('calling');
 
@@ -44,11 +43,10 @@ describe('telephony call FSM', () => {
     snap = reduceCallEvent(snap, {
       type: 'REMOTE_ANSWER_CONFIRMED',
       callId: 'webrtc-1',
-      source: 'internal_bridge_second_active',
+      source: 'pstn_second_active',
     });
     expect(snap.callPhase).toBe('connected');
     expect(snap.session?.connectedAt).toBeTypeOf('number');
-    expect(snap.pendingInternal).toBeNull();
   });
 
   it('inbound received stays ringing until confirmed', () => {

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { TelnyxRTC } from '@telnyx/webrtc';
 import type { Call } from '@telnyx/webrtc';
-import { getSoftphoneConfig, getSoftphoneToken, getExtensions, getMe, initiateInternalExtensionCall, isUnauthorizedError } from '@/lib/api';
+import { getSoftphoneConfig, getSoftphoneToken, getExtensions, getMe, isUnauthorizedError } from '@/lib/api';
 import { persistStoredCallerId, resolveStoredCallerId } from '@/lib/softphone-caller-id';
 import { postServerCallLog, postCallAccepted, postBlindTransfer } from '@/lib/softphone-call-log-client';
 import { isSoftphoneV2Enabled } from '@/lib/softphone-config';
@@ -62,7 +62,7 @@ import { TenantOnlyGate } from '@/components/tenant-only-gate';
 import { SoftphoneV2ErrorBoundary } from '@/components/softphone-v2-error-boundary';
 import { useSoftphoneTelephony } from '@/hooks/use-softphone-telephony';
 import { getActiveLocalToneSourceForDiagnostics } from '@/lib/call-sounds';
-import { logDiagnosticTimeline, selectIsConnected } from '@/lib/telephony';
+import { logDiagnosticTimeline } from '@/lib/telephony';
 
 const REMOTE_AUDIO_ID = 'softphone-v2-remote';
 const CALL_HISTORY_KEY = 'softphone-v2-call-history';
@@ -493,7 +493,6 @@ function SoftphoneV2Content() {
     reconnecting,
     connectionStatus,
     reconnectAttempt,
-    pendingInternal: telephonyPendingInternal,
   } = useSoftphoneTelephony(getRemoteAudioElement);
 
   const [destination, setDestination] = useState('');
@@ -777,52 +776,6 @@ function SoftphoneV2Content() {
 
   const resetCallSideEffects = () => {
     connectedTelemetryRef.current = null;
-  };
-
-  const maybeAutoAnswerInternalBridge = (call: Call) => {
-    const snap = orchestrator.getSnapshot();
-    if (snap.session?.bridgeAutoAnswered || selectIsConnected(snap)) return;
-    if (!orchestrator.evaluateBridgeAutoAnswer(call)) return;
-    const normalized = normalizeCallState(call.state);
-    const eligible = normalized === 'new'
-      || normalized === 'trying'
-      || normalized === 'ringing'
-      || normalized === 'early'
-      || normalized === 'answering'
-      || normalized === 'active';
-    if (eligible) {
-      orchestrator.onBridgeLegArrived(call.id ?? '');
-      void autoAnswerInternalBridgeCall(call);
-    }
-  };
-
-  const autoAnswerInternalBridgeCall = async (call: Call) => {
-    try {
-      const extended = call as Call & {
-        options?: {
-          remoteElement?: string | HTMLMediaElement;
-          localStream?: MediaStream;
-          audio?: boolean;
-        };
-      };
-      const audioEl = getRemoteAudioElement();
-      const localStream = await acquireMicrophoneStream(localMediaStreamRef);
-      const options = extended.options ?? {
-        audio: true,
-        localStream,
-        remoteElement: audioEl ?? REMOTE_AUDIO_ID,
-      };
-      options.localStream = localStream;
-      options.remoteElement = audioEl ?? REMOTE_AUDIO_ID;
-      options.audio = true;
-      extended.options = options;
-      await call.answer();
-      attachCallMedia(call, 'internal-bridge:answer');
-      orchestrator.onBridgeAutoAnswered(call.id ?? '');
-      logTelnyx('internal-bridge.auto-answer');
-    } catch (err) {
-      logTelnyx('internal-bridge.auto-answer.error', err);
-    }
   };
 
   const finalizeCallSession = () => {
@@ -1126,23 +1079,6 @@ function SoftphoneV2Content() {
                 orchestrator.updateSessionLabel(resolved);
               }
 
-              const pendingInternal = snap.pendingInternal;
-              if (
-                pendingInternal
-                && callId
-                && !terminal
-                && orchestrator.evaluateBridgeAutoAnswer(payload.call)
-              ) {
-                const targetLabel = pendingInternal.targetDisplayName
-                  || pendingInternal.targetNumber;
-                displayNumberRef.current = targetLabel;
-                orchestrator.updateSessionLabel(targetLabel);
-                if (!callSessionRef.current || callSessionRef.current.callId !== callId) {
-                  beginCallSession(callId, targetLabel, 'outbound');
-                }
-                maybeAutoAnswerInternalBridge(payload.call);
-              }
-
               if (
                 notificationIsInbound
                 && callId
@@ -1346,43 +1282,11 @@ function SoftphoneV2Content() {
     resetCallSideEffects();
     orchestrator.reset();
 
-    if (isExtension) {
-      try {
-        await orchestrator.beginOutboundDial(destinationNumber, 'internal_extension');
-
-        const result = await initiateInternalExtensionCall(destinationNumber);
-        orchestrator.acceptDial(result.callControlId, result.callControlId);
-        orchestrator.updateSessionLabel(result.targetDisplayName || `Ext ${destinationNumber}`);
-        const parties = resolveCallLogParties('outbound', destinationNumber, outboundCallerId);
-        orchestrator.updateSessionLogParties(parties.from, parties.to);
-        beginCallSession(result.callControlId, destinationNumber, 'outbound');
-        logTelnyx('internal-call.originated', result);
-        trackSoftphoneEvent('Call Started', {
-          callId: result.callControlId,
-          number: destinationNumber,
-          direction: 'outbound',
-        });
-
-        const bridgeCall = callRef.current;
-        if (bridgeCall && orchestrator.getSnapshot().pendingInternal) {
-          maybeAutoAnswerInternalBridge(bridgeCall);
-        }
-      } catch (err) {
-        logTelnyx('internal-call.error', err);
-        orchestrator.failDial(err instanceof Error ? err.message : 'internal-call.error');
-        orchestrator.setConnectionStatus(err instanceof Error ? err.message : 'Internal call failed');
-        trackSoftphoneEvent('Call Failed', {
-          callId: 'unknown',
-          number: destinationNumber,
-          direction: 'outbound',
-          reason: err instanceof Error ? err.message : 'internal-call.error',
-        });
-      }
-      return;
-    }
-
     try {
-      await orchestrator.beginOutboundDial(destinationNumber, 'pstn');
+      await orchestrator.beginOutboundDial(
+        destinationNumber,
+        isExtension ? 'internal_extension' : 'pstn',
+      );
       const audioEl = getRemoteAudioElement();
       const localStream = await acquireMicrophoneStream(localMediaStreamRef);
       logTelnyx('outbound.localStream', {
@@ -1392,6 +1296,7 @@ function SoftphoneV2Content() {
           readyState: track.readyState,
           muted: track.muted,
         })),
+        isExtension,
       });
 
       const call = client.newCall({
@@ -1404,6 +1309,9 @@ function SoftphoneV2Content() {
       callRef.current = call;
       const parties = resolveCallLogParties('outbound', destinationNumber, outboundCallerId);
       orchestrator.updateSessionLogParties(parties.from, parties.to);
+      if (isExtension) {
+        orchestrator.updateSessionLabel(`Ext ${destinationNumber}`);
+      }
       beginCallSession(call.id, destinationNumber, 'outbound');
       orchestrator.acceptDial(call.id);
       logTelnyx('newCall.returned', {
@@ -1412,8 +1320,17 @@ function SoftphoneV2Content() {
         isExtension,
         keys: Object.keys(call as object),
       });
+      trackSoftphoneEvent('Call Started', {
+        callId: call.id,
+        number: destinationNumber,
+        direction: 'outbound',
+      });
     } catch (err) {
       logTelnyx('newCall.error', err);
+      if (isExtension) {
+        orchestrator.failDial(err instanceof Error ? err.message : 'newCall.error');
+        orchestrator.setConnectionStatus(err instanceof Error ? err.message : 'Internal call failed');
+      }
       trackSoftphoneEvent('Call Failed', {
         callId: 'unknown',
         number: destinationNumber,

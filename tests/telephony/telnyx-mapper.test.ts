@@ -26,8 +26,6 @@ function baseSession(overrides: Partial<CallSessionContext> = {}): CallSessionCo
     durationSeconds: 0,
     remoteRingSeen: true,
     activeTransitionCount: 0,
-    bridgeAutoAnswered: false,
-    awaitingDeskBridge: false,
     isMuted: false,
     terminationReason: null,
     ...overrides,
@@ -120,31 +118,29 @@ describe('shouldConfirmRemoteAnswer', () => {
     expect(result.source).toBe('pstn_active');
   });
 
-  it('defers internal bridge first active', () => {
+  it('defers internal extension first active after early media', () => {
     const result = shouldConfirmRemoteAnswer({
-      call: mockCall('active', 'answering'),
+      call: mockCall('active', 'early'),
       session: baseSession({
         kind: 'internal_extension',
-        bridgeAutoAnswered: true,
-        awaitingDeskBridge: true,
+        remoteRingSeen: true,
         activeTransitionCount: 1,
       }),
     });
     expect(result.confirmed).toBe(false);
-    expect(result.source).toBe('internal_bridge_deferred');
+    expect(result.source).toBe('pstn_deferred');
   });
 
-  it('confirms internal bridge on second active', () => {
+  it('confirms internal extension on second active after early media', () => {
     const result = shouldConfirmRemoteAnswer({
       call: mockCall('active', 'active'),
       session: baseSession({
         kind: 'internal_extension',
-        bridgeAutoAnswered: true,
-        awaitingDeskBridge: true,
+        remoteRingSeen: true,
         activeTransitionCount: 2,
       }),
     });
     expect(result.confirmed).toBe(true);
-    expect(result.source).toBe('internal_bridge_second_active');
+    expect(result.source).toBe('pstn_second_active');
   });
 });

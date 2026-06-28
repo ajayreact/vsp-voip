@@ -11,14 +11,15 @@ describe('mobile / internal extension dial', () => {
     expect(isExtensionDialInput('3135551212')).toBe(false);
   });
 
-  it('callingController uses internal-call API for extensions', () => {
+  it('callingController uses client.newCall for extensions', () => {
     const source = fs.readFileSync(
       path.join(process.cwd(), 'mobile-rn/src/calling/callingController.ts'),
       'utf8',
     );
-    expect(source).toContain('postInternalExtensionCall');
-    expect(source).not.toMatch(/newCall\(\s*extensionDigits/);
-    expect(source).toContain('placeInternalExtensionCall');
+    expect(source).not.toContain('postInternalExtensionCall');
+    expect(source).not.toContain('placeInternalExtensionCall');
+    expect(source).toContain('client.newCall(dialTarget');
+    expect(source).toContain('isExtensionDialInput');
   });
 
   it('softphoneService exposes postInternalExtensionCall', () => {

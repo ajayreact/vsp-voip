@@ -24,14 +24,6 @@ export type CallDirection = 'inbound' | 'outbound';
 
 export type CallKind = 'pstn' | 'internal_extension' | 'inbound';
 
-export type PendingInternalRequest = {
-  targetNumber: string;
-  targetDisplayName: string;
-  callControlId: string | null;
-  bridgeWebRtcCallId: string | null;
-  startedAt: number;
-};
-
 export type CallSessionContext = {
   callId: string;
   callControlId: string | null;
@@ -46,8 +38,6 @@ export type CallSessionContext = {
   durationSeconds: number;
   remoteRingSeen: boolean;
   activeTransitionCount: number;
-  bridgeAutoAnswered: boolean;
-  awaitingDeskBridge: boolean;
   isMuted: boolean;
   terminationReason: string | null;
 };
@@ -56,7 +46,6 @@ export type TelephonySnapshot = {
   connection: ConnectionPhase;
   callPhase: CallPhase;
   session: CallSessionContext | null;
-  pendingInternal: PendingInternalRequest | null;
   socketConnected: boolean;
   connectionMessage: string;
   reconnectAttempt: number;
@@ -76,8 +65,6 @@ export type TelephonyCallEvent =
   | { type: 'SDK_HELD' }
   | { type: 'SDK_TERMINAL'; reason: string }
   | { type: 'REMOTE_ANSWER_CONFIRMED'; callId: string; source: string }
-  | { type: 'BRIDGE_LEG_ARRIVED'; callId: string }
-  | { type: 'BRIDGE_AUTO_ANSWERED'; callId: string }
   | { type: 'HOLD_STARTED' }
   | { type: 'HOLD_ENDED' }
   | { type: 'TRANSFER_STARTED' }

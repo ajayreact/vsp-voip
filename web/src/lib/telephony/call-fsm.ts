@@ -34,7 +34,6 @@ export function createInitialTelephonySnapshot(): TelephonySnapshot {
     connection: 'disconnected',
     callPhase: 'idle',
     session: null,
-    pendingInternal: null,
     socketConnected: false,
     connectionMessage: '',
     reconnectAttempt: 0,
@@ -141,20 +140,9 @@ export function reduceCallEvent(
           durationSeconds: 0,
           remoteRingSeen: false,
           activeTransitionCount: 0,
-          bridgeAutoAnswered: false,
-          awaitingDeskBridge: false,
           isMuted: false,
           terminationReason: null,
         },
-        pendingInternal: event.kind === 'internal_extension'
-          ? {
-            targetNumber: event.destination,
-            targetDisplayName: `Ext ${event.destination}`,
-            callControlId: null,
-            bridgeWebRtcCallId: null,
-            startedAt: Date.now(),
-          }
-          : null,
       });
 
     case 'DIAL_ACCEPTED': {
@@ -162,26 +150,12 @@ export function reduceCallEvent(
       if (!session) return snapshot;
       session.callId = event.callId;
       session.callControlId = event.callControlId ?? session.callControlId;
-      if (snapshot.pendingInternal && event.callControlId) {
-        return withPhase(
-          {
-            ...snapshot,
-            session,
-            pendingInternal: {
-              ...snapshot.pendingInternal,
-              callControlId: event.callControlId,
-            },
-          },
-          'calling',
-          'dial_accepted',
-        );
-      }
       return withPhase({ ...snapshot, session }, 'calling', 'dial_accepted');
     }
 
     case 'DIAL_FAILED':
       return withPhase(
-        { ...snapshot, session: null, pendingInternal: null },
+        { ...snapshot, session: null },
         'failed',
         event.reason,
       );
@@ -193,31 +167,6 @@ export function reduceCallEvent(
       const session = cloneSession(snapshot.session);
       if (session) session.remoteRingSeen = true;
       return withPhase({ ...snapshot, session }, 'remote_ringing', event.type.toLowerCase());
-    }
-
-    case 'BRIDGE_LEG_ARRIVED': {
-      const session = cloneSession(snapshot.session);
-      if (session) {
-        session.callId = event.callId;
-      }
-      const pendingInternal = snapshot.pendingInternal
-        ? { ...snapshot.pendingInternal, bridgeWebRtcCallId: event.callId }
-        : null;
-      return withPhase(
-        { ...snapshot, session, pendingInternal },
-        'remote_ringing',
-        'bridge_leg_arrived',
-      );
-    }
-
-    case 'BRIDGE_AUTO_ANSWERED': {
-      const session = cloneSession(snapshot.session);
-      if (session) {
-        session.bridgeAutoAnswered = true;
-        session.awaitingDeskBridge = true;
-        session.callId = event.callId;
-      }
-      return withPhase({ ...snapshot, session }, 'remote_ringing', 'bridge_auto_answered');
     }
 
     case 'SDK_ACTIVE': {
@@ -234,7 +183,6 @@ export function reduceCallEvent(
       if (!session.connectedAt) {
         session.connectedAt = Date.now();
       }
-      session.awaitingDeskBridge = false;
       logDiagnosticTimeline('answer.confirmed', {
         ...snapshot,
         session,
@@ -246,10 +194,10 @@ export function reduceCallEvent(
         priorPhase: snapshot.callPhase,
       });
       if (snapshot.callPhase === 'connected' || snapshot.callPhase === 'hold' || snapshot.callPhase === 'recording') {
-        return { ...snapshot, session, pendingInternal: null };
+        return { ...snapshot, session };
       }
       return withPhase(
-        { ...snapshot, session, pendingInternal: null },
+        { ...snapshot, session },
         'connected',
         event.source,
       );
@@ -292,8 +240,6 @@ export function reduceCallEvent(
           durationSeconds: 0,
           remoteRingSeen: true,
           activeTransitionCount: 0,
-          bridgeAutoAnswered: false,
-          awaitingDeskBridge: false,
           isMuted: false,
           terminationReason: null,
         },
@@ -334,7 +280,6 @@ export function reduceCallEvent(
           session: snapshot.session
             ? { ...snapshot.session, terminationReason: event.reason }
             : null,
-          pendingInternal: null,
         },
         event.reason === 'failed' ? 'failed' : 'ended',
         event.reason,

@@ -113,6 +113,5 @@ export function useSoftphoneTelephony(getRemoteAudioElement: () => HTMLAudioElem
     reconnecting: selectReconnecting(snapshot),
     connectionStatus: selectConnectionStatus(snapshot),
     reconnectAttempt: snapshot.reconnectAttempt,
-    pendingInternal: snapshot.pendingInternal,
   };
 }

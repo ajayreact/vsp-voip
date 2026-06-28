@@ -66,27 +66,31 @@ describe('orchestrator answer-gate replay (Bug #7 live log sequence)', () => {
     expect(orchestrator.getSnapshot().session?.connectedAt).not.toBeNull();
   });
 
-  it('internal bridge: second active confirms without pstn_second_active', () => {
+  it('internal extension: same outbound answer gate as PSTN after early media', () => {
     const orchestrator = createTelephonyOrchestrator();
-    const callId = 'bridge-webrtc-1';
+    const callId = 'ext-webrtc-1';
 
     orchestrator.dispatchCall({ type: 'DIAL_REQUESTED', destination: '101', kind: 'internal_extension' });
-    orchestrator.dispatchCall({ type: 'DIAL_ACCEPTED', callId, callControlId: 'cc-1' });
-    orchestrator.dispatchCall({ type: 'BRIDGE_AUTO_ANSWERED', callId });
-
+    orchestrator.dispatchCall({ type: 'DIAL_ACCEPTED', callId });
+    orchestrator.dispatchSdkNotification(mockCall({ id: callId, state: 'ringing' }), 'callUpdate');
+    orchestrator.dispatchSdkNotification(mockCall({ id: callId, state: 'early' }), 'callUpdate');
     orchestrator.dispatchSdkNotification(
-      mockCall({ id: callId, state: 'active', prevState: 'answering' }),
+      mockCall({ id: callId, state: 'active', prevState: 'early' }),
       'callUpdate',
     );
+
+    expect(events.some((e) => e.event === 'answer.shouldConfirmRemoteAnswer'
+      && e.detail?.source === 'pstn_deferred'
+      && e.detail?.activeTransitionCount === 1)).toBe(true);
+
     orchestrator.dispatchSdkNotification(
       mockCall({ id: callId, state: 'active', prevState: 'active' }),
       'callUpdate',
     );
 
     expect(events.some((e) => e.event === 'answer.REMOTE_ANSWER_CONFIRMED.dispatch'
-      && e.detail?.source === 'internal_bridge_second_active')).toBe(true);
-    expect(events.some((e) => e.event === 'answer.REMOTE_ANSWER_CONFIRMED.dispatch'
-      && e.detail?.source === 'pstn_second_active')).toBe(false);
+      && e.detail?.source === 'pstn_second_active')).toBe(true);
+    expect(orchestrator.getSnapshot().callPhase).toBe('connected');
   });
 
   it('hold/resume: no second REMOTE_ANSWER_CONFIRMED.dispatch after connected', () => {

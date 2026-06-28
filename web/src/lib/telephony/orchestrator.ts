@@ -5,7 +5,6 @@ import {
   reduceConnectionEvent,
   tickDuration,
 } from './call-fsm';
-import { evaluateInternalBridgeAutoAnswer } from './internal-bridge-policy';
 import { summarizeSnapshot } from './diagnostics';
 import { logDiagnosticTimeline, logTelephony } from './logger';
 import { syncRingbackWithSnapshot } from './ringback-controller';
@@ -170,34 +169,6 @@ export class TelephonyOrchestrator {
   reset() {
     this.dispatchCall({ type: 'RESET' });
     void this.syncRingback(null);
-  }
-
-  evaluateBridgeAutoAnswer(call: Call): boolean {
-    const evaluation = evaluateInternalBridgeAutoAnswer({
-      pending: this.snapshot.pendingInternal,
-      call,
-      hasLiveCall: LIVE_CALL_PHASES.has(this.snapshot.callPhase)
-        && this.snapshot.callPhase !== 'dialing'
-        && !this.snapshot.pendingInternal
-        && Boolean(this.snapshot.session?.callId)
-        && this.snapshot.session?.callId !== 'pending',
-    });
-
-    logTelephony(
-      evaluation.allowed ? 'info' : 'warn',
-      'bridge.auto_answer.evaluated',
-      { ...this.snapshot, detail: { reason: evaluation.reason, callId: call.id } },
-    );
-
-    return evaluation.allowed;
-  }
-
-  onBridgeLegArrived(callId: string) {
-    this.dispatchCall({ type: 'BRIDGE_LEG_ARRIVED', callId });
-  }
-
-  onBridgeAutoAnswered(callId: string) {
-    this.dispatchCall({ type: 'BRIDGE_AUTO_ANSWERED', callId });
   }
 
   tickTimer(now = Date.now()) {

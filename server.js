@@ -586,6 +586,13 @@ async function handleTelnyxVoiceWebhook(req, res) {
                 }
                 return;
             }
+            if (
+                typeof eventType === 'string'
+                && eventType.startsWith('call.')
+                && eventType !== 'call.recording.saved'
+            ) {
+                await handleInboundCallControlEvent(prisma, req.body);
+            }
             const quality = await handleTelnyxVoiceTelemetryEvent(prisma, req.body);
             if (quality) {
                 console.log('   ↳ Call quality sample saved:', quality.id, `MOS ${quality.mosInbound ?? quality.mosOutbound}`);

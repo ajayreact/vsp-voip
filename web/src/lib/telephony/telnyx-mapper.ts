@@ -76,7 +76,7 @@ export const PSTN_SECOND_ACTIVE_SOURCE = 'pstn_second_active';
  * callee actually answers. Confirm only on the first valid second SDK active transition.
  */
 function canConfirmPstnSecondActive(session: CallSessionContext, call: Call): boolean {
-  if (session.kind !== 'pstn') return false;
+  if (session.kind !== 'pstn' && session.kind !== 'internal_extension') return false;
   if (!session.remoteRingSeen) return false;
   if (session.activeTransitionCount !== 2) return false;
   if (session.connectedAt != null) return false;
@@ -100,14 +100,6 @@ export function shouldConfirmRemoteAnswer(input: {
     } else {
       result = { confirmed: false, source: 'inbound_deferred' };
     }
-  } else if (session.kind === 'internal_extension' && !session.bridgeAutoAnswered) {
-    result = { confirmed: false, source: 'internal_pre_bridge' };
-  } else if (session.awaitingDeskBridge) {
-    if (session.activeTransitionCount >= 2) {
-      result = { confirmed: true, source: 'internal_bridge_second_active' };
-    } else {
-      result = { confirmed: false, source: 'internal_bridge_deferred' };
-    }
   } else if (canConfirmFromSession(call)) {
     result = { confirmed: true, source: eventType ? `pstn_${eventType}` : 'pstn_active' };
   } else if (canConfirmPstnSecondActive(session, call)) {
@@ -127,8 +119,6 @@ export function shouldConfirmRemoteAnswer(input: {
     eventType,
     remoteRingSeen: session.remoteRingSeen,
     activeTransitionCount: session.activeTransitionCount,
-    awaitingDeskBridge: session.awaitingDeskBridge,
-    bridgeAutoAnswered: session.bridgeAutoAnswered,
     kind: session.kind,
     direction: session.direction,
   });

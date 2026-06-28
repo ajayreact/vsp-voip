@@ -26,8 +26,6 @@ export function summarizeSnapshot(snapshot: TelephonySnapshot) {
     remoteRingSeen: session?.remoteRingSeen ?? false,
     activeTransitionCount: session?.activeTransitionCount ?? 0,
     callAnswered: deriveCallAnswered(snapshot),
-    awaitingDeskBridge: session?.awaitingDeskBridge ?? false,
-    bridgeAutoAnswered: session?.bridgeAutoAnswered ?? false,
     callId: session?.callId ?? null,
     callControlId: session?.callControlId ?? null,
     kind: session?.kind ?? null,
@@ -39,9 +37,6 @@ export function summarizeSnapshot(snapshot: TelephonySnapshot) {
 
 export function classifyAnswerConfirmReason(source: string): string {
   if (source.includes('deferred')) return 'deferred';
-  if (source.includes('internal_bridge_second')) return 'second_active';
-  if (source.includes('internal_bridge')) return 'bridge';
-  if (source.includes('internal')) return 'internal_confirmed';
   if (source.includes('pstn')) return 'pstn_confirmed';
   if (source.includes('inbound_user')) return 'inbound_user_answer';
   if (source.includes('early') || source === 'pstn_deferred') return 'early_media';
