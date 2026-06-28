@@ -7,6 +7,8 @@ Search here **first** (Step 1) before `docs/telnyx/` or source code.
 | Topic | Location |
 |-------|----------|
 | **Phase 2 architecture (approved)** | [phase2/README.md](./phase2/README.md) |
+| **Phase 3 — Production readiness (audit)** | [phase3/README.md](./phase3/README.md) |
+| **Multi-tenant extension isolation audit** | [phase2/05-multi-tenant-extension-isolation-audit.md](./phase2/05-multi-tenant-extension-isolation-audit.md) |
 | **PBX architecture KB** | [pbx/README.md](./pbx/README.md) |
 | Feature status matrix | [features.md](./features.md) |
 | Architecture decisions (ADRs) | [architecture-decisions/README.md](./architecture-decisions/README.md) |
