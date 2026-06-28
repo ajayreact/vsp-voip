@@ -1,4 +1,17 @@
 /**
+ * Phase 2: browser portal is admin-only; mobile app is the telephony client.
+ *
+ * Set NEXT_PUBLIC_BROWSER_CALLING_ENABLED=true to re-enable browser WebRTC calling
+ * (rollback / dev only).
+ */
+export function isBrowserCallingEnabled(): boolean {
+  const explicit = process.env.NEXT_PUBLIC_BROWSER_CALLING_ENABLED;
+  if (explicit === 'true') return true;
+  if (explicit === 'false') return false;
+  return false;
+}
+
+/**
  * Softphone v2 rollout flag.
  *
  * Set NEXT_PUBLIC_SOFTPHONE_V2_ENABLED=true at web build time (or SOFTPHONE_V2_ENABLED

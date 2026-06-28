@@ -96,16 +96,22 @@ Checklist for Phases 2.1–2.7. **Start next phase only after prior phase is dep
 
 ---
 
-## Phase 2.7 — Tenant portal redesign
+## Phase 2.7 — Tenant portal redesign 🚧
 
-**Only after 2.4 deployed stable.**
+**Scope:** Web UI only. Backend telephony frozen ([06-backend-telephony-freeze.md](./06-backend-telephony-freeze.md)).
 
-### Tasks
+- [x] Backend telephony production freeze documented
+- [x] Admin-only browser gate (`NEXT_PUBLIC_BROWSER_CALLING_ENABLED=false`)
+- [x] Enterprise nav IA (Dashboard, Phone System, Communications, Account)
+- [x] Dashboard redesign (existing APIs)
+- [x] Employees page (`/employees`)
+- [x] Extensions as primary PBX hub (`/extensions`)
+- [ ] Phone numbers, devices page polish
+- [ ] Ring groups, call history polish
+- [ ] Recordings, voicemail, settings reorganization
+- [ ] Billing hub
 
-- [ ] Navigation: management pages only (see Phase 2 vision list)
-- [ ] Remove duplicate config pages
-- [ ] Softphone code still in repo but unreachable
-- [ ] UX pass on Employees → Extensions → DIDs → Devices chain
+See [07-tenant-portal-redesign.md](./07-tenant-portal-redesign.md).
 
 ---
 

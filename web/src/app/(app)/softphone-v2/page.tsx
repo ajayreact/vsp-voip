@@ -7,7 +7,7 @@ import type { Call } from '@telnyx/webrtc';
 import { getSoftphoneConfig, getSoftphoneToken, getExtensions, getMe, isUnauthorizedError } from '@/lib/api';
 import { persistStoredCallerId, resolveStoredCallerId } from '@/lib/softphone-caller-id';
 import { postServerCallLog, postCallAccepted, postBlindTransfer } from '@/lib/softphone-call-log-client';
-import { isSoftphoneV2Enabled } from '@/lib/softphone-config';
+import { isSoftphoneV2Enabled, isBrowserCallingEnabled } from '@/lib/softphone-config';
 import {
   isValidDialInput,
   normalizeDialNumber,
@@ -62,6 +62,7 @@ import type {
 import { isInboundMissedStatus } from '@/components/softphone-v2/utils';
 import { TenantOnlyGate } from '@/components/tenant-only-gate';
 import { SoftphoneV2ErrorBoundary } from '@/components/softphone-v2-error-boundary';
+import { BrowserCallingDisabledPanel } from '@/components/browser-calling-disabled';
 import { useSoftphoneTelephony } from '@/hooks/use-softphone-telephony';
 import { getActiveLocalToneSourceForDiagnostics } from '@/lib/call-sounds';
 import { logDiagnosticTimeline } from '@/lib/telephony';
@@ -1854,10 +1855,15 @@ export default function SoftphoneV2Page() {
   const router = useRouter();
 
   useEffect(() => {
+    if (!isBrowserCallingEnabled()) return;
     if (!isSoftphoneV2Enabled()) {
       router.replace('/softphone');
     }
   }, [router]);
+
+  if (!isBrowserCallingEnabled()) {
+    return <BrowserCallingDisabledPanel />;
+  }
 
   if (!isSoftphoneV2Enabled()) {
     return (

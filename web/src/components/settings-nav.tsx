@@ -9,7 +9,7 @@ const links = [
   { href: '/settings/subscription', label: 'Subscription' },
   { href: '/settings/payment-methods', label: 'Payment methods', adminOnly: true },
   { href: '/settings/profile', label: 'Company profile' },
-  { href: '/settings/team', label: 'Team', adminOnly: true },
+  { href: '/employees', label: 'Team', adminOnly: true },
 ];
 
 export function SettingsNav({ role }: { role?: string }) {

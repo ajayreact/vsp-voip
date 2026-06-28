@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { isSoftphoneV2Enabled } from '@/lib/softphone-config';
+import { isSoftphoneV2Enabled, isBrowserCallingEnabled } from '@/lib/softphone-config';
 import { TelnyxRTC } from '@telnyx/webrtc';
 import type { Call } from '@telnyx/webrtc';
 import {
@@ -17,6 +17,7 @@ import {
 } from '@/lib/api';
 import type { SoftphoneConfig, SoftphoneDiagnostics } from '@/lib/api';
 import { TenantOnlyGate } from '@/components/tenant-only-gate';
+import { BrowserCallingDisabledPanel } from '@/components/browser-calling-disabled';
 import {
   playOutboundRingback,
   primeCallAudio,
@@ -143,10 +144,15 @@ function SoftphoneLegacyGate() {
   const router = useRouter();
 
   useEffect(() => {
+    if (!isBrowserCallingEnabled()) return;
     if (isSoftphoneV2Enabled()) {
       router.replace('/softphone-v2');
     }
   }, [router]);
+
+  if (!isBrowserCallingEnabled()) {
+    return <BrowserCallingDisabledPanel />;
+  }
 
   if (isSoftphoneV2Enabled()) {
     return (

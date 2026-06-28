@@ -2,175 +2,143 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { Loader2, ArrowRight, Users, Phone, Hash, Smartphone, UsersRound } from 'lucide-react';
 import { StatCard } from '@/components/stat-card';
 import { DataTable } from '@/components/data-table';
-import { getDashboardStats, getMe, type NumberOrder, type User } from '@/lib/api';
-import { formatPrice } from '@/lib/pricing';
-import { orderStatusBadgeClass, orderStatusLabel, orderStatusTone } from '@/lib/orderStatus';
-import { getSoftphoneHref } from '@/lib/softphone-config';
+import { PortalPageHeader } from '@/components/portal/page-header';
+import { getMe, type User } from '@/lib/api';
+import { loadPortalDashboardSnapshot, type PortalDashboardSnapshot } from '@/lib/portal-dashboard';
 
 export default function DashboardPage() {
-  const [stats, setStats] = useState<Awaited<ReturnType<typeof getDashboardStats>> | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [snapshot, setSnapshot] = useState<PortalDashboardSnapshot | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([getDashboardStats(), getMe()])
-      .then(([dashboardStats, me]) => {
-        setStats(dashboardStats);
+    getMe()
+      .then((me) => {
         setUser(me);
+        const isAdmin = me.role === 'TENANT_ADMIN' || me.role === 'SUPER_ADMIN';
+        return loadPortalDashboardSnapshot(isAdmin);
       })
-      .catch(console.error);
+      .then(setSnapshot)
+      .catch(console.error)
+      .finally(() => setLoading(false));
   }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24 text-slate-400">
+        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+        Loading dashboard…
+      </div>
+    );
+  }
+
+  const quickLinks = [
+    { href: '/employees', label: 'Employees', icon: Users },
+    { href: '/extensions', label: 'Extensions', icon: Phone },
+    { href: '/phone-numbers', label: 'Phone numbers', icon: Hash },
+    { href: '/devices', label: 'Devices', icon: Smartphone },
+    { href: '/ring-groups', label: 'Ring groups', icon: UsersRound },
+  ];
 
   return (
     <div className="space-y-6">
-      <div className="hero-banner overflow-hidden p-6">
-        <div className="flex flex-wrap items-start justify-between gap-6">
-          <div className="space-y-4">
-            <div>
-              <p className="text-sm text-indigo-50">Dashboard</p>
-              <h2 className="text-2xl font-semibold text-white">
-                Welcome back, {user?.name?.split(' ')[0] || 'there'}
-              </h2>
-              <p className="mt-1 text-sm text-indigo-50">
-                Your cloud phone activity at a glance
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <div className="rounded-xl bg-white/15 px-4 py-3 backdrop-blur-sm">
-                <p className="text-xs text-indigo-100">Total Calls</p>
-                <p className="text-2xl font-semibold text-indigo-200">{stats?.callCount ?? '—'}</p>
-              </div>
-              <div className="rounded-xl bg-white/15 px-4 py-3 backdrop-blur-sm">
-                <p className="text-xs text-indigo-100">Numbers</p>
-                <p className="text-2xl font-semibold text-sky-200">{stats?.numberCount ?? '—'}</p>
-              </div>
-              <div className="rounded-xl bg-white/15 px-4 py-3 backdrop-blur-sm">
-                <p className="text-xs text-indigo-100">Open Orders</p>
-                <p className="text-2xl font-semibold text-amber-200">{stats?.pendingOrdersCount ?? '—'}</p>
-              </div>
-              <div className="rounded-xl bg-white/15 px-4 py-3 backdrop-blur-sm">
-                <p className="text-xs text-indigo-100">Unread SMS</p>
-                <p className="text-2xl font-semibold text-rose-200">{stats?.unreadSmsCount ?? '—'}</p>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <Link href="/my-numbers" className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-50">
-                My numbers
-              </Link>
-              <Link href={getSoftphoneHref()} className="rounded-lg border border-white/40 px-4 py-2 text-sm font-medium text-white hover:bg-white/10">
-                Open softphone
-              </Link>
-            </div>
-          </div>
-          <div className="hidden h-28 w-28 items-center justify-center rounded-full bg-white/10 text-5xl lg:flex">
-            📞
-          </div>
-        </div>
+      <PortalPageHeader
+        title={`Welcome, ${user?.name?.split(' ')[0] || 'Administrator'}`}
+        description="Enterprise PBX administration — manage extensions, employees, and phone numbers. Use the mobile app for calling."
+      />
+
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+        <StatCard label="Active employees" value={snapshot?.activeEmployees ?? '—'} accent="indigo" />
+        <StatCard label="Registered devices" value={snapshot?.registeredDevices ?? '—'} accent="blue" />
+        <StatCard label="Active calls" value={snapshot?.activeCalls ?? 0} accent="green" hint="Live sessions" />
+        <StatCard label="Phone numbers" value={snapshot?.phoneNumbers ?? '—'} accent="blue" />
+        <StatCard label="Extensions" value={snapshot?.extensions ?? '—'} accent="indigo" />
+        <StatCard label="Ring groups" value={snapshot?.ringGroups ?? '—'} accent="orange" />
+        <StatCard label="Unread voicemail" value={snapshot?.unreadVoicemail ?? 0} accent="red" />
       </div>
 
-      {(stats?.pendingOrdersCount ?? 0) > 0 ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4">
-          <p className="text-sm text-amber-900">
-            You have {stats?.pendingOrdersCount} order{(stats?.pendingOrdersCount ?? 0) === 1 ? '' : 's'} awaiting payment or fulfillment.
-          </p>
-          <Link href="/settings" className="mt-2 inline-block text-sm font-medium text-indigo-600 hover:text-indigo-500">
-            View orders in Settings →
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="panel-card p-5 lg:col-span-1">
+          <h2 className="section-title">Quick access</h2>
+          <ul className="mt-4 space-y-2">
+            {quickLinks.map(({ href, label, icon: Icon }) => (
+              <li key={href}>
+                <Link
+                  href={href}
+                  className="flex items-center justify-between rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  <span className="flex items-center gap-2">
+                    <Icon className="h-4 w-4 text-indigo-600" />
+                    {label}
+                  </span>
+                  <ArrowRight className="h-4 w-4 text-slate-400" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="panel-card p-5 lg:col-span-2">
+          <h2 className="section-title">Call statistics</h2>
+          <p className="mt-1 text-sm text-slate-500">Based on recent call history (read-only).</p>
+          <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div>
+              <p className="text-xs text-slate-500">Total calls</p>
+              <p className="text-2xl font-semibold text-slate-900">{snapshot?.totalCalls ?? '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500">Inbound (sample)</p>
+              <p className="text-2xl font-semibold text-blue-600">{snapshot?.callStats.inbound ?? 0}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500">Outbound (sample)</p>
+              <p className="text-2xl font-semibold text-emerald-600">{snapshot?.callStats.outbound ?? 0}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500">Online extensions</p>
+              <p className="text-2xl font-semibold text-indigo-600">{snapshot?.onlineExtensions ?? 0}</p>
+            </div>
+          </div>
+          <Link href="/reports" className="mt-4 inline-block text-sm font-medium text-indigo-600 hover:text-indigo-700">
+            View full reports →
           </Link>
         </div>
-      ) : null}
-
-      <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
-        <StatCard label="Total Calls" value={stats?.callCount ?? '—'} accent="green" />
-        <StatCard label="Phone Numbers" value={stats?.numberCount ?? '—'} accent="blue" />
-        <StatCard label="Open Orders" value={stats?.pendingOrdersCount ?? '—'} accent="orange" />
-        <StatCard label="Unread Voicemail" value={stats?.unreadVoicemailCount ?? '—'} accent="red" />
-        <StatCard label="Unread SMS" value={stats?.unreadSmsCount ?? '—'} accent="indigo" />
-        <StatCard label="Platform" value="Live" accent="green" hint="Voice platform connected" />
       </div>
 
-      <div className="flex flex-wrap gap-3">
-        <Link href="/numbers" className="btn-secondary px-4 py-2 text-sm">
-          Buy numbers
-        </Link>
-        <Link href="/sms" className="btn-secondary px-4 py-2 text-sm">
-          SMS inbox
-        </Link>
-        <Link href="/voicemail" className="btn-secondary px-4 py-2 text-sm">
-          Voicemail
-        </Link>
-        <Link href="/recordings" className="btn-secondary px-4 py-2 text-sm">
-          Recordings
-        </Link>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <DataTable
-          title="Recent orders"
-          data={stats?.recentOrders || []}
-          getRowId={(order) => order.id}
-          defaultPageSize={5}
-          pageSizeOptions={[5, 10, 25]}
-          emptyMessage="No orders yet"
-          columns={[
-            {
-              key: 'createdAt',
-              header: 'Date',
-              sortable: true,
-              sortValue: (order) => new Date(order.createdAt),
-              render: (order) => new Date(order.createdAt).toLocaleDateString(),
-            },
-            {
-              key: 'status',
-              header: 'Status',
-              sortable: true,
-              render: (order) => {
-                const tone = orderStatusTone(order.status);
-                return (
-                  <span className={`rounded-full px-2 py-1 text-xs ${orderStatusBadgeClass(tone)}`}>
-                    {orderStatusLabel(order)}
-                  </span>
-                );
-              },
-            },
-            {
-              key: 'totalCharged',
-              header: 'Total',
-              sortable: true,
-              sortValue: (order) => order.totalCharged,
-              render: (order) => formatPrice(order.totalCharged),
-            },
-          ]}
-        />
-
-        <DataTable
-          title="Recent calls"
-          data={stats?.recentCalls || []}
-          getRowId={(call) => call.id}
-          defaultPageSize={5}
-          pageSizeOptions={[5, 10, 25]}
-          emptyMessage="No calls yet — place a test call to your number"
-          columns={[
-            { key: 'from', header: 'From', sortable: true },
-            { key: 'to', header: 'To', sortable: true },
-            {
-              key: 'status',
-              header: 'Status',
-              sortable: true,
-              render: (call) => (
-                <span className="rounded-full bg-indigo-50 px-2 py-1 text-xs text-indigo-700">{call.status}</span>
-              ),
-            },
-            {
-              key: 'createdAt',
-              header: 'Time',
-              sortable: true,
-              sortValue: (call) => new Date(call.createdAt),
-              render: (call) => new Date(call.createdAt).toLocaleString(),
-            },
-          ]}
-        />
-      </div>
+      <DataTable
+        title="Recent calls"
+        data={snapshot?.recentCalls || []}
+        getRowId={(call) => call.id}
+        defaultPageSize={8}
+        emptyMessage="No calls yet"
+        action={
+          <Link href="/calls" className="text-sm font-medium text-indigo-600 hover:text-indigo-700">
+            View all
+          </Link>
+        }
+        columns={[
+          { key: 'from', header: 'From', sortable: true },
+          { key: 'to', header: 'To', sortable: true },
+          {
+            key: 'status',
+            header: 'Status',
+            sortable: true,
+            render: (call) => (
+              <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700">{call.status}</span>
+            ),
+          },
+          {
+            key: 'createdAt',
+            header: 'Time',
+            sortable: true,
+            sortValue: (call) => new Date(call.createdAt),
+            render: (call) => new Date(call.createdAt).toLocaleString(),
+          },
+        ]}
+      />
     </div>
   );
 }

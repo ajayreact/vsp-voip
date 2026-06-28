@@ -6,6 +6,7 @@ import { Menu } from 'lucide-react';
 import { Sidebar } from '@/components/sidebar';
 import { CartProvider } from '@/context/cart-context';
 import { getMe, type User } from '@/lib/api';
+import { isBrowserCallingEnabled } from '@/lib/softphone-config';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -13,8 +14,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
-  const isFullScreenSoftphone = pathname === '/softphone-v2'
-    || pathname.startsWith('/softphone-v2/');
+  const isFullScreenSoftphone = isBrowserCallingEnabled()
+    && (pathname === '/softphone-v2' || pathname.startsWith('/softphone-v2/'));
 
   useEffect(() => {
     getMe()
