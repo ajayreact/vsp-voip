@@ -9,7 +9,6 @@ import {
   Phone,
   Plus,
   Route,
-  Settings,
   Unlink,
   UserPlus,
 } from 'lucide-react';
@@ -53,19 +52,6 @@ function numberStatus(number: OwnedNumber): EnrichedNumber['numberStatus'] {
   if (number.isActive === false) return 'Suspended';
   if (!number.extensionId) return 'Unassigned';
   return 'Active';
-}
-
-function statusBadge(status: EnrichedNumber['numberStatus']) {
-  const styles = {
-    Active: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
-    Unassigned: 'bg-slate-100 text-slate-600 ring-slate-200',
-    Suspended: 'bg-amber-50 text-amber-700 ring-amber-200',
-  };
-  return (
-    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ${styles[status]}`}>
-      {status}
-    </span>
-  );
 }
 
 export function PhoneNumbersManagerPage() {
@@ -203,7 +189,7 @@ export function PhoneNumbersManagerPage() {
   const columns: DataTableColumn<EnrichedNumber>[] = [
     {
       key: 'number',
-      header: 'Phone number',
+      header: 'DID',
       sortable: true,
       render: (row) => (
         <span className="inline-flex items-center gap-2 font-medium text-slate-900">
@@ -240,21 +226,14 @@ export function PhoneNumbersManagerPage() {
     },
     {
       key: 'callerIdName',
-      header: 'Caller ID name',
+      header: 'Caller ID',
       sortable: true,
       headerClassName: 'hidden md:table-cell',
       className: 'hidden md:table-cell',
     },
     {
-      key: 'registrationStatus',
-      header: 'Registration',
-      sortable: true,
-      headerClassName: 'hidden xl:table-cell',
-      className: 'hidden xl:table-cell',
-    },
-    {
       key: 'routingStatus',
-      header: 'Routing',
+      header: 'Routing status',
       sortable: true,
       render: (row) => (
         <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700">
@@ -263,10 +242,11 @@ export function PhoneNumbersManagerPage() {
       ),
     },
     {
-      key: 'numberStatus',
-      header: 'Status',
+      key: 'registrationStatus',
+      header: 'Registration status',
       sortable: true,
-      render: (row) => statusBadge(row.numberStatus),
+      headerClassName: 'hidden xl:table-cell',
+      className: 'hidden xl:table-cell',
     },
     {
       key: 'actions',
@@ -283,7 +263,7 @@ export function PhoneNumbersManagerPage() {
                 className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50"
               >
                 <UserPlus className="h-3.5 w-3.5" />
-                Assign
+                Assign extension
               </button>
             ) : (
               <>
@@ -292,7 +272,7 @@ export function PhoneNumbersManagerPage() {
                   onClick={() => assignExtension(row, 'change')}
                   className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
                 >
-                  Change ext
+                  Reassign
                 </button>
                 <button
                   type="button"
@@ -300,15 +280,8 @@ export function PhoneNumbersManagerPage() {
                   className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
                 >
                   <Unlink className="h-3.5 w-3.5" />
-                  Unassign
+                  Remove assignment
                 </button>
-                <Link
-                  href={`/extensions?open=${row.extensionId}&tab=sip`}
-                  className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50"
-                >
-                  <Settings className="h-3.5 w-3.5" />
-                  Config
-                </Link>
               </>
             )}
             <Link
@@ -316,14 +289,14 @@ export function PhoneNumbersManagerPage() {
               className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
             >
               <Route className="h-3.5 w-3.5" />
-              Routing
+              Call routing
             </Link>
             <Link
               href="/calls"
               className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
             >
               <History className="h-3.5 w-3.5" />
-              History
+              Call history
             </Link>
           </div>
         ) : (
