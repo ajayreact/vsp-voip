@@ -3,31 +3,32 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Pencil, Plus, Trash2, UserMinus, UserPlus } from 'lucide-react';
+import { Loader2, Plus, Trash2 } from 'lucide-react';
 import 'sweetalert2/dist/sweetalert2.min.css';
 import Swal from 'sweetalert2';
 import { DataTable, type DataTableColumn } from '@/components/data-table';
 import { PortalPageHeader } from '@/components/portal/page-header';
 import {
-  addRingGroupMember,
   deleteRingGroup,
-  getExtensions,
   getMe,
-  getRingGroup,
   getRingGroups,
   isUnauthorizedError,
-  removeRingGroupMember,
   type RingGroupRecord,
-  type RingStrategy,
 } from '@/lib/api';
+import { STRATEGY_LABELS } from '@/lib/ring-group-utils';
 import { SWAL_THEME } from '@/lib/swal-theme';
 
-const STRATEGY_LABELS: Record<RingStrategy, string> = {
-  SIMULTANEOUS: 'Simultaneous',
-  SEQUENTIAL: 'Sequential',
-  ROUND_ROBIN: 'Round robin',
-  LONGEST_IDLE: 'Longest idle',
-};
+function activeBadge(isActive: boolean) {
+  return (
+    <span
+      className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+        isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'
+      }`}
+    >
+      {isActive ? 'Active' : 'Inactive'}
+    </span>
+  );
+}
 
 export function RingGroupsManagerPage() {
   const router = useRouter();
@@ -76,100 +77,6 @@ export function RingGroupsManagerPage() {
     }
   }
 
-  async function onAddMember(group: RingGroupRecord) {
-    let members = group.members || [];
-    if (!members.length && group.memberCount > 0) {
-      try {
-        const detail = await getRingGroup(group.id);
-        members = detail.ringGroup.members || [];
-      } catch {
-        /* use empty members */
-      }
-    }
-
-    const extRes = await getExtensions();
-    const memberIds = new Set(members.map((m) => m.extensionId));
-    const options = extRes.extensions
-      .filter((ext) => !memberIds.has(ext.id))
-      .map(
-        (ext) =>
-          `<option value="${ext.id}">Ext ${ext.extensionNumber} — ${ext.displayName}</option>`,
-      )
-      .join('');
-
-    const result = await Swal.fire({
-      title: 'Add member',
-      html: `<select id="member-ext" class="swal2-input" style="margin:0"><option value="">— Select extension —</option>${options}</select>`,
-      showCancelButton: true,
-      preConfirm: () => {
-        const id = (document.getElementById('member-ext') as HTMLSelectElement)?.value;
-        if (!id) {
-          Swal.showValidationMessage('Select an extension');
-          return false;
-        }
-        return id;
-      },
-      ...SWAL_THEME,
-    });
-
-    if (!result.isConfirmed || !result.value) return;
-    try {
-      await addRingGroupMember(group.id, result.value);
-      await reload();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not add member');
-    }
-  }
-
-  async function onRemoveMember(group: RingGroupRecord) {
-    let members = group.members || [];
-    if (!members.length) {
-      try {
-        const detail = await getRingGroup(group.id);
-        members = detail.ringGroup.members || [];
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Could not load members');
-        return;
-      }
-    }
-
-    if (!members.length) {
-      setError('No members to remove');
-      return;
-    }
-
-    const options = members
-      .map(
-        (m) =>
-          `<option value="${m.id}">Ext ${m.extension?.extensionNumber || m.extensionId} — ${m.extension?.displayName || ''}</option>`,
-      )
-      .join('');
-
-    const result = await Swal.fire({
-      title: 'Remove member',
-      html: `<select id="member-id" class="swal2-input" style="margin:0">${options}</select>`,
-      showCancelButton: true,
-      confirmButtonText: 'Remove',
-      preConfirm: () => {
-        const id = (document.getElementById('member-id') as HTMLSelectElement)?.value;
-        if (!id) {
-          Swal.showValidationMessage('Select a member');
-          return false;
-        }
-        return id;
-      },
-      ...SWAL_THEME,
-    });
-
-    if (!result.isConfirmed || !result.value) return;
-    try {
-      await removeRingGroupMember(group.id, result.value);
-      await reload();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not remove member');
-    }
-  }
-
   const columns: DataTableColumn<RingGroupRecord>[] = [
     {
       key: 'name',
@@ -188,31 +95,23 @@ export function RingGroupsManagerPage() {
       render: (row) => row.extensionNumber || '—',
     },
     {
-      key: 'memberCount',
-      header: 'Members',
-      sortable: true,
-      sortValue: (row) => row.memberCount,
-    },
-    {
       key: 'ringStrategy',
       header: 'Ring strategy',
       sortable: true,
       render: (row) => STRATEGY_LABELS[row.ringStrategy] || row.ringStrategy,
     },
     {
-      key: 'status',
-      header: 'Status',
+      key: 'memberCount',
+      header: 'Members',
+      sortable: true,
+      sortValue: (row) => row.memberCount,
+    },
+    {
+      key: 'isActive',
+      header: 'Active status',
       sortable: true,
       sortValue: (row) => (row.isActive ? 1 : 0),
-      render: (row) => (
-        <span
-          className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-            row.isActive ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'
-          }`}
-        >
-          {row.isActive ? 'Active' : 'Inactive'}
-        </span>
-      ),
+      render: (row) => activeBadge(row.isActive),
     },
     {
       key: 'actions',
@@ -224,27 +123,10 @@ export function RingGroupsManagerPage() {
           <div className="flex flex-wrap gap-1">
             <Link
               href={`/ring-groups/${row.id}`}
-              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50"
+              className="rounded-lg px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50"
             >
-              <Pencil className="h-3.5 w-3.5" />
               Edit
             </Link>
-            <button
-              type="button"
-              onClick={() => onAddMember(row)}
-              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
-            >
-              <UserPlus className="h-3.5 w-3.5" />
-              Add
-            </button>
-            <button
-              type="button"
-              onClick={() => onRemoveMember(row)}
-              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100"
-            >
-              <UserMinus className="h-3.5 w-3.5" />
-              Remove
-            </button>
             <button
               type="button"
               onClick={() => onDelete(row)}
@@ -271,11 +153,13 @@ export function RingGroupsManagerPage() {
     );
   }
 
+  const activeCount = ringGroups.filter((g) => g.isActive).length;
+
   return (
     <div className="space-y-6">
       <PortalPageHeader
         title="Ring groups"
-        description="Route inbound calls to multiple extensions with simultaneous, sequential, or round-robin ringing."
+        description="Enterprise hunt groups — route inbound calls to multiple extensions. Administration only."
         actions={
           isAdmin ? (
             <Link
@@ -290,6 +174,23 @@ export function RingGroupsManagerPage() {
       />
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="panel-card p-4">
+          <p className="text-xs uppercase text-slate-500">Total groups</p>
+          <p className="mt-1 text-2xl font-semibold">{ringGroups.length}</p>
+        </div>
+        <div className="panel-card p-4">
+          <p className="text-xs uppercase text-slate-500">Active</p>
+          <p className="mt-1 text-2xl font-semibold text-emerald-600">{activeCount}</p>
+        </div>
+        <div className="panel-card p-4">
+          <p className="text-xs uppercase text-slate-500">Total members</p>
+          <p className="mt-1 text-2xl font-semibold">
+            {ringGroups.reduce((sum, g) => sum + g.memberCount, 0)}
+          </p>
+        </div>
+      </div>
 
       <DataTable
         title="All ring groups"

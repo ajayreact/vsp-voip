@@ -1,1 +1,5 @@
-export { default } from '../../phone-system/ring-groups/new/page';
+import { RingGroupCreatePage } from '@/components/portal/ring-group-create';
+
+export default function NewRingGroupPage() {
+  return <RingGroupCreatePage />;
+}

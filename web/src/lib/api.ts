@@ -2605,6 +2605,13 @@ export async function removeRingGroupMember(ringGroupId: string, memberId: strin
   );
 }
 
+export async function reorderRingGroupMembers(ringGroupId: string, memberIds: string[]) {
+  return apiFetch<{ success: boolean; ringGroup: RingGroupRecord }>(
+    `/api/tenant/ring-groups/${ringGroupId}/members/reorder`,
+    { method: 'PATCH', body: JSON.stringify({ memberIds }) },
+  );
+}
+
 export async function getRingGroupAnalytics(id: string) {
   return apiFetch<{ success: boolean; analytics: RingGroupAnalytics }>(
     `/api/tenant/ring-groups/${id}/analytics`,
