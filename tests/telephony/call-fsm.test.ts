@@ -69,6 +69,50 @@ describe('telephony call FSM', () => {
     expect(snap.callPhase).toBe('connected');
   });
 
+  it('ignores duplicate inbound received while session is live', () => {
+    let snap = createInitialTelephonySnapshot();
+    snap = reduceCallEvent(snap, {
+      type: 'INBOUND_RECEIVED',
+      callId: 'in-1',
+      remoteLabel: '+13135551212',
+      logFrom: '+13135551212',
+      logTo: '+13135559999',
+    });
+    snap = reduceCallEvent(snap, {
+      type: 'REMOTE_ANSWER_CONFIRMED',
+      callId: 'in-1',
+      source: 'inbound_user_answer',
+    });
+
+    snap = reduceCallEvent(snap, {
+      type: 'INBOUND_RECEIVED',
+      callId: 'in-2',
+      remoteLabel: '+13135551212',
+      logFrom: '+13135551212',
+      logTo: '+13135559999',
+    });
+    expect(snap.callPhase).toBe('connected');
+    expect(snap.session?.callId).toBe('in-1');
+  });
+
+  it('does not downgrade connected inbound on duplicate SDK ringing', () => {
+    let snap = createInitialTelephonySnapshot();
+    snap = reduceCallEvent(snap, {
+      type: 'INBOUND_RECEIVED',
+      callId: 'in-1',
+      remoteLabel: '+13135551212',
+      logFrom: '+13135551212',
+      logTo: '+13135559999',
+    });
+    snap = reduceCallEvent(snap, {
+      type: 'REMOTE_ANSWER_CONFIRMED',
+      callId: 'in-1',
+      source: 'inbound_user_answer',
+    });
+    snap = reduceCallEvent(snap, { type: 'SDK_RINGING' });
+    expect(snap.callPhase).toBe('connected');
+  });
+
   it('hold and resume', () => {
     let snap = createInitialTelephonySnapshot();
     snap = reduceCallEvent(snap, {

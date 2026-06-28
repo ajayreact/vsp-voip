@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Call } from '@telnyx/webrtc';
-import { isInboundCall, isLikelyInboundRingingInvite, looksLikeTelnyxCredentialUsername, shouldIgnoreOutboundStrayLeg } from '@/lib/softphone-call-utils';
+import { isInboundCall, isLikelyInboundRingingInvite, looksLikeTelnyxCredentialUsername, shouldIgnoreDuplicateInboundNotification, shouldIgnoreInboundStrayLeg, shouldIgnoreOutboundStrayLeg } from '@/lib/softphone-call-utils';
 
 function mockCall(overrides: Record<string, unknown> = {}): Call {
   return overrides as Call;
@@ -49,6 +49,13 @@ describe('isLikelyInboundRingingInvite', () => {
       direction: 'inbound',
     }), true)).toBe(false);
   });
+
+  it('rejects when inbound session is live', () => {
+    expect(isLikelyInboundRingingInvite(mockCall({
+      state: 'ringing',
+      direction: 'inbound',
+    }), false, true)).toBe(false);
+  });
 });
 
 describe('outbound stray leg guards', () => {
@@ -62,5 +69,28 @@ describe('outbound stray leg guards', () => {
     expect(shouldIgnoreOutboundStrayLeg('call-a', 'call-b', true)).toBe(true);
     expect(shouldIgnoreOutboundStrayLeg('call-a', 'call-a', true)).toBe(false);
     expect(shouldIgnoreOutboundStrayLeg('call-a', 'call-b', false)).toBe(false);
+  });
+
+  it('ignores notifications for a different call id during live inbound', () => {
+    expect(shouldIgnoreInboundStrayLeg('call-a', 'call-b', true)).toBe(true);
+    expect(shouldIgnoreInboundStrayLeg('call-a', 'call-a', true)).toBe(false);
+    expect(shouldIgnoreInboundStrayLeg('call-a', 'call-b', false)).toBe(false);
+  });
+
+  it('ignores duplicate inbound ringing after connect on the same call id', () => {
+    expect(shouldIgnoreDuplicateInboundNotification({
+      sessionDirection: 'inbound',
+      sessionCallId: 'call-a',
+      callPhase: 'connected',
+      notificationCallId: 'call-a',
+      notificationState: 'ringing',
+    })).toBe(true);
+    expect(shouldIgnoreDuplicateInboundNotification({
+      sessionDirection: 'inbound',
+      sessionCallId: 'call-a',
+      callPhase: 'connected',
+      notificationCallId: 'call-a',
+      notificationState: 'active',
+    })).toBe(false);
   });
 });

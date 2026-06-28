@@ -34,7 +34,7 @@ import {
   resolveInboundCallerNameHint,
   type InboundCallerNotification,
 } from '@/lib/inbound-caller-display';
-import { isInboundCall, extractCallFromNotification, isLikelyInboundRingingInvite, looksLikeTelnyxCredentialUsername, shouldIgnoreOutboundStrayLeg } from '@/lib/softphone-call-utils';
+import { isInboundCall, extractCallFromNotification, isLikelyInboundRingingInvite, looksLikeTelnyxCredentialUsername, shouldIgnoreDuplicateInboundNotification, shouldIgnoreInboundStrayLeg, shouldIgnoreOutboundStrayLeg } from '@/lib/softphone-call-utils';
 import { isTerminalSdkState, normalizeSdkCallState } from '@/lib/telephony/telnyx-mapper';
 import { LIVE_CALL_PHASES } from '@/lib/telephony/types';
 import { selectIsConnected } from '@/lib/telephony/selectors';
@@ -1057,12 +1057,61 @@ function SoftphoneV2Content() {
             const callId = notificationCall.id ?? '';
             const outboundSessionLive = snapForGuard.session?.direction === 'outbound'
               && LIVE_CALL_PHASES.has(snapForGuard.callPhase);
-            if (shouldIgnoreOutboundStrayLeg(snapForGuard.session?.callId, callId, outboundSessionLive)) {
+            const inboundSessionLive = snapForGuard.session?.direction === 'inbound'
+              && LIVE_CALL_PHASES.has(snapForGuard.callPhase);
+            const ignoreOutboundStrayLeg = shouldIgnoreOutboundStrayLeg(
+              snapForGuard.session?.callId,
+              callId,
+              outboundSessionLive,
+            );
+            const ignoreInboundStrayLeg = shouldIgnoreInboundStrayLeg(
+              snapForGuard.session?.callId,
+              callId,
+              inboundSessionLive,
+            );
+            const ignoreDuplicateInbound = shouldIgnoreDuplicateInboundNotification({
+              sessionDirection: snapForGuard.session?.direction,
+              sessionCallId: snapForGuard.session?.callId,
+              callPhase: snapForGuard.callPhase,
+              notificationCallId: callId,
+              notificationState: normalized,
+            });
+
+            if (ignoreOutboundStrayLeg) {
               logTelnyx('notification.stray-leg-ignored', {
                 watchedCallId: snapForGuard.session?.callId,
                 notificationCallId: callId,
                 type: payload.type,
                 state: normalized,
+                direction: 'outbound',
+              });
+              return;
+            }
+
+            if (ignoreInboundStrayLeg || ignoreDuplicateInbound) {
+              logTelnyx('notification.inbound-duplicate-ignored', {
+                watchedCallId: snapForGuard.session?.callId,
+                notificationCallId: callId,
+                callControlId: (payload as { call_control_id?: string }).call_control_id ?? null,
+                type: payload.type,
+                state: normalized,
+                prevState,
+                callPhase: snapForGuard.callPhase,
+                ignoreInboundStrayLeg,
+                ignoreDuplicateInbound,
+                currentCallRefId: callRef.current?.id ?? null,
+              });
+              logDiagnosticTimeline('inbound.notification.ignored', snapForGuard, {
+                notificationType: payload.type,
+                sdkState: normalized,
+                sdkPrevState: prevState,
+                callId,
+                watchedCallId: snapForGuard.session?.callId ?? null,
+                callPhase: snapForGuard.callPhase,
+                ignoreInboundStrayLeg,
+                ignoreDuplicateInbound,
+                sessionAction: 'ignored',
+                currentCallRefId: callRef.current?.id ?? null,
               });
               return;
             }
@@ -1096,6 +1145,7 @@ function SoftphoneV2Content() {
               const notificationIsInbound = isLikelyInboundRingingInvite(
                 notificationCall,
                 outboundSessionLive,
+                inboundSessionLive,
               );
               const notificationIsOutboundLeg = snap.session?.direction === 'outbound'
                 || callSessionRef.current?.direction === 'outbound';
@@ -1131,6 +1181,7 @@ function SoftphoneV2Content() {
                 && callId
                 && !terminal
                 && !callAlreadyFinalized
+                && !inboundSessionLive
               ) {
                 const inboundNumber = resolveCallDisplayNumber(
                   notificationCall,
@@ -1139,10 +1190,12 @@ function SoftphoneV2Content() {
                   ownedInboundNumbers,
                   pstnCallerHint,
                 );
+                let sessionAction: 'created' | 'reused' = 'reused';
                 if (
                   !callSessionRef.current
                   || callSessionRef.current.callId !== callId
                 ) {
+                  sessionAction = 'created';
                   const parties = resolveCallLogParties(
                     'inbound',
                     inboundNumber,
@@ -1168,6 +1221,16 @@ function SoftphoneV2Content() {
                     orchestrator.updateSessionLogParties(parties.from, parties.to);
                   }
                 }
+                logDiagnosticTimeline('inbound.notification.session', orchestrator.getSnapshot(), {
+                  notificationType: payload.type,
+                  sdkState: normalized,
+                  sdkPrevState: prevState,
+                  callId,
+                  watchedCallId: snap.session?.callId ?? null,
+                  callPhase: snap.callPhase,
+                  sessionAction,
+                  currentCallRefId: callRef.current?.id ?? null,
+                });
               }
 
               const sessionKind = snap.session?.kind;

@@ -48,8 +48,9 @@ export function isInboundCall(call: Call | null | undefined) {
 export function isLikelyInboundRingingInvite(
   call: Call | null | undefined,
   hasOutboundLiveSession: boolean,
+  hasInboundLiveSession = false,
 ): boolean {
-  if (hasOutboundLiveSession) return false;
+  if (hasOutboundLiveSession || hasInboundLiveSession) return false;
   if (isInboundCall(call)) return true;
   if (!call) return false;
 
@@ -82,6 +83,52 @@ export function shouldIgnoreOutboundStrayLeg(
   const incoming = String(notificationCallId || '').trim();
   if (!watched || !incoming || watched === 'pending') return false;
   return watched !== incoming;
+}
+
+/** Ignore bridge/reinvite legs while an inbound session is already live. */
+export function shouldIgnoreInboundStrayLeg(
+  sessionCallId: string | null | undefined,
+  notificationCallId: string | null | undefined,
+  hasInboundLiveSession: boolean,
+): boolean {
+  if (!hasInboundLiveSession) return false;
+  const watched = String(sessionCallId || '').trim();
+  const incoming = String(notificationCallId || '').trim();
+  if (!watched || !incoming || watched === 'pending') return false;
+  return watched !== incoming;
+}
+
+const INBOUND_CONNECTED_PHASES = new Set([
+  'connected',
+  'hold',
+  'recording',
+  'transferring',
+]);
+
+/**
+ * After inbound connect, Telnyx may emit another invite/callUpdate with ringing
+ * or a different call.id for the bridge leg — never treat that as a new call.
+ */
+export function shouldIgnoreDuplicateInboundNotification(input: {
+  sessionDirection?: string;
+  sessionCallId?: string | null;
+  callPhase?: string;
+  notificationCallId?: string | null;
+  notificationState?: string;
+}): boolean {
+  if (input.sessionDirection !== 'inbound') return false;
+
+  const watched = String(input.sessionCallId || '').trim();
+  const incoming = String(input.notificationCallId || '').trim();
+  if (!incoming) return false;
+
+  if (watched && watched !== incoming) {
+    return Boolean(input.callPhase && INBOUND_CONNECTED_PHASES.has(input.callPhase));
+  }
+
+  if (!watched || watched !== incoming) return false;
+  if (!input.callPhase || !INBOUND_CONNECTED_PHASES.has(input.callPhase)) return false;
+  return isConnectingCallState(input.notificationState);
 }
 
 export function resolveRemoteCallerNumber(call: Call | null | undefined) {

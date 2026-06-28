@@ -4,7 +4,16 @@ import type {
   TelephonyCallEvent,
   TelephonySnapshot,
 } from './types';
+import { LIVE_CALL_PHASES } from './types';
 import { logDiagnosticTimeline, logTransition } from './logger';
+
+const CONNECTED_OR_ENDING_PHASES = new Set<CallPhase>([
+  'connected',
+  'hold',
+  'transferring',
+  'recording',
+  'ending',
+]);
 
 function cloneSession(session: CallSessionContext | null): CallSessionContext | null {
   return session ? { ...session } : null;
@@ -164,6 +173,13 @@ export function reduceCallEvent(
     case 'SDK_RINGING':
     case 'SDK_EARLY':
     case 'SDK_ANSWERING': {
+      if (CONNECTED_OR_ENDING_PHASES.has(snapshot.callPhase)) {
+        logDiagnosticTimeline('fsm.sdk-progress-ignored', snapshot, {
+          dispatchedEvent: event.type,
+          reason: 'already_connected_or_ending',
+        });
+        return snapshot;
+      }
       const session = cloneSession(snapshot.session);
       if (session) session.remoteRingSeen = true;
       return withPhase({ ...snapshot, session }, 'remote_ringing', event.type.toLowerCase());
@@ -224,7 +240,19 @@ export function reduceCallEvent(
     case 'RECORDING_STOPPED':
       return withPhase(snapshot, 'connected', 'recording_stopped');
 
-    case 'INBOUND_RECEIVED':
+    case 'INBOUND_RECEIVED': {
+      if (
+        snapshot.session?.direction === 'inbound'
+        && LIVE_CALL_PHASES.has(snapshot.callPhase)
+      ) {
+        logDiagnosticTimeline('fsm.inbound-received-ignored', snapshot, {
+          existingCallId: snapshot.session?.callId ?? null,
+          incomingCallId: event.callId,
+          callPhase: snapshot.callPhase,
+          reason: 'inbound_session_already_live',
+        });
+        return snapshot;
+      }
       return withPhase(snapshot, 'remote_ringing', 'inbound_received', {
         session: {
           callId: event.callId,
@@ -244,6 +272,7 @@ export function reduceCallEvent(
           terminationReason: null,
         },
       });
+    }
 
     case 'SESSION_LABEL': {
       const session = cloneSession(snapshot.session);
