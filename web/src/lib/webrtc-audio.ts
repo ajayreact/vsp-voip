@@ -68,6 +68,58 @@ export type LocalAudioSenderStatus = {
 };
 
 /** Enable and verify local microphone send path (inbound + outbound). */
+export function setLocalAudioMuted(call: Call, muted: boolean) {
+  const extended = call as Call & {
+    muteAudio?: () => void;
+    unmuteAudio?: () => void;
+    localStream?: MediaStream;
+  };
+
+  try {
+    if (muted) {
+      extended.muteAudio?.();
+    } else {
+      extended.unmuteAudio?.();
+    }
+  } catch {
+    // SDK mute API failed — fall through to track-level mute
+  }
+
+  const pc = resolvePeerConnection(call) ?? undefined;
+  for (const sender of pc?.getSenders() ?? []) {
+    const track = sender.track;
+    if (track?.kind === 'audio') {
+      track.enabled = !muted;
+    }
+  }
+  if (extended.localStream) {
+    for (const track of extended.localStream.getAudioTracks()) {
+      track.enabled = !muted;
+    }
+  }
+}
+
+export function readCallAudioMuted(call: Call): boolean {
+  const extended = call as Call & { isAudioMuted?: boolean };
+  return Boolean(extended.isAudioMuted);
+}
+
+export function readCallHeld(call: Call): boolean {
+  return normalizeSdkCallState(call.state) === 'held';
+}
+
+function normalizeSdkCallState(state: string | number | undefined | null): string {
+  if (typeof state === 'number' && Number.isFinite(state)) {
+    const states = [
+      'new', 'requesting', 'trying', 'recovering', 'ringing', 'answering',
+      'early', 'active', 'held', 'hangup', 'destroy', 'purge',
+    ];
+    return states[state] ?? String(state);
+  }
+  return String(state ?? '').trim().toLowerCase();
+}
+
+/** Enable and verify local microphone send path (inbound + outbound). */
 export function verifyLocalAudioSenders(
   call: Call,
   pc?: RTCPeerConnection,

@@ -15,13 +15,13 @@ const {
   createBillingPortalSession,
   uploadOrderPaymentProof,
 } = require('../lib/billing');
-const {
-  signToken,
+const { signToken,
   hashPassword,
   comparePassword,
   authMiddleware,
   requireRole,
 } = require('../lib/auth');
+const { issueRefreshToken, rotateRefreshToken, revokeRefreshToken, revokeAllRefreshTokensForUser } = require('../lib/refreshTokens');
 const { resolveGreetingMessage } = require('../lib/greeting');
 const { defaultBusinessHours } = require('../lib/businessHours');
 const { mapCallRoutingResponse, normalizeIvrOptions } = require('../lib/callRouting');
@@ -63,6 +63,7 @@ const {
 } = require('../lib/userDevices');
 const { getCallControlSetupStatus, ensureTelnyxCallControlSetup } = require('../lib/telnyxCallControlSetup');
 const { startOutboundCallRecording } = require('../lib/outboundRecording');
+const { assertCallControlOwnership } = require('../lib/recordStartAuth');
 const {
   syncCallRecordingsFromTelnyx,
   refreshCallRecordingUrls,
@@ -227,10 +228,12 @@ router.post('/auth/login', loginLimiter, async (req, res) => {
       role: user.role,
       tenantId: user.tenantId,
     });
+    const refreshToken = await issueRefreshToken(user.id);
 
     res.json({
       success: true,
       accessToken: token,
+      refreshToken,
       user: {
         id: user.id,
         email: user.email,
@@ -243,6 +246,63 @@ router.post('/auth/login', loginLimiter, async (req, res) => {
   } catch (error) {
     console.error('❌ Login error:', error.message);
     res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+router.post('/auth/refresh', loginLimiter, async (req, res) => {
+  try {
+    const presented = req.body?.refreshToken ? String(req.body.refreshToken).trim() : '';
+    if (!presented) {
+      return res.status(400).json({ error: 'refreshToken is required' });
+    }
+
+    const rotated = await rotateRefreshToken(presented);
+    if (!rotated?.userId) {
+      return res.status(401).json({ error: 'Invalid or expired refresh token' });
+    }
+
+    const prisma = await getPrisma();
+    const user = await prisma.user.findUnique({
+      where: { id: rotated.userId },
+      include: { tenant: true },
+    });
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid or expired refresh token' });
+    }
+    if (user.tenantId && user.tenant && !user.tenant.isActive) {
+      return res.status(403).json({ error: 'Your organization account is suspended. Contact VSP-VOIP support.' });
+    }
+
+    const accessToken = signToken({
+      sub: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      tenantId: user.tenantId,
+    });
+
+    res.json({
+      success: true,
+      accessToken,
+      refreshToken: rotated.refreshToken,
+    });
+  } catch (error) {
+    console.error('❌ Refresh token error:', error.message);
+    res.status(500).json({ error: 'Failed to refresh session' });
+  }
+});
+
+router.post('/auth/logout', authMiddleware, async (req, res) => {
+  try {
+    const presentedRefresh = req.body?.refreshToken ? String(req.body.refreshToken).trim() : '';
+    if (presentedRefresh) {
+      await revokeRefreshToken(presentedRefresh);
+    }
+    await revokeAllRefreshTokensForUser(req.user.sub);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('❌ Logout error:', error.message);
+    res.status(500).json({ error: 'Failed to logout' });
   }
 });
 
@@ -405,6 +465,7 @@ router.get('/tenant/users', authMiddleware, requireRole('SUPER_ADMIN', 'TENANT_A
             displayName: true,
             department: true,
           },
+          orderBy: { extensionNumber: 'asc' },
           take: 1,
         },
       },
@@ -846,6 +907,7 @@ router.post('/softphone/call-accepted', authMiddleware, async (req, res) => {
     }
 
     const prisma = await getPrisma();
+    await assertTenantActive(prisma, req.user.tenantId);
     const user = await prisma.user.findFirst({
       where: { id: req.user.sub, tenantId: req.user.tenantId },
       select: { telnyxSipUsername: true },
@@ -935,6 +997,9 @@ router.post('/softphone/telemetry', authMiddleware, async (req, res) => {
     if (!req.user.tenantId) {
       return res.status(403).json({ error: 'No organization linked to this account' });
     }
+
+    const prisma = await getPrisma();
+    await assertTenantActive(prisma, req.user.tenantId);
 
     const event = req.body?.event ? String(req.body.event).trim() : '';
     if (!event) {
@@ -1081,6 +1146,9 @@ router.post('/softphone/call-log', authMiddleware, async (req, res) => {
       return res.status(403).json({ error: 'No organization linked to this account' });
     }
 
+    const prisma = await getPrisma();
+    await assertTenantActive(prisma, req.user.tenantId);
+
     const { callSid, from, to, status, direction } = req.body;
     const durationRaw = req.body?.durationSeconds;
     const durationSeconds = Number.isFinite(Number(durationRaw))
@@ -1096,7 +1164,6 @@ router.post('/softphone/call-log', authMiddleware, async (req, res) => {
       ? 'inbound'
       : 'outbound';
 
-    const prisma = await getPrisma();
     const ownedNumber = callDirection === 'inbound'
       ? normalizedTo
       : normalizedFrom;
@@ -1125,30 +1192,36 @@ router.post('/softphone/call-log', authMiddleware, async (req, res) => {
     const terminal = ['completed', 'ended', 'connected', 'busy', 'failed', 'no-answer',
       'canceled', 'cancelled', 'rejected', 'missed', 'outbound_no_answer'].includes(normalizedStatus);
 
-    const callLog = await prisma.callLog.upsert({
-      where: { callSid: sid },
-      create: {
-        callSid: sid,
-        from: normalizedFrom,
-        to: normalizedTo,
-        direction: callDirection,
-        status: normalizedStatus,
-        callType,
-        durationSeconds,
-        endedAt: durationSeconds != null || terminal ? new Date() : undefined,
-        tenantId: req.user.tenantId,
-      },
-      update: {
-        status: normalizedStatus,
-        callType,
-        from: normalizedFrom,
-        to: normalizedTo,
-        direction: callDirection,
-        ...(durationSeconds != null
-          ? { durationSeconds, endedAt: new Date() }
-          : terminal ? { endedAt: new Date() } : {}),
-      },
-    });
+    const updateData = {
+      status: normalizedStatus,
+      callType,
+      from: normalizedFrom,
+      to: normalizedTo,
+      direction: callDirection,
+      ...(durationSeconds != null
+        ? { durationSeconds, endedAt: new Date() }
+        : terminal ? { endedAt: new Date() } : {}),
+    };
+
+    const existing = await prisma.callLog.findUnique({ where: { callSid: sid } });
+    let callLog;
+    if (existing) {
+      if (existing.tenantId !== req.user.tenantId) {
+        return res.status(403).json({ error: 'Call log belongs to another organization' });
+      }
+      callLog = await prisma.callLog.update({
+        where: { callSid: sid },
+        data: updateData,
+      });
+    } else {
+      callLog = await prisma.callLog.create({
+        data: {
+          callSid: sid,
+          ...updateData,
+          tenantId: req.user.tenantId,
+        },
+      });
+    }
 
     syncCallRecordingsFromTelnyx(prisma, { tenantId: req.user.tenantId }).catch((error) => {
       console.warn('⚠️ Post-call recording sync failed:', error.message);
@@ -1193,6 +1266,20 @@ router.post('/softphone/record-start', authMiddleware, async (req, res) => {
     const greeting = await prisma.greeting.findUnique({ where: { tenantId: req.user.tenantId } });
     if (greeting?.callRecordingEnabled === false) {
       return res.status(403).json({ error: 'Call recording is disabled in Call routing settings' });
+    }
+
+    const user = await prisma.user.findFirst({
+      where: { id: req.user.sub, tenantId: req.user.tenantId },
+      select: { telnyxSipUsername: true },
+    });
+
+    const callOwned = await assertCallControlOwnership({
+      tenantId: req.user.tenantId,
+      sipUsername: user?.telnyxSipUsername,
+      callControlId: String(callControlId),
+    });
+    if (!callOwned) {
+      return res.status(403).json({ error: 'Call control ID is not associated with your active call' });
     }
 
     const result = await startOutboundCallRecording({

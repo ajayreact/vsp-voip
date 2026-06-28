@@ -68,7 +68,8 @@ describe('inbound MMS media handling', () => {
 
     expect(row.sizeBytes).toBe(pngBytes.length);
     expect(row.mimeType).toBe('image/png');
-    expect(attachmentService.isDurablePublicUrl(row.publicUrl)).toBe(true);
+    expect(row.publicUrl).toBeNull();
+    expect(attachmentService.isDurablePublicUrl(row.publicUrl)).toBe(false);
     expect(fs.existsSync(path.join(attachmentService.UPLOADS_DIR, row.storageKey))).toBe(true);
 
     fs.unlinkSync(path.join(attachmentService.UPLOADS_DIR, row.storageKey));

@@ -1,5 +1,9 @@
 const path = require('path');
 
+if (process.env.NODE_ENV === 'production' && !process.env.NEXT_PUBLIC_API_URL) {
+  throw new Error('NEXT_PUBLIC_API_URL must be set for production builds');
+}
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Monorepo has lockfiles in repo root and web/; keep Turbopack scoped to this app.

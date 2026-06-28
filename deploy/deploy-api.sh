@@ -6,7 +6,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${REPO_ROOT}"
 
-REQUIRED_COMMIT="${REQUIRED_COMMIT:-527b0caafd7b6128cccaece554f72372326ae1726}"
+REQUIRED_COMMIT="${REQUIRED_COMMIT:-527b0cafd7b6128cccaece554f72372326ae1726}"
 BRANCH="${DEPLOY_BRANCH:-main}"
 
 echo "==> VSP API deploy (${REPO_ROOT})"

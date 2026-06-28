@@ -80,7 +80,7 @@ export default function DashboardPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
+      <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
         <StatCard label="Total Calls" value={stats?.callCount ?? '—'} accent="green" />
         <StatCard label="Phone Numbers" value={stats?.numberCount ?? '—'} accent="blue" />
         <StatCard label="Open Orders" value={stats?.pendingOrdersCount ?? '—'} accent="orange" />

@@ -138,15 +138,15 @@ export function DataTable<T>({
 
   return (
     <div className={cn('panel-card overflow-hidden', className)}>
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-3 py-3 sm:px-5 sm:py-4">
         <h3 className="section-title">{title}</h3>
         {action ? <div className="flex shrink-0 items-center gap-2">{action}</div> : null}
       </div>
 
-      {toolbar ? <div className="border-b border-slate-100 px-5 py-3">{toolbar}</div> : null}
+      {toolbar ? <div className="border-b border-slate-100 px-3 py-3 sm:px-5">{toolbar}</div> : null}
 
       {(searchable || paginated) ? (
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 bg-slate-50/80 px-5 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 bg-slate-50/80 px-3 py-3 sm:px-5">
           {paginated ? (
             <label className="flex items-center gap-2 text-sm text-slate-600">
               <span>Show</span>
@@ -185,7 +185,7 @@ export function DataTable<T>({
         </div>
       ) : null}
 
-      <div className="overflow-x-auto">
+      <div className="-mx-4 overflow-x-auto sm:mx-0">
         <table className="datatable min-w-full text-sm">
           <thead>
             <tr>
@@ -245,7 +245,7 @@ export function DataTable<T>({
       </div>
 
       {paginated ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-5 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-3 py-3 sm:px-5">
           <p className="text-sm text-slate-600">
             Showing {rangeStart} to {rangeEnd} of {total} entries
           </p>

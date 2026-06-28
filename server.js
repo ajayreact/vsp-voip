@@ -196,10 +196,13 @@ app.post('/webhook/call-recording', ...recordingWebhookMiddleware, (req, res) =>
     });
 });
 
-app.use(express.json());
+app.use((req, res, next) => {
+  const isAttachmentUpload = req.method === 'POST' && req.path === '/api/messages/attachments';
+  const parser = express.json({ limit: isAttachmentUpload ? '8mb' : '100kb' });
+  return parser(req, res, next);
+});
 app.use('/uploads/greetings', express.static(path.join(__dirname, 'uploads', 'greetings')));
 app.use('/uploads/payment-proofs', express.static(path.join(__dirname, 'uploads', 'payment-proofs')));
-app.use('/uploads/messaging', express.static(path.join(__dirname, 'uploads', 'messaging')));
 app.use('/api', messagingRoutes);
 app.use('/api', portalRoutes);
 app.use('/api/admin', adminRoutes);

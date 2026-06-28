@@ -1,6 +1,6 @@
 const express = require('express');
 const { getPrisma } = require('../db');
-const { authMiddleware } = require('../lib/auth');
+const { authMiddleware, optionalAuthMiddleware } = require('../lib/auth');
 const { normalizePhoneNumber } = require('../lib/phone');
 const { assertTenantActive } = require('../lib/tenantGuard');
 const { loadPlatformSettings } = require('../lib/platformSettings');
@@ -13,7 +13,11 @@ const {
   getMessageStatusDetail,
   uploadAttachment,
   mapMessageRecord,
+  getAttachmentForDownload,
 } = require('../lib/messaging');
+const { authorizeAttachmentDownload, sendAttachmentFile } = require('../lib/messaging/attachmentDownload');
+const { buildSignedAttachmentUrl } = require('../lib/messaging/attachmentAccess');
+const { getApiPublicBase } = require('../lib/messaging/apiPublicBase');
 
 const router = express.Router();
 
@@ -32,6 +36,7 @@ router.get('/conversations', authMiddleware, async (req, res) => {
     }
 
     const prisma = await getPrisma();
+    await assertTenantActive(prisma, tenantId);
     const conversations = await listConversations(prisma, tenantId, req.user.sub, {
       limit: req.query.limit,
       cursor: req.query.cursor,
@@ -56,6 +61,7 @@ router.get('/conversations/:id/messages', authMiddleware, async (req, res) => {
     }
 
     const prisma = await getPrisma();
+    await assertTenantActive(prisma, tenantId);
     let messages = await getConversationMessages(prisma, req.params.id, tenantId, {
       limit: req.query.limit,
       cursor: req.query.cursor,
@@ -89,6 +95,7 @@ router.patch('/conversations/:id/read', authMiddleware, async (req, res) => {
     }
 
     const prisma = await getPrisma();
+    await assertTenantActive(prisma, tenantId);
     const result = await markConversationRead(prisma, {
       conversationId: req.params.id,
       tenantId,
@@ -161,6 +168,47 @@ router.post('/messages/attachments', authMiddleware, async (req, res) => {
   }
 });
 
+router.get('/messages/attachments/:id/url', authMiddleware, async (req, res) => {
+  try {
+    const tenantId = req.user.tenantId;
+    if (!tenantId) {
+      return res.status(403).json({ error: 'No organization linked to this account' });
+    }
+
+    const prisma = await getPrisma();
+    await assertTenantActive(prisma, tenantId);
+    const attachment = await getAttachmentForDownload(prisma, req.params.id);
+    if (!attachment || attachment.tenantId !== tenantId) {
+      return res.status(404).json({ error: 'Attachment not found' });
+    }
+
+    const base = getApiPublicBase();
+    res.json({
+      success: true,
+      publicUrl: buildSignedAttachmentUrl(attachment.id, base, 60 * 60 * 24),
+    });
+  } catch (error) {
+    res.status(error.status || 500).json({ error: error.message || 'Failed to refresh attachment URL' });
+  }
+});
+
+router.get('/messages/attachments/:id/download', optionalAuthMiddleware, async (req, res) => {
+  try {
+    const prisma = await getPrisma();
+    const attachment = await getAttachmentForDownload(prisma, req.params.id);
+    if (!attachment) {
+      return res.status(404).json({ error: 'Attachment not found' });
+    }
+    if (!authorizeAttachmentDownload(req, attachment)) {
+      return res.status(403).json({ error: 'Not authorized to access this attachment' });
+    }
+    sendAttachmentFile(res, attachment);
+  } catch (error) {
+    if (res.headersSent) return;
+    res.status(error.status || 500).json({ error: error.message || 'Failed to download attachment' });
+  }
+});
+
 router.get('/messages/:id/status', authMiddleware, async (req, res) => {
   try {
     const tenantId = req.user.tenantId;
@@ -169,6 +217,7 @@ router.get('/messages/:id/status', authMiddleware, async (req, res) => {
     }
 
     const prisma = await getPrisma();
+    await assertTenantActive(prisma, tenantId);
     const message = await getMessageStatusDetail(prisma, req.params.id, tenantId);
 
     res.json({
@@ -198,6 +247,7 @@ router.get('/conversations/by-peer', authMiddleware, async (req, res) => {
     }
 
     const prisma = await getPrisma();
+    await assertTenantActive(prisma, tenantId);
     const ownedLine = await prisma.phoneNumber.findFirst({
       where: { tenantId, number: line },
     });

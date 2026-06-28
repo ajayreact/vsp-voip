@@ -1,27 +1,26 @@
-import { playOutboundRingback, stopLocalRingback } from '@/lib/call-sounds';
+import { playOutboundRingback, startLocalRingback, stopLocalRingback } from '@/lib/call-sounds';
+import {
+  shouldPlayOutboundRingback,
+  shouldStopOutboundRingback,
+} from '@/lib/softphone-outbound-answer';
 
-const OUTBOUND_RINGBACK_STATES = new Set(['requesting', 'trying', 'ringing']);
-const RINGBACK_STOP_STATES = new Set(['active', 'hangup', 'destroy', 'error']);
-
-export function isOutboundRingbackState(state: string) {
-  return OUTBOUND_RINGBACK_STATES.has(state);
-}
-
-export function shouldStopOutboundRingback(state: string) {
-  return RINGBACK_STOP_STATES.has(state);
+/** Start ringback synchronously inside the dial click handler (user gesture). */
+export async function startOutboundRingbackOnDial() {
+  await startLocalRingback();
 }
 
 export async function syncOutboundRingback(
   call: { playRingback?: () => void; stopRingback?: () => void } | null,
   callDirection: 'inbound' | 'outbound' | '',
   callState: string,
+  callAnswered: boolean,
 ) {
-  if (callDirection === 'outbound' && call && isOutboundRingbackState(callState)) {
-    await playOutboundRingback(call);
+  if (shouldPlayOutboundRingback(callDirection, callAnswered, callState)) {
+    await playOutboundRingback(call ?? {});
     return;
   }
 
-  if (call && shouldStopOutboundRingback(callState)) {
+  if (call && shouldStopOutboundRingback(callState, callAnswered)) {
     call.stopRingback?.();
   }
   stopLocalRingback();

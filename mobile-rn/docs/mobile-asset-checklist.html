@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VSP Phone — Mobile Asset Checklist</title>
+  <style>
+    :root {
+      --primary: #1976D2;
+      --primary-soft: #EAF3FF;
+      --bg: #F7F8FA;
+      --surface: #FFFFFF;
+      --text: #111827;
+      --muted: #6B7280;
+      --border: #E5E7EB;
+      --accent: #0f172a;
+      --warn: #D97706;
+      --warn-bg: #FFFBEB;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    header {
+      background: linear-gradient(135deg, #1976D2, #4F8EF7);
+      color: #fff;
+      padding: 2rem 1.5rem;
+    }
+    header h1 { margin: 0 0 0.25rem; font-size: 1.75rem; }
+    header p { margin: 0; opacity: 0.92; max-width: 720px; }
+    main { max-width: 1100px; margin: 0 auto; padding: 1.5rem; }
+    section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1.25rem;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    }
+    h2 {
+      margin: 0 0 0.35rem;
+      font-size: 1.25rem;
+      color: var(--primary);
+    }
+    .section-desc { color: var(--muted); margin: 0 0 1rem; font-size: 0.95rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+    th, td { padding: 0.65rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { background: var(--primary-soft); color: var(--text); font-weight: 600; }
+    tr:last-child td { border-bottom: none; }
+    code {
+      background: #F3F4F6;
+      padding: 0.1rem 0.35rem;
+      border-radius: 4px;
+      font-size: 0.85em;
+    }
+    .badge {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .required { background: #FEE2E2; color: #991B1B; }
+    .recommended { background: var(--warn-bg); color: #92400E; }
+    .optional { background: #ECFDF5; color: #065F46; }
+    .path { color: var(--muted); font-size: 0.85rem; }
+    .note {
+      background: var(--warn-bg);
+      border-left: 4px solid var(--warn);
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      margin-top: 1rem;
+      font-size: 0.9rem;
+    }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } }
+    .color-swatch {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      vertical-align: middle;
+      border: 1px solid var(--border);
+      margin-right: 4px;
+    }
+    footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.85rem;
+      padding: 2rem 1rem;
+    }
+    ul.compact { margin: 0.25rem 0 0; padding-left: 1.2rem; }
+    ul.compact li { margin: 0.2rem 0; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>VSP Phone — Mobile Asset Checklist</h1>
+  <p>Expo SDK 56 · React Native · Package <code>com.vspphone.mobile</code> · Brand primary <span class="color-swatch" style="background:#1976D2"></span> <code>#1976D2</code></p>
+</header>
+
+<main>
+
+  <section>
+    <h2>1. Brand Logos</h2>
+    <p class="section-desc">For splash, login, marketing, and store listings. Export as PNG (transparent) and SVG where noted.</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Asset</th>
+          <th>Size (px)</th>
+          <th>Format</th>
+          <th>Usage</th>
+          <th>Priority</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Logo mark (icon only)</strong><br><span class="path">logo-mark.png / .svg</span></td>
+          <td>512 × 512<br>256 × 256<br>128 × 128</td>
+          <td>PNG @2x/@3x, SVG</td>
+          <td>App splash, login screen, tab branding</td>
+          <td><span class="badge required">Required</span></td>
+        </tr>
+        <tr>
+          <td><strong>Logo horizontal</strong><br><span class="path">logo-horizontal.png / .svg</span></td>
+          <td>1200 × 400 max<br>600 × 200 @1x</td>
+          <td>PNG, SVG</td>
+          <td>Login, About, store graphics</td>
+          <td><span class="badge required">Required</span></td>
+        </tr>
+        <tr>
+          <td><strong>Logo stacked</strong><br><span class="path">logo-stacked.png</span></td>
+          <td>800 × 1000</td>
+          <td>PNG</td>
+          <td>Splash, onboarding</td>
+          <td><span class="badge recommended">Recommended</span></td>
+        </tr>
+        <tr>
+          <td><strong>Logo on dark background</strong><br><span class="path">logo-light.png</span></td>
+          <td>1200 × 400</td>
+          <td>PNG</td>
+          <td>Dark theme headers, Android adaptive bg</td>
+          <td><span class="badge recommended">Recommended</span></td>
+        </tr>
+        <tr>
+          <td><strong>Logo on light background</strong><br><span class="path">logo-dark.png</span></td>
+          <td>1200 × 400</td>
+          <td>PNG</td>
+          <td>Light theme, documents</td>
+          <td><span class="badge recommended">Recommended</span></td>
+        </tr>
+        <tr>
+          <td><strong>Wordmark “VSP Phone”</strong><br><span class="path">wordmark.png</span></td>
+          <td>Width 800–1200</td>
+          <td>PNG, SVG</td>
+          <td>Splash subtitle replacement (currently text-only)</td>
+          <td><span class="badge optional">Optional</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>2. App Icons</h2>
+    <p class="section-desc">Mapped to <code>app.config.ts</code>. Expo generates platform sizes from master files — design at <strong>1024 × 1024</strong> unless noted.</p>
+    <table>
+      <thead>
+        <tr>
+          <th>File (project path)</th>
+          <th>Canvas size</th>
+          <th>Safe zone / notes</th>
+          <th>Platform</th>
+          <th>Priority</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>assets/icon.png</code></td>
+          <td><strong>1024 × 1024</strong></td>
+          <td>iOS: no transparency, no rounded corners (OS masks). Android legacy fallback. Also used for expo-notifications plugin.</td>
+          <td>iOS + Android + notifications config</td>
+          <td><span class="badge required">Required</span></td>
+        </tr>
+        <tr>
+          <td><code>assets/android-icon-foreground.png</code></td>
+          <td><strong>1024 × 1024</strong></td>
+          <td>Keep logo inside center <strong>66%</strong> circle (≈672 px diameter). Transparent outside.</td>
+          <td>Android adaptive icon (foreground layer)</td>
+          <td><span class="badge required">Required</span></td>
+        </tr>
+        <tr>
+          <td><code>assets/android-icon-background.png</code></td>
+          <td><strong>1024 × 1024</strong></td>
+          <td>Solid or subtle gradient. App uses bg color <span class="color-swatch" style="background:#0f172a"></span> <code>#0f172a</code></td>
+          <td>Android adaptive icon (background layer)</td>
+          <td><span class="badge required">Required</span></td>
+        </tr>
+        <tr>
+          <td><code>assets/android-icon-monochrome.png</code></td>
+          <td><strong>1024 × 1024</strong></td>
+          <td>Single-color silhouette (white on transparent). Android 13+ themed icon.</td>
+          <td>Android monochrome / Material You</td>
+          <td><span class="badge required">Required</span></td>
+        </tr>
+        <tr>
+          <td><code>assets/favicon.png</code></td>
+          <td><strong>48 × 48</strong> (provide 192 × 192 master)</td>
+          <td>Web PWA / Expo web</td>
+          <td>Web</td>
+          <td><span class="badge optional">Optional</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="note">
+      <strong>Auto-generated by Expo/EAS</strong> (you do not need to export manually): iOS 20–1024 pt variants, Android mdpi–xxxhdpi mipmaps, App Store icon from <code>icon.png</code>.
+    </div>
+  </section>
+
+  <section>
+    <h2>3. Splash Screen</h2>
+    <p class="section-desc">Native splash (cold start) + in-app splash (<code>SplashScreenView.tsx</code>). Currently in-app uses a gradient block 88×88 — replace with your logo mark.</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Asset</th>
+          <th>Size (px)</th>
+          <th>Format</th>
+          <th>Notes</th>
+          <th>Priority</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Native splash image</strong><br><span class="path">assets/splash-icon.png</span></td>
+          <td><strong>1024 × 1024</strong> logo centered<br>Background: <code>#F7F8FA</code> or brand gradient</td>
+          <td>PNG</td>
+          <td>Add to <code>app.config.ts</code> via <code>expo-splash-screen</code> plugin (recommended for production)</td>
+          <td><span class="badge required">Required</span></td>
+        </tr>
+        <tr>
+          <td><strong>Full-bleed splash (optional)</strong><br><span class="path">assets/splash.png</span></td>
+          <td><strong>1284 × 2778</strong> (iPhone 14 Pro Max)<br><strong>1080 × 1920</strong> (Android ref)</td>
+          <td>PNG</td>
+          <td>Portrait only (<code>orientation: portrait</code>). Safe area: keep logo/text in center 60%.</td>
+          <td><span class="badge recommended">Recommended</span></td>
+        </tr>
+        <tr>
+          <td><strong>Splash logo (in-app)</strong><br><span class="path">assets/splash-logo.png</span></td>
+          <td><strong>176 × 176</strong> (@2x of 88 pt)<br><strong>264 × 264</strong> (@3x)</td>
+          <td>PNG transparent</td>
+          <td>Replaces gradient “VSP” block in <code>SplashScreenView</code></td>
+          <td><span class="badge recommended">Recommended</span></td>
+        </tr>
+        <tr>
+          <td><strong>Splash background color</strong></td>
+          <td>—</td>
+          <td>Hex</td>
+          <td>Light: <code>#F7F8FA</code> · Dark: <code>#0F1419</code> · Brand gradient: <code>#1976D2 → #4F8EF7</code></td>
+          <td><span class="badge required">Required</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>4. Notification Icons &amp; Alerts (Android)</h2>
+    <p class="section-desc">FCM + expo-notifications. Telnyx SDK uses channel <code>telnyx_voice_calls</code> for incoming calls; messages use <code>vsp_messages</code>.</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Asset</th>
+          <th>Size (px)</th>
+          <th>Format</th>
+          <th>Notes</th>
+          <th>Priority</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Status bar / FCM icon</strong><br><span class="path">assets/notification-icon.png</span></td>
+          <td><strong>96 × 96</strong> (@mdpi base)<br>Also provide: 48, 72, 144, 192</td>
+          <td>PNG</td>
+          <td><strong>White silhouette only</strong>, transparent background. Currently config reuses <code>icon.png</code> — dedicated icon recommended.</td>
+          <td><span class="badge required">Required</span></td>
+        </tr>
+        <tr>
+          <td><strong>Notification accent color</strong></td>
+          <td>—</td>
+          <td>Hex</td>
+          <td><span class="color-swatch" style="background:#1976D2"></span> <code>#1976D2</code> (set in expo-notifications plugin)</td>
+          <td><span class="badge required">Required</span></td>
+        </tr>
+        <tr>
+          <td><strong>Large notification icon (optional)</strong><br><span class="path">assets/notification-icon-large.png</span></td>
+          <td><strong>256 × 256</strong></td>
+          <td>PNG</td>
+          <td>Full-color for expanded notifications</td>
+          <td><span class="badge optional">Optional</span></td>
+        </tr>
+        <tr>
+          <td><strong>Missed call / message badge</strong></td>
+          <td>—</td>
+          <td>—</td>
+          <td>Handled by OS badge count; no asset required</td>
+          <td><span class="badge optional">N/A</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>5. Ringtones &amp; Alert Sounds</h2>
+    <p class="section-desc">Telnyx native SDK handles <strong>incoming call ringtone</strong> on Android/iOS. Custom sounds below are for expo-notifications (SMS/message alerts) and optional Android notification channels.</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Sound</th>
+          <th>Filename</th>
+          <th>Duration</th>
+          <th>Format &amp; specs</th>
+          <th>Priority</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Incoming call ringtone</strong></td>
+          <td><em>System / Telnyx default</em></td>
+          <td>Loop 15–30 s</td>
+          <td>Native — no file needed unless customizing Telnyx channel</td>
+          <td><span class="badge optional">Optional</span></td>
+        </tr>
+        <tr>
+          <td><strong>Outbound ringback</strong></td>
+          <td><em>Carrier / Telnyx</em></td>
+          <td>—</td>
+          <td>Generated by network; no local asset</td>
+          <td><span class="badge optional">N/A</span></td>
+        </tr>
+        <tr>
+          <td><strong>New message alert</strong><br><span class="path">assets/sounds/message.wav</span></td>
+          <td><code>message.wav</code> or <code>message.mp3</code></td>
+          <td>0.5 – 2 s</td>
+          <td>WAV 44.1 kHz mono or MP3 ≤ 300 KB. Register in expo-notifications <code>sounds: ['message.wav']</code></td>
+          <td><span class="badge recommended">Recommended</span></td>
+        </tr>
+        <tr>
+          <td><strong>Voicemail alert</strong><br><span class="path">assets/sounds/voicemail.wav</span></td>
+          <td><code>voicemail.wav</code></td>
+          <td>1 – 3 s</td>
+          <td>Distinct from message tone</td>
+          <td><span class="badge recommended">Recommended</span></td>
+        </tr>
+        <tr>
+          <td><strong>Generic push / alert</strong><br><span class="path">assets/sounds/alert.wav</span></td>
+          <td><code>alert.wav</code></td>
+          <td>0.3 – 1 s</td>
+          <td>Settings toggles, errors, reminders</td>
+          <td><span class="badge optional">Optional</span></td>
+        </tr>
+        <tr>
+          <td><strong>DTMF tones</strong></td>
+          <td><em>SDK generated</em></td>
+          <td>—</td>
+          <td>No assets — Telnyx/WebRTC generates tones</td>
+          <td><span class="badge optional">N/A</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="note">
+      <strong>iOS:</strong> Convert custom sounds to <code>.caf</code> (Linear PCM or IMA4, ≤ 30 s) and bundle in Xcode / Expo assets.<br>
+      <strong>Android:</strong> Place in <code>android/app/src/main/res/raw/</code> (via config plugin) or use Expo asset bundling. Max ~1 MB per file recommended.
+    </div>
+  </section>
+
+  <section>
+    <h2>6. iOS-Specific Assets</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Asset</th>
+          <th>Size</th>
+          <th>Notes</th>
+          <th>Priority</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>App Store icon</strong></td>
+          <td>1024 × 1024</td>
+          <td>Same as <code>assets/icon.png</code> — no alpha channel</td>
+          <td><span class="badge required">Required</span></td>
+        </tr>
+        <tr>
+          <td><strong>CallKit app icon</strong></td>
+          <td>Derived from app icon</td>
+          <td>Telnyx VoIP push uses system CallKit UI</td>
+          <td><span class="badge optional">Auto</span></td>
+        </tr>
+        <tr>
+          <td><strong>VoIP push sound</strong></td>
+          <td>≤ 30 s <code>.caf</code></td>
+          <td>Optional custom ring for PushKit; default system ring if omitted</td>
+          <td><span class="badge optional">Optional</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>7. Google Play &amp; Store Marketing (gather separately)</h2>
+    <div class="grid-2">
+      <table>
+        <thead><tr><th>Asset</th><th>Size</th></tr></thead>
+        <tbody>
+          <tr><td>Play Store icon</td><td>512 × 512 PNG</td></tr>
+          <tr><td>Feature graphic</td><td>1024 × 500 PNG/JPG</td></tr>
+          <tr><td>Phone screenshots</td><td>1080 × 1920 min (2–8 images)</td></tr>
+          <tr><td>7-inch tablet</td><td>1200 × 1920</td></tr>
+          <tr><td>10-inch tablet</td><td>1600 × 2560</td></tr>
+        </tbody>
+      </table>
+      <table>
+        <thead><tr><th>Asset</th><th>Size</th></tr></thead>
+        <tbody>
+          <tr><td>App Store screenshots (6.7")</td><td>1290 × 2796</td></tr>
+          <tr><td>App Store screenshots (6.5")</td><td>1284 × 2778</td></tr>
+          <tr><td>App Store screenshots (5.5")</td><td>1242 × 2208</td></tr>
+          <tr><td>App preview video (optional)</td><td>886 × 1920, 15–30 s</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>8. Quick delivery checklist</h2>
+    <p class="section-desc">Minimum set to drop into <code>mobile-rn/assets/</code> today:</p>
+    <ul class="compact">
+      <li><code>icon.png</code> — 1024×1024, no transparency (iOS)</li>
+      <li><code>android-icon-foreground.png</code> — 1024×1024, logo in 66% safe zone</li>
+      <li><code>android-icon-background.png</code> — 1024×1024, #0f172a or brand</li>
+      <li><code>android-icon-monochrome.png</code> — 1024×1024 white silhouette</li>
+      <li><code>splash-icon.png</code> — 1024×1024 centered logo for native splash</li>
+      <li><code>notification-icon.png</code> — 96×96 white-on-transparent (+ density variants)</li>
+      <li><code>sounds/message.wav</code> — short SMS alert (optional but recommended)</li>
+      <li><code>logo-horizontal.png</code> + <code>logo-mark.png</code> — for login &amp; marketing</li>
+    </ul>
+  </section>
+
+</main>
+
+<footer>
+  VSP Phone · Asset checklist for Expo SDK 56 · Generated for internal design handoff<br>
+  Project paths reference <code>mobile-rn/app.config.ts</code> and <code>mobile-rn/assets/</code>
+</footer>
+
+</body>
+</html>

@@ -50,6 +50,8 @@ jobs:
           curl -sf http://localhost:3000/health
       - name: Vitest regression
         run: npx vitest run --config vitest.config.ts
+      - name: Deploy smoke
+        run: node scripts/smoke-deploy.js
       - name: Upload QA report artifacts
         if: always()
         uses: actions/upload-artifact@v4

@@ -260,6 +260,8 @@ export default function ExtensionsPage() {
       header: 'Mobile',
       searchable: false,
       sortable: false,
+      headerClassName: 'hidden lg:table-cell',
+      className: 'hidden lg:table-cell',
       render: (row) => regBadge(row.deviceRegistration?.mobile),
     },
     {
@@ -267,6 +269,8 @@ export default function ExtensionsPage() {
       header: 'WebRTC',
       searchable: false,
       sortable: false,
+      headerClassName: 'hidden lg:table-cell',
+      className: 'hidden lg:table-cell',
       render: (row) => regBadge(row.deviceRegistration?.webrtc),
     },
     {
@@ -274,6 +278,8 @@ export default function ExtensionsPage() {
       header: 'SIP',
       searchable: false,
       sortable: false,
+      headerClassName: 'hidden md:table-cell',
+      className: 'hidden md:table-cell',
       render: (row) => regBadge(row.deviceRegistration?.sip),
     },
     {

@@ -38,6 +38,7 @@ type IphonePhoneAppProps = {
   callState: string;
   callDirection: 'inbound' | 'outbound' | '';
   displayNumber: string;
+  callerDisplayNameHint?: string;
   incomingReceivedAt: string;
   callSeconds: number;
   muted: boolean;
@@ -108,6 +109,7 @@ export function IphonePhoneApp(props: IphonePhoneAppProps) {
     callState,
     callDirection,
     displayNumber,
+    callerDisplayNameHint = '',
     incomingReceivedAt,
     callSeconds,
     muted,
@@ -170,7 +172,9 @@ export function IphonePhoneApp(props: IphonePhoneAppProps) {
     && callState !== 'held';
 
   const showActiveOverlay = hasLiveCall && (isCallActive || callState === 'held');
-  const liveIdentity = resolveCallerIdentity(displayNumber, contacts);
+  const liveIdentity = resolveCallerIdentity(displayNumber, contacts, {
+    nameHint: callerDisplayNameHint,
+  });
 
   return (
     <div className="fixed inset-0 z-0 flex min-h-[100dvh] items-center justify-center overflow-hidden bg-[#F5F7FA] text-[#1D1D1F] sm:p-3 lg:bg-[linear-gradient(145deg,#F5F7FA_0%,#E9EEF5_100%)]">

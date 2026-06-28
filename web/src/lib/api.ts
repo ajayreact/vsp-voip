@@ -41,7 +41,7 @@ export function isUnauthorizedError(err: unknown) {
   return err instanceof ApiError && err.status === 401;
 }
 
-async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+export async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken();
   let res: Response;
   try {
