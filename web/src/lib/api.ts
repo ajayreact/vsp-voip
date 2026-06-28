@@ -236,6 +236,8 @@ export async function saveCallRouting(
 export type VoicemailRecord = {
   id: string;
   tenantId: string;
+  extensionId?: string | null;
+  ringGroupId?: string | null;
   callSid: string | null;
   recordingSid: string | null;
   from: string;

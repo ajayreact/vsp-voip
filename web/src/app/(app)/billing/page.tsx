@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation';
+import { BillingManagerPage } from '@/components/portal/billing-manager';
 
-export default function BillingRedirect() {
-  redirect('/settings/subscription');
+export default function BillingPage() {
+  return <BillingManagerPage />;
 }

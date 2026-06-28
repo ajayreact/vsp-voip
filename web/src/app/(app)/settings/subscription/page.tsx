@@ -149,9 +149,9 @@ export default function SubscriptionSettingsPage() {
       />
 
       <p className="text-xs text-slate-500">
-        Order history and one-time charges are under{' '}
-        <Link href="/settings" className="text-indigo-600 hover:text-indigo-500">
-          Billing & orders
+        Order history and invoices are under{' '}
+        <Link href="/billing" className="text-indigo-600 hover:text-indigo-500">
+          Billing
         </Link>
         .
       </p>

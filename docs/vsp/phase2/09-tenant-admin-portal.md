@@ -20,12 +20,12 @@ Enterprise PBX administration only. **Backend telephony is frozen** ([06-backend
 | 1 | Phone Numbers | `/phone-numbers` | Done (2.7.2, refined 2.9) |
 | 2 | Devices | `/devices` | Done (2.7.2, refined 2.9) |
 | 3 | Ring Groups | `/ring-groups` | List done; detail/new legacy shell |
-| 4 | Call History | `/calls` | Done (2.9) |
-| 5 | Recordings | `/recordings` | Legacy — portal shell pending |
-| 6 | Voicemail | `/voicemail` | Legacy — portal shell pending |
-| 7 | Reports | `/reports` | Done (2.9) — dashboard stats only |
-| 8 | Billing | `/billing` | Redirect only — hub pending |
-| 9 | Settings | `/settings/*` | Legacy — portal shell pending |
+| 4 | Call History | `/calls` | Done (2.7.3) |
+| 5 | Recordings | `/recordings` | Done (2.7.3) |
+| 6 | Voicemail | `/voicemail` | Done (2.7.3) |
+| 7 | Reports | `/reports` | Done (2.7.3) |
+| 8 | Billing | `/billing` | Done (2.7.3) |
+| 9 | Settings | `/settings/*` | Hub done (2.7.3); sub-pages legacy shell |
 
 ---
 
