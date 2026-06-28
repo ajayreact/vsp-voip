@@ -318,6 +318,7 @@ model ExtensionProvisioningToken {
   tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   extensionId     String
   extension       Extension @relation(fields: [extensionId], references: [id], onDelete: Cascade)
+  purpose         String    @default("mobile")
   tokenHash       String    @unique
   expiresAt       DateTime
   usedAt          DateTime?
@@ -325,7 +326,7 @@ model ExtensionProvisioningToken {
   createdAt       DateTime  @default(now())
 
   @@index([extensionId, expiresAt])
-  @@index([tenantId])
+  @@index([tenantId, purpose])
 }
 
 model ExtensionSecurity {

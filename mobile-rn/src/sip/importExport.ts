@@ -110,6 +110,18 @@ export function importSipProfileJson(raw: string): SipProfile {
     return mergeQrSipPayload(base, parsed);
   }
 
+  if (
+    (parsed.type === 'vsp-employee-provision' || parsed.type === 'vsp-desk-provision')
+    && parsed.sip
+    && typeof parsed.sip === 'object'
+  ) {
+    return mergeQrSipPayload(base, {
+      displayName: parsed.displayName ?? parsed.employeeName,
+      extensionNumber: parsed.extensionNumber,
+      sip: parsed.sip,
+    });
+  }
+
   const envelope = (parsed.profile && typeof parsed.profile === 'object')
     ? (parsed.profile as Record<string, unknown>)
     : parsed;

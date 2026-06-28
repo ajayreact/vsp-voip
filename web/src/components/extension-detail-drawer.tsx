@@ -170,6 +170,7 @@ export function ExtensionDetailDrawer({
               extension={extension}
               isAdmin={isAdmin}
               onUpdated={handleExtensionUpdated}
+              onOpenQrTab={() => setTab('qr')}
             />
           ) : null}
 

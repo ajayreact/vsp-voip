@@ -2344,6 +2344,15 @@ export type ExtensionSipCredentials = {
   employeeEmail: string | null;
   extensionNumber: string;
   displayName: string;
+  tenantId?: string | null;
+  tenantName?: string | null;
+  assignedDid?: string | null;
+  registrationExpirySec?: number;
+  symmetricRtp?: boolean;
+  srtp?: string;
+  codecs?: Array<{ id: string; label: string; enabled: boolean }>;
+  configExport?: Record<string, unknown>;
+  provisioningProfile?: Record<string, unknown>;
 };
 
 export async function getExtensionSipCredentials(extensionId: string) {

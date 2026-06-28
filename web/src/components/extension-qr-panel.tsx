@@ -74,7 +74,7 @@ function QrBlock({
               </span>
             </p>
           ) : provisioning ? (
-            <p className="text-slate-600">Contains SIP username, password, server, and port for desk phones.</p>
+            <p className="text-slate-600">Secure token QR — credentials are delivered after scan, not embedded in the code.</p>
           ) : null}
 
           {provisioning?.token ? (
@@ -156,14 +156,14 @@ export function ExtensionQrPanel({ extension, isAdmin }: Props) {
 
       {!extension.userId ? (
         <p className="text-sm text-amber-700">
-          Assign an employee to generate the mobile app QR. SIP desk phone QR works without an employee.
+          Assign an employee to generate mobile and desk provisioning QR codes.
         </p>
       ) : null}
 
       {extension.userId ? (
         <QrBlock
-          title="Mobile app QR"
-          description="Scan with the VSP-VOIP mobile app. Signs in, downloads extension config, and registers WebRTC. Token expires in 15 minutes."
+          title="Mobile app QR (Android & iPhone)"
+          description="Secure one-time token — no SIP password in the QR. Scan with VSP Phone → downloads the full provisioning profile → registers with Telnyx WebRTC. Expires in 15 minutes."
           icon={Smartphone}
           target="mobile"
           qrDataUrl={mobileQr}
@@ -175,17 +175,19 @@ export function ExtensionQrPanel({ extension, isAdmin }: Props) {
         />
       ) : null}
 
-      <QrBlock
-        title="SIP desk phone QR"
-        description="Scan or import on supported SIP phones for auto-provisioning with username, password, server (sip.telnyx.com), and port."
-        icon={Phone}
-        target="sip_phone"
-        qrDataUrl={sipQr}
-        provisioning={sipPhone}
-        loading={loading}
-        secondsLeft={secondsLeft}
-        onGenerate={generate}
-      />
+      {extension.userId ? (
+        <QrBlock
+          title="Desk phone QR"
+          description="Secure one-time token for manual desk phone import (Grandstream/Yealink). Redeem loads SIP username, password, and Telnyx server settings. Auto-provisioning vendors coming later."
+          icon={Phone}
+          target="sip_phone"
+          qrDataUrl={sipQr}
+          provisioning={sipPhone}
+          loading={loading}
+          secondsLeft={secondsLeft}
+          onGenerate={generate}
+        />
+      ) : null}
     </div>
   );
 }

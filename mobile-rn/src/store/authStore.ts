@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 import type { User } from '../api/types';
 import * as authService from '../auth/authService';
+import {
+  applyMobileProvisioningResult,
+  redeemProvisioningQr,
+} from '../auth/provisionService';
+import type { QrLoginPayload } from '../auth/qrLogin';
 import { isUnauthorizedError } from '../utils/errors';
 import { getFriendlyErrorMessage } from '../utils/friendlyError';
 import { usePushRegistrationStore } from '../notifications/pushTokenService';
@@ -16,6 +21,7 @@ type AuthState = {
   bootstrap: () => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   loginWithQrToken: (accessToken: string) => Promise<void>;
+  provisionWithQr: (payload: import('./qrLogin').QrLoginPayload) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   markSessionExpired: () => void;
@@ -75,6 +81,31 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isSubmitting: true, error: null, sessionExpired: false });
     try {
       const user = await authService.loginWithAccessToken(accessToken);
+      set({
+        user,
+        isAuthenticated: true,
+        isSubmitting: false,
+        sessionExpired: false,
+      });
+    } catch (error) {
+      set({
+        isSubmitting: false,
+        error: getFriendlyErrorMessage(error),
+      });
+      throw error;
+    }
+  },
+
+  provisionWithQr: async (payload: QrLoginPayload) => {
+    set({ isSubmitting: true, error: null, sessionExpired: false });
+    try {
+      const result = await redeemProvisioningQr(payload);
+      if (result.purpose === 'desk' || !result.accessToken) {
+        throw new Error('This QR code is for desk phone setup. Use SIP settings to import desk profiles.');
+      }
+      await authService.loginWithAccessToken(result.accessToken, result.refreshToken ?? null);
+      await applyMobileProvisioningResult(result);
+      const user = await authService.fetchCurrentUser();
       set({
         user,
         isAuthenticated: true,

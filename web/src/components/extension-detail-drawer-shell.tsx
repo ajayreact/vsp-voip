@@ -9,7 +9,7 @@ import type { ExtensionDrawerTab } from '@/components/extension-detail-drawer';
 const TABS: { id: ExtensionDrawerTab; label: string }[] = [
   { id: 'overview', label: 'Overview' },
   { id: 'employee', label: 'Employee & Devices' },
-  { id: 'sip', label: 'SIP' },
+  { id: 'sip', label: 'Config' },
   { id: 'qr', label: 'QR Provisioning' },
   { id: 'security', label: 'Security' },
   { id: 'analytics', label: 'Analytics' },

@@ -13,7 +13,7 @@ type Props = NativeStackScreenProps<AuthStackParamList, 'QrLogin'>;
 
 export function QrLoginScreen({ navigation }: Props) {
   const { colors } = useTheme();
-  const { loginWithQrToken, isSubmitting, clearError } = useAuth();
+  const { provisionWithQr, isSubmitting, clearError } = useAuth();
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -40,13 +40,13 @@ export function QrLoginScreen({ navigation }: Props) {
       }
 
       try {
-        await loginWithQrToken(payload.token!);
+        await provisionWithQr(payload);
       } catch {
-        setMessage("We couldn't sign you in with this QR code. It may have expired.");
+        setMessage("We couldn't provision this device. The QR code may have expired or already been used.");
         setScanned(false);
       }
     },
-    [clearError, isSubmitting, loginWithQrToken, scanned],
+    [clearError, isSubmitting, provisionWithQr, scanned],
   );
 
   if (!permission) {

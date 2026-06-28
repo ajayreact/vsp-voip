@@ -1,51 +1,22 @@
-import type { ExtensionRecord, UserRole } from '../api/types';
+import type { ExtensionRecord } from '../api/types';
 import { authorizedRequest } from '../auth/authService';
 import { fetchSoftphoneConfig, fetchSoftphoneToken } from '../calling/softphoneService';
 import { fetchExtensions } from '../contacts/contactsService';
 import { createTelnyxDefaultProfile, TELNYX_SIP_SERVER } from './defaults';
 import type { SipProfile } from './types';
 
-export type ExtensionSipCredentials = {
-  sipUsername: string | null;
-  sipPassword: string | null;
-  sipServer: string;
-  sipPort: number;
-  sipPortTls: number;
-  sipTransport: string;
-  sipUri: string | null;
-  outboundProxy: string;
-  extensionNumber: string;
-  displayName: string;
-};
-
-function isAdminRole(role?: UserRole | null): boolean {
-  return role === 'SUPER_ADMIN' || role === 'TENANT_ADMIN';
-}
-
-async function fetchExtensionSipCredentials(extensionId: string): Promise<ExtensionSipCredentials | null> {
-  try {
-    const response = await authorizedRequest<{ success?: boolean; sip: ExtensionSipCredentials }>(
-      `/api/tenant/extensions/${extensionId}/sip`,
-    );
-    return response.sip ?? null;
-  } catch {
-    return null;
-  }
+function portForTransport(transport: string, sipPort: number, sipPortTls: number): string {
+  if (transport === 'TLS') return String(sipPortTls || 5061);
+  return String(sipPort || 5060);
 }
 
 function findUserExtension(extensions: ExtensionRecord[], userId: string): ExtensionRecord | null {
   return extensions.find((ext) => ext.userId === userId) ?? null;
 }
 
-function portForTransport(transport: string, sipPort: number, sipPortTls: number): string {
-  if (transport === 'TLS') return String(sipPortTls || 5061);
-  return String(sipPort || 5060);
-}
-
 export async function hydrateSipProfile(input: {
   userId: string;
   userName: string;
-  userRole?: UserRole | null;
   stored?: SipProfile | null;
 }): Promise<SipProfile> {
   const base = createTelnyxDefaultProfile({
@@ -53,38 +24,32 @@ export async function hydrateSipProfile(input: {
     ...(input.stored ?? {}),
   });
 
-  const [configRes, extensions] = await Promise.all([
+  const [configRes, tokenRes, extensions] = await Promise.all([
     fetchSoftphoneConfig().catch(() => null),
+    fetchSoftphoneToken().catch(() => null),
     fetchExtensions().catch(() => [] as ExtensionRecord[]),
   ]);
 
   const userExtension = findUserExtension(extensions, input.userId);
-  let sipCredentials: ExtensionSipCredentials | null = null;
-
-  if (userExtension && isAdminRole(input.userRole)) {
-    sipCredentials = await fetchExtensionSipCredentials(userExtension.id);
-  }
-
-  const sipUsername = sipCredentials?.sipUsername
-    ?? configRes?.sipUsername
+  const sipUsername = configRes?.sipUsername
+    ?? tokenRes?.sipUsername
     ?? base.sipUsername;
 
   const transport = base.transport;
-  const sipPort = sipCredentials
-    ? portForTransport(transport, sipCredentials.sipPort, sipCredentials.sipPortTls)
-    : base.sipPort;
+  const sipPort = portForTransport(transport, base.sipPort, base.sipPortTls);
 
   return {
     ...base,
     profileName: base.profileName || `${input.userName || 'VSP'} SIP`,
-    displayName: sipCredentials?.displayName || userExtension?.displayName || input.userName || base.displayName,
+    displayName: userExtension?.displayName || input.userName || base.displayName,
     extension: userExtension?.extensionNumber || base.extension,
     sipUsername: sipUsername || base.sipUsername,
-    authUsername: sipCredentials?.sipUsername || sipUsername || base.authUsername,
-    password: sipCredentials?.sipPassword || base.password,
-    sipServer: sipCredentials?.sipServer || TELNYX_SIP_SERVER,
+    authUsername: sipUsername || base.authUsername,
+    password: base.password,
+    loginToken: tokenRes?.loginToken || base.loginToken,
+    sipServer: TELNYX_SIP_SERVER,
     sipPort,
-    outboundProxy: sipCredentials?.outboundProxy || `${TELNYX_SIP_SERVER}:${sipPort}`,
+    outboundProxy: `${TELNYX_SIP_SERVER}:${sipPort}`,
     callerId: userExtension?.assignedDidNumber || base.callerId,
   };
 }
@@ -113,4 +78,10 @@ export async function testSipConnection(): Promise<{ ok: boolean; latencyMs: num
       message: error instanceof Error ? error.message : 'Connection test failed.',
     };
   }
+}
+
+export async function fetchEmployeeSipCredentialsForDesk(extensionId: string) {
+  return authorizedRequest<{ success?: boolean; sip: Record<string, unknown> }>(
+    `/api/tenant/extensions/${extensionId}/sip`,
+  );
 }

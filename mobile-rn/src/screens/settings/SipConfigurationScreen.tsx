@@ -42,6 +42,8 @@ import {
   validateSipProfile,
   validateSipQrPayload,
 } from '../../sip';
+import { parseMobileProvisionQr, redeemDeskProvisioningQr } from '../../auth/provisionService';
+import { sipProfileFromProvisioningProfile } from '../../sip/provisioningProfile';
 import type { DtmfMode, LogLevel, NatTraversal, SessionRefresh, SipProfile, SipSectionId, SipTransport, SrtpMode, TlsVersion } from '../../sip/types';
 import { useTheme } from '../../shared/theme';
 import { spacing, typography } from '../../shared/theme';
@@ -212,9 +214,29 @@ export function SipConfigurationScreen() {
     await Share.share({ message: buildServerInfoBlock(profile), title: 'SIP Server Information' });
   }, [profile]);
 
-  const handleQrScan = useCallback(({ data }: { data: string }) => {
+  const handleQrScan = useCallback(async ({ data }: { data: string }) => {
     if (qrScanned) return;
     setQrScanned(true);
+
+    const tokenPayload = parseMobileProvisionQr(data);
+    if (tokenPayload?.type === 'vsp-desk-provision' && tokenPayload.token) {
+      try {
+        const provisioningProfile = await redeemDeskProvisioningQr(data);
+        if (!provisioningProfile) {
+          throw new Error('Desk provisioning profile was empty.');
+        }
+        const imported = sipProfileFromProvisioningProfile(provisioningProfile);
+        setProfile((current) => ({ ...(current ?? imported), ...imported }));
+        setMessage('Desk SIP profile loaded from secure QR.');
+        setQrOpen(false);
+      } catch (error) {
+        Alert.alert('QR import failed', friendlySipError(error));
+      } finally {
+        setQrScanned(false);
+      }
+      return;
+    }
+
     const payload = parseSipQrPayload(data);
     if (!payload) {
       Alert.alert('Invalid QR', 'This QR code is not a valid SIP provisioning code.');
