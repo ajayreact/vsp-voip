@@ -65,6 +65,15 @@ export function logTransition(
   logTelephony('info', 'state.transition', {
     ...snapshot,
     lastTransitionReason: reason,
-    detail: { fromPhase, toPhase, ...detail },
+    detail: { fromPhase, toPhase, reducer: 'withPhase', ...detail },
   });
+}
+
+/** Temporary Bug #7 QA — correlate browser timeline entries. */
+export function logDiagnosticTimeline(
+  event: string,
+  snapshot: Partial<TelephonySnapshot> = {},
+  detail: Record<string, unknown> = {},
+) {
+  logTelephony('info', event, { ...snapshot, detail });
 }

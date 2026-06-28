@@ -1,3 +1,5 @@
+import { logDiagnosticTimeline } from '@/lib/telephony/logger';
+
 const RINGBACK_SRC = '/sounds/ringback.mp3';
 const INCOMING_RING_SRC = '/sounds/incoming-ring.mp3';
 
@@ -8,6 +10,13 @@ let webAudioOscillator: OscillatorNode | null = null;
 let webAudioGain: GainNode | null = null;
 let webAudioTimer: number | null = null;
 
+/** QA diagnostic — which local tone path is currently active. */
+let activeLocalToneSource: 'none' | 'mp3' | 'web-audio-fallback' = 'none';
+
+export function getActiveLocalToneSourceForDiagnostics() {
+  return activeLocalToneSource;
+}
+
 function getOrCreateLoopAudio(src: string): HTMLAudioElement {
   const audio = new Audio(src);
   audio.loop = true;
@@ -16,6 +25,12 @@ function getOrCreateLoopAudio(src: string): HTMLAudioElement {
 }
 
 function stopWebAudioTone() {
+  if (webAudioOscillator || webAudioTimer != null) {
+    logDiagnosticTimeline('ringback.fallback.stop', {}, {
+      ringbackSource: 'web-audio-fallback',
+      frequencyHz: 440,
+    });
+  }
   if (webAudioTimer != null) {
     window.clearInterval(webAudioTimer);
     webAudioTimer = null;
@@ -53,6 +68,12 @@ function startWebAudioTone(frequencyHz: number) {
   webAudioOscillator.connect(webAudioGain);
   webAudioGain.connect(webAudioContext.destination);
   webAudioOscillator.start();
+  activeLocalToneSource = 'web-audio-fallback';
+  logDiagnosticTimeline('ringback.fallback', {}, {
+    ringbackSource: 'web-audio-fallback',
+    frequencyHz,
+    reason: 'mp3-unavailable-or-autoplay-blocked',
+  });
 
   let on = true;
   webAudioTimer = window.setInterval(() => {
@@ -67,7 +88,13 @@ async function playLoopingSound(
   setAudio: (audio: HTMLAudioElement | null) => void,
   src: string,
   fallbackFrequencyHz: number,
+  label: string,
 ) {
+  logDiagnosticTimeline('ringback.play', {}, {
+    label,
+    src,
+    priorSource: activeLocalToneSource,
+  });
   stopWebAudioTone();
 
   let audio = getAudio();
@@ -79,21 +106,49 @@ async function playLoopingSound(
   audio.currentTime = 0;
   try {
     await audio.play();
+    activeLocalToneSource = 'mp3';
+    logDiagnosticTimeline('ringback.start', {}, {
+      ringbackSource: 'mp3',
+      label,
+      src: audio.src,
+    });
+    logDiagnosticTimeline('ringback.mp3.loaded', {}, {
+      label,
+      src: audio.src,
+    });
     return;
-  } catch {
-    /* fall through to Web Audio fallback */
+  } catch (err) {
+    logDiagnosticTimeline('ringback.mp3.failed', {}, {
+      label,
+      src,
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
 
   startWebAudioTone(fallbackFrequencyHz);
 }
 
-function stopLoopingSound(getAudio: () => HTMLAudioElement | null) {
+function stopLoopingSound(getAudio: () => HTMLAudioElement | null, label: string) {
   const audio = getAudio();
+  if (audio && !audio.paused) {
+    logDiagnosticTimeline('ringback.pause', {}, {
+      ringbackSource: 'mp3',
+      label,
+      src: audio.src,
+    });
+  }
   if (audio) {
     audio.pause();
     audio.currentTime = 0;
   }
   stopWebAudioTone();
+  if (activeLocalToneSource !== 'none') {
+    logDiagnosticTimeline('ringback.stop', {}, {
+      ringbackSource: activeLocalToneSource,
+      label,
+    });
+    activeLocalToneSource = 'none';
+  }
 }
 
 /** Prime autoplay during dial — bounded wait so outbound setup is not blocked. */
@@ -157,11 +212,12 @@ export async function startLocalRingback() {
     (audio) => { ringbackAudio = audio; },
     RINGBACK_SRC,
     440,
+    'outbound-ringback',
   );
 }
 
 export function stopLocalRingback() {
-  stopLoopingSound(() => ringbackAudio);
+  stopLoopingSound(() => ringbackAudio, 'outbound-ringback');
 }
 
 export async function startIncomingRingtone() {
@@ -170,14 +226,16 @@ export async function startIncomingRingtone() {
     (audio) => { incomingRingAudio = audio; },
     INCOMING_RING_SRC,
     520,
+    'incoming-ring',
   );
 }
 
 export function stopIncomingRingtone() {
-  stopLoopingSound(() => incomingRingAudio);
+  stopLoopingSound(() => incomingRingAudio, 'incoming-ring');
 }
 
 export function stopAllCallSounds() {
+  logDiagnosticTimeline('ringback.cleanup', {}, { ringbackSource: activeLocalToneSource });
   stopLocalRingback();
   stopIncomingRingtone();
 }
@@ -185,10 +243,11 @@ export function stopAllCallSounds() {
 export async function playOutboundRingback(call: { playRingback?: () => void; stopRingback?: () => void }) {
   try {
     call.playRingback?.();
+    logDiagnosticTimeline('ringback.sdk.playRingback', {}, { ringbackSource: 'telnyx-sdk' });
   } catch (err) {
-    console.warn('Telnyx ringback unavailable:', err);
+    logDiagnosticTimeline('ringback.sdk.playRingback.failed', {}, {
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
-  // Always play local ringback — Telnyx playRingback is a no-op when there is no
-  // carrier early-media ringback (e.g. desk SIP, internal extension bridge legs).
   await startLocalRingback();
 }

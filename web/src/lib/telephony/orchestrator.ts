@@ -6,7 +6,8 @@ import {
   tickDuration,
 } from './call-fsm';
 import { evaluateInternalBridgeAutoAnswer } from './internal-bridge-policy';
-import { logTelephony } from './logger';
+import { summarizeSnapshot } from './diagnostics';
+import { logDiagnosticTimeline, logTelephony } from './logger';
 import { syncRingbackWithSnapshot } from './ringback-controller';
 import {
   mapSdkStateToCallEvents,
@@ -43,6 +44,12 @@ export class TelephonyOrchestrator {
   }
 
   dispatchCall(event: TelephonyCallEvent) {
+    logDiagnosticTimeline('fsm.dispatch', this.snapshot, {
+      dispatchedEvent: event.type,
+      fromPhase: this.snapshot.callPhase,
+      reducer: 'reduceCallEvent',
+      eventPayload: event,
+    });
     this.apply(() => reduceCallEvent(this.snapshot, event));
   }
 
@@ -50,6 +57,14 @@ export class TelephonyOrchestrator {
     const normalized = normalizeSdkCallState(call.state);
     const callId = call.id ?? '';
     const events = mapSdkStateToCallEvents(normalized, callId);
+
+    logDiagnosticTimeline('sdk.dispatchSdkNotification', this.snapshot, {
+      notificationType: eventType,
+      sdkState: normalized,
+      sdkPrevState: normalizeCallPrevStateForLog(call),
+      callId,
+      mappedEvents: events.map((entry) => entry.type),
+    });
 
     for (const event of events) {
       this.dispatchCall(event);
@@ -63,6 +78,11 @@ export class TelephonyOrchestrator {
         userAnswered,
       });
       if (confirm.confirmed) {
+        logDiagnosticTimeline('answer.REMOTE_ANSWER_CONFIRMED.dispatch', this.snapshot, {
+          callId,
+          source: confirm.source,
+          reason: confirm.reason,
+        });
         this.dispatchCall({
           type: 'REMOTE_ANSWER_CONFIRMED',
           callId,
@@ -203,10 +223,37 @@ export class TelephonyOrchestrator {
   private apply(mutator: () => TelephonySnapshot) {
     const prev = this.snapshot;
     this.snapshot = mutator();
+    const summary = summarizeSnapshot(this.snapshot);
+    const prevSummary = summarizeSnapshot(prev);
+    const connectedAtAssigned = !prev.session?.connectedAt && Boolean(this.snapshot.session?.connectedAt);
+    logDiagnosticTimeline('snapshot.updated', this.snapshot, {
+      ...summary,
+      previous: prevSummary,
+      phaseChanged: prev.callPhase !== this.snapshot.callPhase,
+      connectedAtAssigned,
+      connectedAtValue: this.snapshot.session?.connectedAt ?? null,
+    });
+    if (connectedAtAssigned) {
+      logDiagnosticTimeline('timer.connectedAt.assigned', this.snapshot, {
+        connectedAt: this.snapshot.session?.connectedAt,
+      });
+    }
     this.options.onSnapshotChange?.(this.snapshot, prev);
   }
 }
 
 export function createTelephonyOrchestrator(options?: TelephonyOrchestratorOptions) {
   return new TelephonyOrchestrator(options);
+}
+
+function normalizeCallPrevStateForLog(call: Call): string {
+  const extended = call as Call & { prevState?: string | number };
+  if (typeof extended.prevState === 'number' && Number.isFinite(extended.prevState)) {
+    const states = [
+      'new', 'requesting', 'trying', 'recovering', 'ringing', 'answering',
+      'early', 'active', 'held', 'hangup', 'destroy', 'purge',
+    ];
+    return states[extended.prevState] ?? String(extended.prevState);
+  }
+  return String(extended.prevState ?? '').trim().toLowerCase();
 }

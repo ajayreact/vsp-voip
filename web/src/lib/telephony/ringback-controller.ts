@@ -5,7 +5,9 @@ import {
 } from '@/lib/call-sounds';
 import type { TelephonySnapshot } from './types';
 import { RINGBACK_PHASES } from './types';
-import { logTelephony } from './logger';
+import { getActiveLocalToneSourceForDiagnostics } from '@/lib/call-sounds';
+import { logDiagnosticTimeline } from './logger';
+import { summarizeSnapshot } from './diagnostics';
 
 let audioPrimed = false;
 
@@ -28,13 +30,24 @@ export async function syncRingbackWithSnapshot(
 ) {
   const shouldPlay = RINGBACK_PHASES.has(snapshot.callPhase);
 
+  logDiagnosticTimeline('ringback.sync', snapshot, {
+    shouldPlay,
+    callPhase: snapshot.callPhase,
+    ringbackSource: getActiveLocalToneSourceForDiagnostics(),
+    hasSdkStopRingback: Boolean(call?.stopRingback),
+    snapshot: summarizeSnapshot(snapshot),
+  });
+
   if (shouldPlay) {
-    logTelephony('debug', 'ringback.start', snapshot);
     await startLocalRingback();
     return;
   }
 
-  logTelephony('debug', 'ringback.stop', snapshot);
+  logDiagnosticTimeline('ringback.stop', snapshot, {
+    callPhase: snapshot.callPhase,
+    reason: 'phase_left_ringback',
+    ringbackSource: getActiveLocalToneSourceForDiagnostics(),
+  });
   call?.stopRingback?.();
   stopLocalRingback();
 }

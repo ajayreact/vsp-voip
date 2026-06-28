@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   createInitialTelephonySnapshot,
   createTelephonyOrchestrator,
+  logDiagnosticTimeline,
   primeTelephonyAudio,
   selectCallDirection,
   selectCallerNameHint,
@@ -32,6 +33,7 @@ const CONNECTED_TIMER_PHASES = new Set<TelephonySnapshot['callPhase']>([
 export function useSoftphoneTelephony(getRemoteAudioElement: () => HTMLAudioElement | null) {
   const [snapshot, setSnapshot] = useState<TelephonySnapshot>(createInitialTelephonySnapshot);
   const [clockTick, setClockTick] = useState(0);
+  const prevPhaseRef = useRef<TelephonySnapshot['callPhase']>(snapshot.callPhase);
 
   const orchestrator = useMemo(
     () =>
@@ -43,14 +45,38 @@ export function useSoftphoneTelephony(getRemoteAudioElement: () => HTMLAudioElem
   );
 
   useEffect(() => {
+    if (prevPhaseRef.current === snapshot.callPhase) return;
+    logDiagnosticTimeline('callPhase.changed', snapshot, {
+      fromPhase: prevPhaseRef.current,
+      toPhase: snapshot.callPhase,
+      connectedAt: snapshot.session?.connectedAt,
+      durationSeconds: snapshot.session?.durationSeconds,
+    });
+    prevPhaseRef.current = snapshot.callPhase;
+  }, [snapshot, snapshot.callPhase]);
+
+  useEffect(() => {
     if (!CONNECTED_TIMER_PHASES.has(snapshot.callPhase) || !snapshot.session?.connectedAt) {
+      if (CONNECTED_TIMER_PHASES.has(snapshot.callPhase) && !snapshot.session?.connectedAt) {
+        logDiagnosticTimeline('timer.blocked', snapshot, {
+          callPhase: snapshot.callPhase,
+          reason: 'connectedAt_null',
+        });
+      }
       return undefined;
     }
+    logDiagnosticTimeline('timer.start', snapshot, {
+      connectedAt: snapshot.session.connectedAt,
+      callPhase: snapshot.callPhase,
+    });
     const id = window.setInterval(() => {
       setClockTick((tick) => tick + 1);
       orchestrator.tickTimer();
     }, 1000);
-    return () => window.clearInterval(id);
+    return () => {
+      logDiagnosticTimeline('timer.stopped', snapshot, { reason: 'effect_cleanup' });
+      window.clearInterval(id);
+    };
   }, [snapshot.callPhase, snapshot.session?.connectedAt, orchestrator]);
 
   useEffect(() => {

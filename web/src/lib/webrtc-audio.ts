@@ -1,4 +1,5 @@
 import type { Call } from '@telnyx/webrtc';
+import { logDiagnosticTimeline } from '@/lib/telephony/logger';
 
 type PeerLike = {
   instance?: RTCPeerConnection;
@@ -95,6 +96,11 @@ export function setLocalAudioMuted(call: Call, muted: boolean) {
   if (extended.localStream) {
     for (const track of extended.localStream.getAudioTracks()) {
       track.enabled = !muted;
+      logDiagnosticTimeline('media.localTrack.enabled', {}, {
+        enabled: track.enabled,
+        muted,
+        readyState: track.readyState,
+      });
     }
   }
 }
@@ -198,8 +204,16 @@ export async function attachRemoteCallAudio(
 
   try {
     await audioEl.play();
+    logDiagnosticTimeline('media.remoteAudio.play', {}, {
+      muted: audioEl.muted,
+      volume: audioEl.volume,
+      paused: audioEl.paused,
+    });
     return true;
-  } catch {
+  } catch (err) {
+    logDiagnosticTimeline('media.remoteAudio.play.failed', {}, {
+      error: err instanceof Error ? err.message : String(err),
+    });
     return false;
   }
 }
@@ -238,7 +252,9 @@ export function wireWebCallAudio(
           enableStreamTracks(event.streams[0]);
           if (audioEl && audioEl.srcObject !== event.streams[0]) {
             audioEl.srcObject = event.streams[0];
-            audioEl.play().catch(() => onPlaybackBlocked?.());
+            audioEl.play().then(() => {
+              logDiagnosticTimeline('media.remoteAudio.play', {}, { source: 'ontrack' });
+            }).catch(() => onPlaybackBlocked?.());
           }
         } else {
           refresh();
@@ -254,6 +270,11 @@ export function wireWebCallAudio(
 
 export function detachRemoteCallAudio(audioEl: HTMLAudioElement | null) {
   if (!audioEl) return;
+  logDiagnosticTimeline('media.detachCallMedia', {}, {
+    paused: audioEl.paused,
+    hadSrcObject: Boolean(audioEl.srcObject),
+  });
   audioEl.pause();
+  logDiagnosticTimeline('media.remoteAudio.pause', {}, {});
   audioEl.srcObject = null;
 }

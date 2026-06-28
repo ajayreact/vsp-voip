@@ -4,7 +4,7 @@ import type {
   TelephonyCallEvent,
   TelephonySnapshot,
 } from './types';
-import { logTransition } from './logger';
+import { logDiagnosticTimeline, logTransition } from './logger';
 
 function cloneSession(session: CallSessionContext | null): CallSessionContext | null {
   return session ? { ...session } : null;
@@ -110,6 +110,12 @@ export function reduceCallEvent(
   snapshot: TelephonySnapshot,
   event: TelephonyCallEvent,
 ): TelephonySnapshot {
+  logDiagnosticTimeline('fsm.reducer', snapshot, {
+    dispatchedEvent: event.type,
+    fromPhase: snapshot.callPhase,
+    reducer: 'reduceCallEvent',
+  });
+
   switch (event.type) {
     case 'RESET':
       return {
@@ -224,10 +230,21 @@ export function reduceCallEvent(
       const session = cloneSession(snapshot.session);
       if (!session) return snapshot;
       session.callId = event.callId;
+      const connectedAtBefore = session.connectedAt;
       if (!session.connectedAt) {
         session.connectedAt = Date.now();
       }
       session.awaitingDeskBridge = false;
+      logDiagnosticTimeline('answer.confirmed', {
+        ...snapshot,
+        session,
+      }, {
+        source: event.source,
+        callId: event.callId,
+        connectedAt: session.connectedAt,
+        connectedAtWasNull: connectedAtBefore == null,
+        priorPhase: snapshot.callPhase,
+      });
       if (snapshot.callPhase === 'connected' || snapshot.callPhase === 'hold' || snapshot.callPhase === 'recording') {
         return { ...snapshot, session, pendingInternal: null };
       }
@@ -335,6 +352,15 @@ export function tickDuration(snapshot: TelephonySnapshot, now = Date.now()): Tel
   const session = cloneSession(snapshot.session);
   if (!session?.connectedAt) return snapshot;
   const durationSeconds = Math.max(0, Math.floor((now - session.connectedAt) / 1000));
+  const prevDuration = session.durationSeconds;
   session.durationSeconds = durationSeconds;
+  if (durationSeconds !== prevDuration) {
+    logDiagnosticTimeline('timer.tick', snapshot, {
+      durationSeconds,
+      previousDuration: prevDuration,
+      connectedAt: session.connectedAt,
+      callPhase: snapshot.callPhase,
+    });
+  }
   return { ...snapshot, session };
 }

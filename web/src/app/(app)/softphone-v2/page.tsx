@@ -61,7 +61,8 @@ import { isInboundMissedStatus } from '@/components/softphone-v2/utils';
 import { TenantOnlyGate } from '@/components/tenant-only-gate';
 import { SoftphoneV2ErrorBoundary } from '@/components/softphone-v2-error-boundary';
 import { useSoftphoneTelephony } from '@/hooks/use-softphone-telephony';
-import { selectIsConnected } from '@/lib/telephony';
+import { getActiveLocalToneSourceForDiagnostics } from '@/lib/call-sounds';
+import { logDiagnosticTimeline, selectIsConnected } from '@/lib/telephony';
 
 const REMOTE_AUDIO_ID = 'softphone-v2-remote';
 const CALL_HISTORY_KEY = 'softphone-v2-call-history';
@@ -153,6 +154,14 @@ function normalizeCallState(state: string | number | undefined | null) {
     return TELNYX_STATE_BY_NUMBER[state] ?? String(state);
   }
   return String(state ?? '').trim().toLowerCase();
+}
+
+function normalizeCallPrevState(call: Call): string {
+  const extended = call as Call & { prevState?: string | number };
+  if (typeof extended.prevState === 'number' && Number.isFinite(extended.prevState)) {
+    return TELNYX_STATE_BY_NUMBER[extended.prevState] ?? String(extended.prevState);
+  }
+  return String(extended.prevState ?? '').trim().toLowerCase();
 }
 
 function resolveCallLogParties(
@@ -540,6 +549,7 @@ function SoftphoneV2Content() {
   };
 
   const clearCallMedia = () => {
+    logDiagnosticTimeline('media.detachCallMedia', orchestrator.getSnapshot(), { source: 'clearCallMedia' });
     sendPathProbeStopRef.current?.();
     sendPathProbeStopRef.current = null;
     clearWebRtcDiagnosticsSnapshot();
@@ -550,6 +560,15 @@ function SoftphoneV2Content() {
 
   const attachCallMedia = (call: Call, label: string) => {
     const audioEl = getRemoteAudioElement();
+    const snap = orchestrator.getSnapshot();
+    logDiagnosticTimeline('media.attachCallMedia', snap, {
+      label,
+      sdkState: normalizeCallState(call.state),
+      sdkPrevState: normalizeCallPrevState(call),
+      callPhase: snap.callPhase,
+      ringbackSource: getActiveLocalToneSourceForDiagnostics(),
+      hasRemoteAudioEl: Boolean(audioEl),
+    });
 
     const wireOnce = () => {
       if (unwireCallAudioRef.current) return true;
@@ -843,6 +862,12 @@ function SoftphoneV2Content() {
     connectedTelemetryRef.current = callId;
     if (callSessionRef.current?.callId === callId) {
       callSessionRef.current.reachedActive = true;
+      logDiagnosticTimeline('session.markCallSessionActive', telephonySnapshot, {
+        callId,
+        reachedActive: true,
+        connectedAt: telephonySnapshot.session?.connectedAt,
+        durationSeconds: telephonySnapshot.session?.durationSeconds,
+      });
     }
     trackCallConnected(callId, session.remoteLabel, session.direction);
     postServerCallLog({
@@ -1047,10 +1072,23 @@ function SoftphoneV2Content() {
           if (payload.call) {
             callRef.current = payload.call;
             const normalized = normalizeCallState(payload.call.state);
+            const prevState = normalizeCallPrevState(payload.call);
             logTelnyx('telnyx.notification.call', {
               type: payload.type,
               id: payload.call.id,
               state: payload.call.state,
+            });
+            logDiagnosticTimeline('sdk.notification', orchestrator.getSnapshot(), {
+              notificationType: payload.type,
+              sdkState: normalized,
+              sdkPrevState: prevState,
+              rawState: payload.call.state,
+              callId: payload.call.id,
+              callSessionId: (payload as { call_session_id?: string }).call_session_id
+                ?? (payload.call as Call & { callSessionId?: string }).callSessionId
+                ?? null,
+              direction: payload.call.direction,
+              ringbackSource: getActiveLocalToneSourceForDiagnostics(),
             });
             if (mounted) {
               const ownedInboundNumbers = getOwnedInboundNumbers();
@@ -1633,6 +1671,10 @@ function SoftphoneV2Content() {
     const next = !speakerOn;
     audioEl.volume = next ? 1 : 0.35;
     setSpeakerOn(next);
+    logDiagnosticTimeline('media.speaker.routing', orchestrator.getSnapshot(), {
+      speakerOn: next,
+      remoteVolume: audioEl.volume,
+    });
     logTelnyx('speaker.toggle', { speakerOn: next });
   };
 

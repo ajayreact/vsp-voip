@@ -1,4 +1,5 @@
 import { playOutboundRingback, startLocalRingback, stopLocalRingback } from '@/lib/call-sounds';
+import { logDiagnosticTimeline } from '@/lib/telephony/logger';
 import {
   shouldPlayOutboundRingback,
   shouldStopOutboundRingback,
@@ -29,6 +30,10 @@ export async function syncOutboundRingback(
 export function stopOutboundRingback(
   call: { stopRingback?: () => void } | null = null,
 ) {
+  logDiagnosticTimeline('ringback.stopOutboundRingback', {}, {
+    hasSdkStopRingback: Boolean(call?.stopRingback),
+    source: 'softphone-v2-ringback',
+  });
   call?.stopRingback?.();
   stopLocalRingback();
 }

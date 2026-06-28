@@ -1,5 +1,6 @@
 export * from './types';
 export * from './logger';
+export * from './diagnostics';
 export * from './call-fsm';
 export * from './internal-bridge-policy';
 export * from './telnyx-mapper';

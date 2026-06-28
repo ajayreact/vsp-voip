@@ -1,5 +1,7 @@
 import type { Call } from '@telnyx/webrtc';
 import { OUTBOUND_REMOTE_RING_STATES } from '@/lib/softphone-outbound-answer';
+import { classifyAnswerConfirmReason } from './diagnostics';
+import { logDiagnosticTimeline } from './logger';
 import type { CallSessionContext, TelephonyCallEvent } from './types';
 
 const TELNYX_STATE_BY_NUMBER = [
@@ -66,32 +68,48 @@ export function shouldConfirmRemoteAnswer(input: {
   session: CallSessionContext;
   eventType?: string;
   userAnswered?: boolean;
-}): { confirmed: boolean; source: string } {
+}): { confirmed: boolean; source: string; reason: string } {
   const { call, session, eventType, userAnswered } = input;
+  let result: { confirmed: boolean; source: string };
 
   if (session.direction === 'inbound') {
     if (userAnswered) {
-      return { confirmed: true, source: 'inbound_user_answer' };
+      result = { confirmed: true, source: 'inbound_user_answer' };
+    } else {
+      result = { confirmed: false, source: 'inbound_deferred' };
     }
-    return { confirmed: false, source: 'inbound_deferred' };
-  }
-
-  if (session.kind === 'internal_extension' && !session.bridgeAutoAnswered) {
-    return { confirmed: false, source: 'internal_pre_bridge' };
-  }
-
-  if (session.awaitingDeskBridge) {
+  } else if (session.kind === 'internal_extension' && !session.bridgeAutoAnswered) {
+    result = { confirmed: false, source: 'internal_pre_bridge' };
+  } else if (session.awaitingDeskBridge) {
     if (session.activeTransitionCount >= 2) {
-      return { confirmed: true, source: 'internal_bridge_second_active' };
+      result = { confirmed: true, source: 'internal_bridge_second_active' };
+    } else {
+      result = { confirmed: false, source: 'internal_bridge_deferred' };
     }
-    return { confirmed: false, source: 'internal_bridge_deferred' };
+  } else if (canConfirmFromSession(call)) {
+    result = { confirmed: true, source: eventType ? `pstn_${eventType}` : 'pstn_active' };
+  } else {
+    result = { confirmed: false, source: 'pstn_deferred' };
   }
 
-  if (canConfirmFromSession(call)) {
-    return { confirmed: true, source: eventType ? `pstn_${eventType}` : 'pstn_active' };
-  }
+  const reason = classifyAnswerConfirmReason(result.source);
+  const prev = normalizeCallPrevState(call);
+  logDiagnosticTimeline('answer.shouldConfirmRemoteAnswer', {}, {
+    confirmed: result.confirmed,
+    source: result.source,
+    reason,
+    sdkState: normalizeSdkCallState(call.state),
+    sdkPrevState: prev,
+    eventType,
+    remoteRingSeen: session.remoteRingSeen,
+    activeTransitionCount: session.activeTransitionCount,
+    awaitingDeskBridge: session.awaitingDeskBridge,
+    bridgeAutoAnswered: session.bridgeAutoAnswered,
+    kind: session.kind,
+    direction: session.direction,
+  });
 
-  return { confirmed: false, source: 'pstn_deferred' };
+  return { ...result, reason };
 }
 
 export function isTerminalSdkState(state: string): boolean {
