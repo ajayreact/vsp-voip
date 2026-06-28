@@ -1142,6 +1142,8 @@ function SoftphoneV2Content() {
           if (mounted) {
             setTelnyxSocketConnected(false);
             setTelnyxReady(false);
+            setReconnecting(true);
+            setStatus('Reconnecting…');
           }
           if (tearingDownRef.current || !mounted) return;
           reconnectControllerRef.current?.schedule();
@@ -1436,6 +1438,9 @@ function SoftphoneV2Content() {
     const { destinationNumber, isExtension } = resolveOutboundDestination(number);
     logTelnyx('call.click', { destinationNumber, callerNumber, isExtension });
 
+    // Prime autoplay on user gesture without blocking the outbound call path.
+    void primeCallAudio(getRemoteAudioElement()).catch(() => {});
+
     if (!telnyxReady) {
       logTelnyx('call.blocked', 'not registered');
       setStatus('Softphone not registered — wait for Ready status');
@@ -1459,7 +1464,6 @@ function SoftphoneV2Content() {
     resetInCallControls();
     resetOutboundAnswerGate();
     setDisplayNumber(destinationNumber);
-    await primeCallAudio(getRemoteAudioElement());
 
     if (isExtension) {
       try {
@@ -1536,7 +1540,32 @@ function SoftphoneV2Content() {
   };
 
   const onCall = () => {
-    onCallWithDestination(destination);
+    console.log('Dial button pressed');
+    console.log('canPlaceCall', canPlaceCall);
+    console.log('telnyxReady', telnyxReady);
+    console.log('connectionState', {
+      telnyxReady,
+      telnyxSocketConnected,
+      reconnecting,
+    });
+    console.log('number', destination);
+    if (!canPlaceCall) {
+      logTelnyx('call.blocked.ui', {
+        telnyxReady,
+        reconnecting,
+        destination,
+        callerNumber,
+        validDial: isValidDialInput(destination),
+      });
+      if (!telnyxReady) {
+        setStatus('Softphone not registered — wait for Ready status');
+      }
+      return;
+    }
+    void onCallWithDestination(destination).catch((err) => {
+      logTelnyx('call.unhandled-error', err);
+      setStatus(err instanceof Error ? err.message : 'Call failed');
+    });
   };
 
   const onAnswer = async () => {
@@ -1804,6 +1833,8 @@ function SoftphoneV2Content() {
   };
 
   const canPlaceCall = telnyxReady
+    && telnyxSocketConnected
+    && !reconnecting
     && isValidDialInput(destination)
     && Boolean(callerNumber);
   const hasLiveCall = Boolean(callRef.current && callState && !['hangup', 'destroy', 'destroyed', 'purge', 'error', ''].includes(callState))
