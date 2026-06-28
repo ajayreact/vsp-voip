@@ -34,7 +34,7 @@ import {
   resolveInboundCallerNameHint,
   type InboundCallerNotification,
 } from '@/lib/inbound-caller-display';
-import { isInboundCall } from '@/lib/softphone-call-utils';
+import { isInboundCall, extractCallFromNotification } from '@/lib/softphone-call-utils';
 import { isTerminalSdkState, normalizeSdkCallState } from '@/lib/telephony/telnyx-mapper';
 import { LIVE_CALL_PHASES } from '@/lib/telephony/types';
 import {
@@ -92,6 +92,12 @@ const DTMF_ROWS = [
   ['*', '0', '#'],
 ] as const;
 
+export const SOFTPHONE_AUDIO_CONSTRAINTS: MediaTrackConstraints = {
+  echoCancellation: true,
+  noiseSuppression: true,
+  autoGainControl: true,
+};
+
 async function acquireMicrophoneStream(
   holder: { current: MediaStream | null },
 ): Promise<MediaStream> {
@@ -99,7 +105,9 @@ async function acquireMicrophoneStream(
     throw new Error('Microphone access is not available in this browser');
   }
   holder.current?.getTracks().forEach((track) => track.stop());
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: SOFTPHONE_AUDIO_CONSTRAINTS,
+  });
   holder.current = stream;
   return stream;
 }
@@ -1026,53 +1034,55 @@ function SoftphoneV2Content() {
         client.on('telnyx.notification', (notification: unknown) => {
           logTelnyx('telnyx.notification', notification);
           const payload = notification as TelnyxNotificationPayload;
-          if (payload.call) {
-            callRef.current = payload.call;
-            const normalized = normalizeCallState(payload.call.state);
-            const prevState = normalizeCallPrevState(payload.call);
+          const notificationCall = extractCallFromNotification(payload) ?? payload.call ?? null;
+          if (notificationCall) {
+            callRef.current = notificationCall;
+            const normalized = normalizeCallState(notificationCall.state);
+            const prevState = normalizeCallPrevState(notificationCall);
             logTelnyx('telnyx.notification.call', {
               type: payload.type,
-              id: payload.call.id,
-              state: payload.call.state,
+              id: notificationCall.id,
+              state: notificationCall.state,
+              direction: (notificationCall as Call & { direction?: string }).direction,
             });
             logDiagnosticTimeline('sdk.notification', orchestrator.getSnapshot(), {
               notificationType: payload.type,
               sdkState: normalized,
               sdkPrevState: prevState,
-              rawState: payload.call.state,
-              callId: payload.call.id,
+              rawState: notificationCall.state,
+              callId: notificationCall.id,
               callSessionId: (payload as { call_session_id?: string }).call_session_id
-                ?? (payload.call as Call & { callSessionId?: string }).callSessionId
+                ?? (notificationCall as Call & { callSessionId?: string }).callSessionId
                 ?? null,
-              direction: payload.call.direction,
+              direction: (notificationCall as Call & { direction?: string }).direction,
               ringbackSource: getActiveLocalToneSourceForDiagnostics(),
             });
             if (mounted) {
               const ownedInboundNumbers = getOwnedInboundNumbers();
               const snap = orchestrator.getSnapshot();
-              const callId = payload.call.id ?? '';
+              const callId = notificationCall.id ?? '';
               const terminal = isTerminalSdkState(normalized);
               const callAlreadyFinalized = Boolean(
                 callId && finalizedCallIdsRef.current.has(callId),
               );
               const outboundSessionLive = snap.session?.direction === 'outbound'
                 && LIVE_CALL_PHASES.has(snap.callPhase);
-              const notificationIsInbound = isInboundCall(payload.call) && !outboundSessionLive;
+              const notificationIsInbound = isInboundCall(notificationCall) && !outboundSessionLive;
               const notificationIsOutboundLeg = snap.session?.direction === 'outbound'
                 || callSessionRef.current?.direction === 'outbound';
 
               const pstnCallerHint = callSessionRef.current?.pstnCaller || '';
               const prevLabel = snap.session?.remoteLabel ?? displayNumberRef.current;
               const resolved = resolveCallDisplayNumber(
-                payload.call,
+                notificationCall,
                 prevLabel,
                 payload,
                 ownedInboundNumbers,
                 pstnCallerHint,
               );
 
-              if (isInboundCall(payload.call)) {
-                const hint = resolveInboundCallerNameHint(payload.call as CallDisplayFields);
+              if (isInboundCall(notificationCall)) {
+                const hint = resolveInboundCallerNameHint(notificationCall as CallDisplayFields);
                 const retained = prevLabel
                   || callSessionRef.current?.number
                   || '';
@@ -1091,7 +1101,7 @@ function SoftphoneV2Content() {
                 && !callAlreadyFinalized
               ) {
                 const inboundNumber = resolveCallDisplayNumber(
-                  payload.call,
+                  notificationCall,
                   '',
                   payload,
                   ownedInboundNumbers,
@@ -1111,7 +1121,7 @@ function SoftphoneV2Content() {
                     remoteLabel: inboundNumber,
                     logFrom: parties.from,
                     logTo: parties.to,
-                    callerNameHint: resolveInboundCallerNameHint(payload.call as CallDisplayFields),
+                    callerNameHint: resolveInboundCallerNameHint(notificationCall as CallDisplayFields),
                   });
                   beginCallSession(callId, inboundNumber, 'inbound');
                 } else if (inboundNumber !== 'Unknown') {
@@ -1132,38 +1142,38 @@ function SoftphoneV2Content() {
                 || (normalized === 'early' && !notificationIsInbound);
               if (shouldAttachMedia && callId) {
                 attachCallMedia(
-                  payload.call,
+                  notificationCall,
                   notificationIsInbound
                     ? `inbound:${normalized}`
                     : `outbound:${normalized}`,
                 );
                 stopIncomingRingtoneRef.current();
                 if (!notificationIsInbound) {
-                  orchestrator.dispatchSdkNotification(payload.call, payload.type);
+                  orchestrator.dispatchSdkNotification(notificationCall, payload.type);
                 }
               } else if (normalized === 'held' && callId && snap.session) {
-                orchestrator.dispatchSdkNotification(payload.call, payload.type);
+                orchestrator.dispatchSdkNotification(notificationCall, payload.type);
               } else if (
                 callId
                 && payload.type
                 && notificationIsInbound
                 && !terminal
               ) {
-                orchestrator.dispatchSdkNotification(payload.call, payload.type);
+                orchestrator.dispatchSdkNotification(notificationCall, payload.type);
               } else if (
                 callId
                 && payload.type
                 && !notificationIsInbound
                 && notificationIsOutboundLeg
               ) {
-                orchestrator.dispatchSdkNotification(payload.call, payload.type);
+                orchestrator.dispatchSdkNotification(notificationCall, payload.type);
               }
 
               if (terminal) {
                 orchestrator.terminal(normalized === 'error' ? 'failed' : normalized);
                 if (callSessionRef.current) {
                   callSessionRef.current.terminationReason = extractHangupCause(
-                    payload.call,
+                    notificationCall,
                     payload,
                   );
                 }
@@ -1568,11 +1578,6 @@ function SoftphoneV2Content() {
     if (!call || !inCallMediaReady) return;
     try {
       const nextMuted = !telephonyMuted;
-      if (nextMuted) {
-        call.muteAudio?.();
-      } else {
-        call.unmuteAudio?.();
-      }
       setLocalAudioMuted(call, nextMuted);
       orchestrator.setMuted(nextMuted);
       logTelnyx('mute.toggle', { muted: nextMuted });

@@ -24,11 +24,18 @@ export function isInboundCall(call: Call | null | undefined) {
     (call as Call & { direction?: string }).direction || '',
   ).toLowerCase();
 
+  if (direction === 'outbound') return false;
   if (direction === 'inbound' || direction === 'incoming') return true;
 
-  const options = (call as Call & {
+  const extended = call as Call & {
+    remotePartyNumber?: string;
     options?: { destinationNumber?: string; remoteCallerNumber?: string };
-  }).options;
+  };
+
+  // Telnyx JS SDK: inbound caller on call.remotePartyNumber (call-state-lifecycle.md).
+  if (extended.remotePartyNumber) return true;
+
+  const options = extended.options;
 
   // Outbound calls always set destinationNumber; inbound INVITEs expose remote caller instead.
   return Boolean(options?.remoteCallerNumber && !options?.destinationNumber);
@@ -78,12 +85,20 @@ export function isConnectingCallState(state: string | undefined) {
 export function extractCallFromNotification(notification: TelnyxSoftphoneNotification | null | undefined) {
   if (!notification?.call) return null;
 
-  const type = String(notification.type || '');
-  if (CALL_NOTIFICATION_TYPES.has(type) || type.includes('invite') || type.includes('attach')) {
+  const type = String(notification.type || '').toLowerCase();
+  if (type === 'error') return null;
+
+  if (
+    CALL_NOTIFICATION_TYPES.has(String(notification.type || ''))
+    || type.includes('invite')
+    || type.includes('attach')
+    || type.includes('callupdate')
+  ) {
     return notification.call;
   }
 
-  return null;
+  // Some SDK builds emit call-bearing notifications with non-standard type strings.
+  return notification.call;
 }
 
 export function shouldTrackInboundCall(call: Call, watchedCallId: string | null) {

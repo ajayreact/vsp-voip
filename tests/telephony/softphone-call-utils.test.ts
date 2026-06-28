@@ -27,4 +27,10 @@ describe('isInboundCall', () => {
       options: { destinationNumber: '+13135551212' },
     }))).toBe(false);
   });
+
+  it('detects inbound via remotePartyNumber', () => {
+    expect(isInboundCall(mockCall({
+      remotePartyNumber: '+13135551212',
+    }))).toBe(true);
+  });
 });

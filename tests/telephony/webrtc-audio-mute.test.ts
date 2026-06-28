@@ -48,4 +48,25 @@ describe('webrtc-audio mute + wire guards', () => {
     const call = mockCall({ remoteStream: undefined, state: 'active' });
     expect(canWireRemoteCallAudio(call)).toBe(true);
   });
+
+  it('restores local senders after unmute via SDK unmuteAudio', () => {
+    const track = { kind: 'audio', enabled: false, readyState: 'live', muted: false };
+    const unmuteAudio = vi.fn(() => {
+      track.enabled = true;
+    });
+    const pc = {
+      getSenders: () => [{ track }],
+    } as unknown as RTCPeerConnection;
+
+    const call = mockCall({
+      peer: { instance: pc },
+      unmuteAudio,
+      _vspMuteIntent: true,
+    });
+    setLocalAudioMuted(call, false);
+
+    expect(unmuteAudio).toHaveBeenCalled();
+    expect(track.enabled).toBe(true);
+    expect((call as Call & { _vspMuteIntent?: boolean })._vspMuteIntent).toBe(false);
+  });
 });

@@ -81,19 +81,24 @@ function isLocalAudioIntentionallyMuted(call: Call): boolean {
   return Boolean(extended._vspMuteIntent ?? extended.isAudioMuted);
 }
 
-/** Enable and verify local microphone send path (inbound + outbound). */
+/** Documented Telnyx SDK mute/unmute with local track sync. */
 export function setLocalAudioMuted(call: Call, muted: boolean) {
   const extended = call as CallWithMuteIntent;
-  extended._vspMuteIntent = muted;
 
-  try {
-    if (muted) {
+  if (muted) {
+    extended._vspMuteIntent = true;
+    try {
       extended.muteAudio?.();
-    } else {
-      extended.unmuteAudio?.();
+    } catch {
+      // SDK mute API failed — fall through to track-level mute
     }
-  } catch {
-    // SDK mute API failed — fall through to track-level mute
+  } else {
+    try {
+      extended.unmuteAudio?.();
+    } catch {
+      // SDK unmute API failed — fall through to track-level restore
+    }
+    extended._vspMuteIntent = false;
   }
 
   const pc = resolvePeerConnection(call) ?? undefined;
@@ -116,8 +121,8 @@ export function setLocalAudioMuted(call: Call, muted: boolean) {
 }
 
 export function readCallAudioMuted(call: Call): boolean {
-  const extended = call as Call & { isAudioMuted?: boolean };
-  return Boolean(extended.isAudioMuted);
+  const extended = call as CallWithMuteIntent;
+  return Boolean(extended._vspMuteIntent ?? extended.isAudioMuted);
 }
 
 export function readCallHeld(call: Call): boolean {
@@ -186,6 +191,18 @@ function resolveRemoteStream(call: Call, pc: RTCPeerConnection | undefined): Med
   return collectRemoteStream(pc);
 }
 
+function streamsShareLiveAudio(
+  current: MediaProvider | null | undefined,
+  next: MediaStream,
+): boolean {
+  if (!current || !(current instanceof MediaStream)) return false;
+  if (current === next) return true;
+  const currentTracks = current.getAudioTracks().filter((track) => track.readyState === 'live');
+  const nextTracks = next.getAudioTracks().filter((track) => track.readyState === 'live');
+  if (!currentTracks.length || currentTracks.length !== nextTracks.length) return false;
+  return currentTracks.every((track, index) => track.id === nextTracks[index]?.id);
+}
+
 /** Telnyx SDK may expose remote media on call.remoteStream before peer.instance is populated. */
 export function canWireRemoteCallAudio(call: Call): boolean {
   if (resolvePeerConnection(call)) return true;
@@ -210,12 +227,24 @@ export async function attachRemoteCallAudio(
 
   enableStreamTracks(stream);
 
-  if (audioEl.srcObject !== stream) {
+  const alreadyPlayingSameStream = streamsShareLiveAudio(audioEl.srcObject, stream)
+    && !audioEl.paused
+    && audioEl.currentTime > 0;
+
+  if (alreadyPlayingSameStream) {
+    return true;
+  }
+
+  if (!streamsShareLiveAudio(audioEl.srcObject, stream)) {
     audioEl.srcObject = stream;
   }
 
   audioEl.muted = false;
   audioEl.volume = 1;
+
+  if (!audioEl.paused && streamsShareLiveAudio(audioEl.srcObject, stream)) {
+    return true;
+  }
 
   try {
     await audioEl.play();
@@ -239,48 +268,67 @@ export function wireWebCallAudio(
   onPlaybackBlocked?: () => void,
 ): () => void {
   const peer = getPeer(call);
-  const pc = resolvePeerConnection(call);
+  let stopped = false;
+  let fallbackTimer: number | null = null;
 
   const refresh = () => {
-    verifyLocalAudioSenders(call, pc ?? undefined);
-    attachRemoteCallAudio(call, audioEl).then((playing) => {
-      if (!playing) onPlaybackBlocked?.();
+    if (stopped) return;
+    const pc = resolvePeerConnection(call) ?? undefined;
+    verifyLocalAudioSenders(call, pc);
+    void attachRemoteCallAudio(call, audioEl).then((playing) => {
+      if (stopped) return;
+      if (playing) {
+        if (fallbackTimer != null) {
+          window.clearInterval(fallbackTimer);
+          fallbackTimer = null;
+        }
+        return;
+      }
+      onPlaybackBlocked?.();
+      if (fallbackTimer == null) {
+        fallbackTimer = window.setInterval(refresh, 2000);
+      }
     });
   };
 
   refresh();
 
+  const previousOnAddRemoteStream = peer?.onAddRemoteStream;
   if (peer) {
-    const previous = peer.onAddRemoteStream;
     peer.onAddRemoteStream = (session, stream) => {
-      previous?.(session, stream);
+      previousOnAddRemoteStream?.(session, stream);
       enableStreamTracks(stream);
       refresh();
     };
   }
 
+  const pc = resolvePeerConnection(call);
+  const previousOntrack = pc?.ontrack ?? null;
   if (pc) {
     pc.ontrack = (event) => {
-      if (event.track.kind === 'audio') {
-        event.track.enabled = true;
-        if (event.streams[0]) {
-          enableStreamTracks(event.streams[0]);
-          if (audioEl && audioEl.srcObject !== event.streams[0]) {
-            audioEl.srcObject = event.streams[0];
-            audioEl.play().then(() => {
-              logDiagnosticTimeline('media.remoteAudio.play', {}, { source: 'ontrack' });
-            }).catch(() => onPlaybackBlocked?.());
-          }
-        } else {
-          refresh();
-        }
+      previousOntrack?.call(pc, event);
+      if (event.track.kind !== 'audio') return;
+      event.track.enabled = true;
+      if (event.streams[0]) {
+        enableStreamTracks(event.streams[0]);
       }
+      refresh();
     };
   }
 
-  const timerId = window.setInterval(refresh, 250);
-
-  return () => window.clearInterval(timerId);
+  return () => {
+    stopped = true;
+    if (fallbackTimer != null) {
+      window.clearInterval(fallbackTimer);
+      fallbackTimer = null;
+    }
+    if (peer) {
+      peer.onAddRemoteStream = previousOnAddRemoteStream ?? undefined;
+    }
+    if (pc) {
+      pc.ontrack = previousOntrack;
+    }
+  };
 }
 
 export function detachRemoteCallAudio(audioEl: HTMLAudioElement | null) {

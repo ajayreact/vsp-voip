@@ -67,6 +67,7 @@ export function bindRemoteAudioTarget(
   (client as { remoteElement?: HTMLMediaElement }).remoteElement = audioEl;
   audioEl.autoplay = true;
   audioEl.muted = false;
+  audioEl.setAttribute('playsinline', 'true');
 }
 
 export function scheduleTelnyxReconnect(
