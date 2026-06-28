@@ -7,6 +7,8 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${REPO_ROOT}"
 
 REQUIRED_COMMIT="${REQUIRED_COMMIT:-527b0cafd7b6128cccaece554f72372326ae1726}"
+# Optional: pin deploy to a specific increment (e.g. e09648c, 4ed4837, bfed5d6)
+DEPLOY_COMMIT="${DEPLOY_COMMIT:-}"
 BRANCH="${DEPLOY_BRANCH:-main}"
 
 echo "==> VSP API deploy (${REPO_ROOT})"
@@ -16,6 +18,11 @@ echo "==> Minimum commit (bridge grace): ${REQUIRED_COMMIT}"
 git fetch origin "${BRANCH}"
 git checkout "${BRANCH}"
 git pull origin "${BRANCH}"
+
+if [[ -n "${DEPLOY_COMMIT}" ]]; then
+  echo "==> Checking out deploy pin: ${DEPLOY_COMMIT}"
+  git checkout "${DEPLOY_COMMIT}"
+fi
 
 CURRENT="$(git rev-parse HEAD)"
 echo "==> Current HEAD: ${CURRENT} ($(git log -1 --format='%s'))"
@@ -80,6 +87,16 @@ if [[ "${SYNC_CODE}" != "401" ]]; then
 fi
 
 echo ""
-echo "==> Deploy complete. Run from your workstation:"
-echo "    API_URL=https://api.vspphone.com node scripts/diagnose-did-sync.js"
-echo "    API_URL=https://api.vspphone.com EMAIL=... PASSWORD=... node scripts/diagnose-did-sync.js"
+echo "==> Verify pending inbound caller route (expect 401 without token)"
+PENDING_CODE="$(curl -s -o /dev/null -w '%{http_code}' \
+  http://127.0.0.1:3000/api/softphone/pending-inbound-caller)"
+echo "GET /api/softphone/pending-inbound-caller -> ${PENDING_CODE}"
+
+if [[ "${PENDING_CODE}" == "404" ]]; then
+  echo "WARN: pending-inbound-caller missing (deploy D3 / bfed5d6+ for inbound caller ID fix)"
+elif [[ "${PENDING_CODE}" != "401" ]]; then
+  echo "WARN: expected 401 for unauthenticated pending-caller probe, got ${PENDING_CODE}"
+fi
+
+echo ""
+echo "==> Deploy complete. See docs/vsp/phase3/10-production-deploy-increments.md"

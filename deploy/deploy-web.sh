@@ -21,6 +21,11 @@ cd "${REPO_ROOT}"
 echo "==> git pull"
 git pull origin main
 
+if [[ -n "${DEPLOY_COMMIT:-}" ]]; then
+  echo "==> Checking out deploy pin: ${DEPLOY_COMMIT}"
+  git checkout "${DEPLOY_COMMIT}"
+fi
+
 cd "${WEB_DIR}"
 
 expected_next="$(node -p "require('./package.json').dependencies.next")"
