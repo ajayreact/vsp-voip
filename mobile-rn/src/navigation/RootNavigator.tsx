@@ -19,9 +19,7 @@ import { useCallingStore } from '../store/callingStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { AuthNavigator } from './AuthNavigator';
 import { MainTabNavigator } from './MainTabNavigator';
-import { CallOverlay } from '../calling/CallOverlay';
-import { TelnyxCallingProvider } from '../calling/TelnyxCallingProvider';
-import { AuthenticatedSyncProviders } from '../providers/AuthenticatedSyncProviders';
+import { AuthenticatedCallShell, LazyCallOverlay } from '../calling/AuthenticatedCallShell';
 import { FONT_SIZE_MULTIPLIERS } from '../shared/theme/typography';
 import { ThemeContext, resolveThemeColors, type ThemeMode } from '../shared/theme';
 import { navigationRef } from './navigationRef';
@@ -155,7 +153,7 @@ export function RootNavigator() {
           )}
         </Stack.Navigator>
       </NavigationContainer>
-      {isAuthenticated && !sessionExpired ? <CallOverlay /> : null}
+      {isAuthenticated && !sessionExpired ? <LazyCallOverlay /> : null}
       <BiometricOptInModal
         visible={pendingBiometricOptIn}
         biometricLabel={biometricLabel}
@@ -168,9 +166,7 @@ export function RootNavigator() {
   return (
     <ThemeContext.Provider value={themeContextValue}>
       {isAuthenticated && !sessionExpired ? (
-        <TelnyxCallingProvider>
-          <AuthenticatedSyncProviders>{mainContent}</AuthenticatedSyncProviders>
-        </TelnyxCallingProvider>
+        <AuthenticatedCallShell>{mainContent}</AuthenticatedCallShell>
       ) : (
         mainContent
       )}

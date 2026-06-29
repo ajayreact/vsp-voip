@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { Call } from '@telnyx/react-voice-commons-sdk';
-import { TelnyxCallState, TelnyxConnectionState } from '@telnyx/react-voice-commons-sdk';
+import { VspCallState, VspConnectionState } from '../calling/vspTelephonyState';
 
 export type CallUiIdentity = {
   name: string;
@@ -13,7 +13,7 @@ export type CallUiIdentity = {
 export type CallSessionSnapshot = {
   call: Call;
   callId: string;
-  state: TelnyxCallState;
+  state: VspCallState;
   isMuted: boolean;
   isHeld: boolean;
   duration: number;
@@ -26,7 +26,7 @@ export type CallSessionSnapshot = {
 };
 
 type CallingState = {
-  connectionState: TelnyxConnectionState;
+  connectionState: VspConnectionState;
   registrationError: string | null;
   isRegistering: boolean;
   registrationAttempt: number;
@@ -34,7 +34,7 @@ type CallingState = {
   defaultCallerId: string;
   incomingCall: CallSessionSnapshot | null;
   activeCall: CallSessionSnapshot | null;
-  setConnectionState: (state: TelnyxConnectionState) => void;
+  setConnectionState: (state: VspConnectionState) => void;
   setRegistrationError: (message: string | null) => void;
   setIsRegistering: (value: boolean) => void;
   setTenantNumbers: (numbers: string[], defaultCallerId: string) => void;
@@ -49,7 +49,7 @@ type CallingState = {
 };
 
 export const useCallingStore = create<CallingState>((set) => ({
-  connectionState: TelnyxConnectionState.DISCONNECTED,
+  connectionState: VspConnectionState.DISCONNECTED,
   registrationError: null,
   isRegistering: false,
   registrationAttempt: 0,

@@ -1,8 +1,5 @@
 import { useMemo } from 'react';
-import {
-  TelnyxConnectionState,
-  canMakeCalls,
-} from '@telnyx/react-voice-commons-sdk';
+import { canMakeCalls, VspConnectionState } from '../calling/vspTelephonyState';
 import { useAppStore } from '../store/appStore';
 import { useCallingStore } from '../store/callingStore';
 
@@ -17,7 +14,7 @@ export type PhoneConnectionStatus =
 
 type ResolveParams = {
   isOnline: boolean;
-  connectionState: TelnyxConnectionState;
+  connectionState: VspConnectionState;
   isRegistering: boolean;
   registrationError: string | null;
 };
@@ -33,13 +30,13 @@ export function resolvePhoneConnectionStatus({
   if (isRegistering) return 'registering';
 
   switch (connectionState) {
-    case TelnyxConnectionState.CONNECTED:
+    case VspConnectionState.CONNECTED:
       return 'connected';
-    case TelnyxConnectionState.CONNECTING:
+    case VspConnectionState.CONNECTING:
       return 'connecting';
-    case TelnyxConnectionState.RECONNECTING:
+    case VspConnectionState.RECONNECTING:
       return 'reconnecting';
-    case TelnyxConnectionState.ERROR:
+    case VspConnectionState.ERROR:
       return 'auth_failed';
     default:
       return 'disconnected';

@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
-import { TelnyxConnectionState } from '@telnyx/react-voice-commons-sdk';
+import { VspConnectionState } from '../calling/vspTelephonyState';
 import { useAppStore } from '../store/appStore';
 import { useCallingStore } from '../store/callingStore';
 import { useTheme } from '../shared/theme';
@@ -35,7 +35,7 @@ export function NetworkStatusBanner() {
     );
   }
 
-  if (isOnline && connectionState !== TelnyxConnectionState.RECONNECTING) return null;
+  if (isOnline && connectionState !== VspConnectionState.RECONNECTING) return null;
 
   const message = !isOnline
     ? hasLiveCall

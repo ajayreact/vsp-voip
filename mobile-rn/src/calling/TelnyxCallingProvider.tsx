@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   TelnyxVoiceApp,
   createTokenConfig,
@@ -24,6 +24,10 @@ import { getTelnyxVoipClient } from './telnyxVoip';
 import { getTelnyxPushNotificationToken } from '../notifications/pushTokenService';
 import { logger } from '../lib/logger';
 import { friendlySipError } from '../sip/validation';
+import { VspConnectionState } from './vspTelephonyState';
+import { usePhoneConnection } from '../hooks/usePhoneConnection';
+import { notifyRegistrationWarning } from '../notifications/appNotifications';
+import { useSettingsStore } from '../store/settingsStore';
 
 type Props = {
   children: React.ReactNode;
@@ -44,7 +48,7 @@ function TelnyxRegistrationBridge() {
   useEffect(() => {
     const client = getTelnyxVoipClient();
     const connectionSub = client.connectionState$.subscribe((state) => {
-      setConnectionState(state);
+      setConnectionState(state as VspConnectionState);
       if (state === TelnyxConnectionState.CONNECTED && isAuthenticated) {
         startSoftphonePresenceHeartbeat();
       } else if (
@@ -202,6 +206,25 @@ function TelnyxRegistrationBridge() {
     };
   }, [isAuthenticated, pushTokenSyncAttempt, activeCall, incomingCall]);
 
+  const lastStatusRef = useRef<string | null>(null);
+  const { status, label, hint } = usePhoneConnection();
+
+  useEffect(() => {
+    if (status === 'connected') {
+      lastStatusRef.current = status;
+      return;
+    }
+    if (lastStatusRef.current === status) return;
+    lastStatusRef.current = status;
+
+    const systemAlerts = useSettingsStore.getState().notificationPrefs.systemAlerts;
+    if (!systemAlerts) return;
+
+    if (status === 'auth_failed' || status === 'disconnected' || status === 'reconnecting') {
+      notifyRegistrationWarning(hint ? `${label}. ${hint}` : label);
+    }
+  }, [hint, label, status]);
+
   return null;
 }
 
@@ -215,8 +238,6 @@ export function TelnyxCallingProvider({ children }: Props) {
     </TelnyxVoiceApp>
   );
 }
-
-import { usePhoneConnection } from '../hooks/usePhoneConnection';
 
 export function useCanPlaceCalls() {
   return usePhoneConnection().canPlaceCalls;

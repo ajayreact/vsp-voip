@@ -9,20 +9,21 @@ type ExtraConfig = {
 
 const extra = (Constants.expoConfig?.extra ?? {}) as ExtraConfig;
 
+const PRODUCTION_API_URL = 'https://api.vspphone.com';
+
 function isReleaseBuild(): boolean {
   return typeof __DEV__ !== 'undefined' ? !__DEV__ : process.env.NODE_ENV === 'production';
 }
 
 function resolveApiBaseUrl(): string {
-  const raw = (extra.apiBaseUrl || process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:3000').replace(
-    /\/$/,
-    '',
-  );
+  const raw = (
+    extra.apiBaseUrl
+    || process.env.EXPO_PUBLIC_API_BASE_URL
+    || (isReleaseBuild() ? PRODUCTION_API_URL : 'http://localhost:3000')
+  ).replace(/\/$/, '');
 
   if (isReleaseBuild() && /localhost|127\.0\.0\.1/i.test(raw)) {
-    throw new Error(
-      'EXPO_PUBLIC_API_BASE_URL must be configured for release builds. Rebuild with a production API URL.',
-    );
+    return PRODUCTION_API_URL;
   }
 
   return raw;
