@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchAiSummary, requestAiSummaryGeneration } from './aiSummaryService';
-import type { AiSummaryEntityType } from './types';
+import { fetchAiSummary, requestAiSummaryGeneration } from '../ai/aiSummaryService';
+import type { AiSummaryEntityType } from '../ai/types';
 
 export function aiSummaryQueryKey(entityType: AiSummaryEntityType, entityId: string) {
   return ['ai-summary', entityType, entityId] as const;

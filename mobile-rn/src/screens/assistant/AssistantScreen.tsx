@@ -17,17 +17,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { AiStackParamList } from '../../navigation/types';
-import { VspBadge, VspChip, VspHero, VspPanel } from '../components/vsp';
+import { VspBadge, VspChip, VspHero, VspPanel } from '../../components/vsp';
 import {
   formatAssistantForCopy,
   queryAssistant,
   streamAssistant,
   type AssistantResponse,
-} from '../ai/assistantService';
-import { sanitizeAiUserMessage, VSP_AI_BRANDING } from '../ai/vspAiBranding';
-import { useAssistantSuggestions } from '../hooks/useAssistantSuggestions';
-import { useTheme } from '../shared/theme';
-import { spacing, typography } from '../shared/theme';
+} from '../../ai/assistantService';
+import { sanitizeAiUserMessage, VSP_AI_BRANDING } from '../../ai/vspAiBranding';
+import { useAssistantSuggestions } from '../../hooks/useAssistantSuggestions';
+import { useTheme } from '../../shared/theme';
+import { spacing, typography } from '../../shared/theme';
 
 type ChatMessage = {
   id: string;

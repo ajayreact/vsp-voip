@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { fetchConversationMessages } from './messagingService';
-import { mergeInboundThreadMessages } from './messagingQueryCache';
-import { useMessagingUiStore } from './messagingUiStore';
+import { fetchConversationMessages } from '../messaging/messagingService';
+import { mergeInboundThreadMessages } from '../messaging/messagingQueryCache';
+import { useMessagingUiStore } from '../messaging/messagingUiStore';
 import { useAppStore } from '../store/appStore';
 
 const THREAD_SYNC_MS = 8_000;

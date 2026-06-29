@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AppState } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
-import { fetchContacts } from './contactsService';
-import { loadContactsCache, saveContactsCache } from './contactCache';
-import { CONTACTS_DIRECTORY_KEY } from './contactsQueryCache';
-import { companyContactFromEntry } from './contactPresence';
-import { customerContactFromRecord } from './contactPresence';
-import { useCustomerContactsStore } from './customerContactsStore';
-import type { UnifiedContact } from './types';
+import { fetchContacts } from '../contacts/contactsService';
+import { loadContactsCache, saveContactsCache } from '../contacts/contactCache';
+import { CONTACTS_DIRECTORY_KEY } from '../contacts/contactsQueryCache';
+import { companyContactFromEntry } from '../contacts/contactPresence';
+import { customerContactFromRecord } from '../contacts/contactPresence';
+import { useCustomerContactsStore } from '../contacts/customerContactsStore';
+import type { UnifiedContact } from '../contacts/types';
 import { useCallingStore } from '../store/callingStore';
 
 import { SYNC_PROFILES } from '../lib/syncProfiles';

@@ -1,11 +1,11 @@
 import * as Clipboard from 'expo-clipboard';
 import { Alert } from 'react-native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { sendPlatformMessage } from '../../messaging/messagingService';
-import { useMessagePreferencesStore } from '../../messaging/messagePreferencesStore';
-import type { PlatformMessage } from '../../messaging/types';
-import type { MessagesStackParamList } from '../../navigation/types';
-import { formatPhoneDisplay } from '../../messaging/format';
+import { sendPlatformMessage } from './messagingService';
+import { useMessagePreferencesStore } from './messagePreferencesStore';
+import type { PlatformMessage } from './types';
+import type { MessagesStackParamList } from '../navigation/types';
+import { formatPhoneDisplay } from './format';
 
 type MessageActionContext = {
   message: PlatformMessage;
