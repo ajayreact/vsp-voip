@@ -62,6 +62,22 @@ function withFirebaseNotificationMerger(config) {
     });
     app['meta-data'] = metaData;
 
+    // Telnyx VspFirebaseMessagingService owns FCM — remove default RN Firebase handlers
+    // (duplicate MESSAGING_EVENT services crash the app on cold start).
+    const services = ensureArray(app.service);
+    for (const serviceName of [
+      'io.invertase.firebase.messaging.ReactNativeFirebaseMessagingService',
+      'io.invertase.firebase.messaging.ReactNativeFirebaseMessagingHeadlessService',
+    ]) {
+      services.push({
+        $: {
+          'android:name': serviceName,
+          'tools:node': 'remove',
+        },
+      });
+    }
+    app.service = services;
+
     return config;
   });
   return config;

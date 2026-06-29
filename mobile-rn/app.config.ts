@@ -84,7 +84,7 @@ const plugins: ExpoConfig['plugins'] = [
 const config: ExpoConfig = {
   name: 'VSP Phone',
   slug: 'vsp-phone',
-  version: '1.0.0',
+  version: '1.0.1',
   newArchEnabled: false,
   orientation: 'portrait',
   icon: './assets/icon.png',
