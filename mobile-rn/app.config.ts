@@ -71,6 +71,7 @@ const plugins: ExpoConfig['plugins'] = [
     },
   ],
   '@react-native-firebase/app',
+  'expo-asset',
   [
     'expo-camera',
     {
@@ -84,7 +85,7 @@ const plugins: ExpoConfig['plugins'] = [
 const config: ExpoConfig = {
   name: 'VSP Phone',
   slug: 'vsp-phone',
-  version: '1.0.1',
+  version: '1.0.2',
   newArchEnabled: false,
   orientation: 'portrait',
   icon: './assets/icon.png',

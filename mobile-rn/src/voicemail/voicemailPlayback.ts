@@ -1,4 +1,9 @@
-import { Audio, type AVPlaybackStatus } from 'expo-av';
+import {
+  createAudioPlayer,
+  setAudioModeAsync,
+  type AudioPlayer,
+  type AudioStatus,
+} from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
 import { endpoints } from '../api/endpoints';
 import { getCachedAccessToken } from '../auth/authService';
@@ -31,7 +36,9 @@ const INITIAL: VoicemailPlaybackState = {
 };
 
 class VoicemailPlaybackManager {
-  private sound: Audio.Sound | null = null;
+  private player: AudioPlayer | null = null;
+
+  private statusSubscription: { remove: () => void } | null = null;
 
   private state: VoicemailPlaybackState = { ...INITIAL };
 
@@ -101,16 +108,18 @@ class VoicemailPlaybackManager {
     this.fileCache.clear();
   }
 
-  private onStatusUpdate = (status: AVPlaybackStatus) => {
+  private onStatusUpdate = (status: AudioStatus) => {
     if (!status.isLoaded) {
-      if ('error' in status && status.error) {
-        this.emit({ status: 'error', error: status.error });
-      }
       return;
     }
 
-    const positionMillis = status.positionMillis ?? 0;
-    const durationMillis = status.durationMillis ?? this.state.durationMillis;
+    if (status.error) {
+      this.emit({ status: 'error', error: status.error });
+      return;
+    }
+
+    const positionMillis = Math.round((status.currentTime ?? 0) * 1000);
+    const durationMillis = Math.round((status.duration ?? 0) * 1000);
 
     if (status.didJustFinish) {
       this.emit({ status: 'ended', positionMillis: 0, durationMillis });
@@ -120,16 +129,22 @@ class VoicemailPlaybackManager {
     this.emit({
       positionMillis,
       durationMillis,
-      status: status.isPlaying ? 'playing' : 'paused',
+      status: status.playing ? 'playing' : 'paused',
     });
   };
+
+  private attachPlayer(player: AudioPlayer) {
+    this.statusSubscription?.remove();
+    this.statusSubscription = player.addListener('playbackStatusUpdate', this.onStatusUpdate);
+    this.player = player;
+  }
 
   async play(voicemailId: string): Promise<void> {
     const generation = ++this.loadGeneration;
 
-    if (this.state.voicemailId === voicemailId && this.sound) {
+    if (this.state.voicemailId === voicemailId && this.player) {
       if (this.state.status === 'paused' || this.state.status === 'ended') {
-        await this.sound.playAsync();
+        this.player.play();
         this.emit({ status: 'playing', error: null });
         return;
       }
@@ -146,29 +161,24 @@ class VoicemailPlaybackManager {
     });
 
     try {
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: false,
-        shouldDuckAndroid: true,
+      await setAudioModeAsync({
+        playsInSilentMode: true,
+        shouldPlayInBackground: false,
+        interruptionMode: 'duckOthers',
       });
 
       const uri = await this.resolveLocalUri(voicemailId);
       if (generation !== this.loadGeneration) return;
 
-      const { sound } = await Audio.Sound.createAsync(
-        { uri },
-        { shouldPlay: true, progressUpdateIntervalMillis: 250 },
-        this.onStatusUpdate,
-      );
-
+      const player = createAudioPlayer({ uri });
       if (generation !== this.loadGeneration) {
-        await sound.unloadAsync();
+        player.remove();
         return;
       }
 
-      this.sound = sound;
-      await sound.setRateAsync(playbackRateFromPrefs(), true);
+      this.attachPlayer(player);
+      player.setPlaybackRate(playbackRateFromPrefs());
+      player.play();
       this.emit({ status: 'playing' });
     } catch (error) {
       if (generation !== this.loadGeneration) return;
@@ -180,8 +190,8 @@ class VoicemailPlaybackManager {
   }
 
   async pause(): Promise<void> {
-    if (!this.sound) return;
-    await this.sound.pauseAsync();
+    if (!this.player) return;
+    this.player.pause();
     this.emit({ status: 'paused' });
   }
 
@@ -194,8 +204,8 @@ class VoicemailPlaybackManager {
   }
 
   async seek(positionMillis: number): Promise<void> {
-    if (!this.sound) return;
-    await this.sound.setPositionAsync(Math.max(0, positionMillis));
+    if (!this.player) return;
+    await this.player.seekTo(Math.max(0, positionMillis / 1000));
     this.emit({ positionMillis });
   }
 
@@ -205,14 +215,16 @@ class VoicemailPlaybackManager {
 
   private async stopInternal(resetState: boolean) {
     this.loadGeneration += 1;
-    if (this.sound) {
+    this.statusSubscription?.remove();
+    this.statusSubscription = null;
+    if (this.player) {
       try {
-        await this.sound.stopAsync();
-        await this.sound.unloadAsync();
+        this.player.pause();
+        this.player.remove();
       } catch {
-        /* ignore unload errors */
+        /* ignore release errors */
       }
-      this.sound = null;
+      this.player = null;
     }
     if (resetState) {
       this.emit({ ...INITIAL });
