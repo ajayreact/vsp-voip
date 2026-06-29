@@ -25,6 +25,8 @@ export const endpoints = {
     callLog: '/api/softphone/call-log',
     pushToken: '/api/softphone/push-token',
     devices: '/api/softphone/devices',
+    device: (deviceId: string) => `/api/softphone/devices/${deviceId}`,
+    diagnostics: '/api/softphone/diagnostics',
     telemetry: '/api/softphone/telemetry',
   },
   messaging: {
@@ -38,5 +40,21 @@ export const endpoints = {
   voicemail: {
     list: (limit = 50) => `/api/tenant/voicemails?limit=${limit}`,
     markRead: (id: string) => `/api/tenant/voicemails/${id}/read`,
+    stream: (id: string) => `/api/tenant/voicemails/${id}/stream`,
+  },
+  ai: {
+    voicemailSummary: (id: string) => `/api/ai/summaries/voicemail/${id}`,
+    generateVoicemailSummary: (id: string) => `/api/ai/summaries/voicemail/${id}/generate`,
+    callSummary: (id: string) => `/api/ai/summaries/call/${id}`,
+    generateCallSummary: (id: string) => `/api/ai/summaries/call/${id}/generate`,
+    conversationSummary: (id: string) => `/api/ai/summaries/conversation/${id}`,
+    generateConversationSummary: (id: string) => `/api/ai/summaries/conversation/${id}/generate`,
+    voicemailTranscript: (id: string) => `/api/ai/transcripts/voicemail/${id}`,
+    generateVoicemailTranscript: (id: string) => `/api/ai/transcripts/voicemail/${id}/generate`,
+    callTranscript: (id: string) => `/api/ai/transcripts/call/${id}`,
+    generateCallTranscript: (id: string) => `/api/ai/transcripts/call/${id}/generate`,
+    assistantSuggestions: '/api/ai/assistant/suggestions',
+    assistantQuery: '/api/ai/assistant/query',
+    assistantStream: '/api/ai/assistant/stream',
   },
 } as const;

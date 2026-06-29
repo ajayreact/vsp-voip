@@ -14,13 +14,16 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   EmptyState,
   SearchBar,
-  VspConversationRow,
 } from '../../components';
 import { FriendlyError } from '../../components/ui/FriendlyError';
 import { SkeletonList } from '../../components/ui/SkeletonLoader';
+import { ConversationListRow } from '../../components/messaging/ConversationListRow';
 import { MessagingStateBanner } from '../../components/messaging/MessagingStates';
 import { useConversationsInfinite } from '../../hooks/useConversations';
-import { filterConversations, formatPhoneDisplay } from '../../messaging/format';
+import { useMessagingContacts } from '../../hooks/useMessagingContacts';
+import { applyConversationListFilters } from '../../messaging/conversationDisplay';
+import { conversationDisplayName, resolveConversationContact } from '../../messaging/conversationDisplay';
+import { useConversationPreferencesStore } from '../../messaging/conversationPreferencesStore';
 import type { PlatformConversation } from '../../messaging/types';
 import { useMessagingLines } from '../../hooks/useMessagingLines';
 import { useOutboxStore } from '../../messaging/outboxStore';
@@ -30,15 +33,26 @@ import { useTheme } from '../../shared/theme';
 import { getFriendlyErrorMessage } from '../../utils/friendlyError';
 import { keyExtractorById, LIST_ITEM_HEIGHT } from '../../lib/listConstants';
 import { conversationRowLayout } from '../../lib/listLayout';
-import { spacing, typography } from '../../shared/theme';
+import { spacing, tokens, typography } from '../../shared/theme';
 
 type Props = NativeStackScreenProps<MessagesStackParamList, 'ConversationList'>;
 
 export function ConversationListScreen({ navigation }: Props) {
   const { colors } = useTheme();
   const [search, setSearch] = useState('');
+  const [listMode, setListMode] = useState<ConversationListMode>('inbox');
   const isOnline = useAppStore((s) => s.isOnline);
   const outboxCount = useOutboxStore((s) => s.items.length);
+  const pinnedIds = useConversationPreferencesStore((s) => s.pinnedIds);
+  const archivedIds = useConversationPreferencesStore((s) => s.archivedIds);
+  const hiddenIds = useConversationPreferencesStore((s) => s.hiddenIds);
+  const togglePin = useConversationPreferencesStore((s) => s.togglePin);
+  const archive = useConversationPreferencesStore((s) => s.archive);
+  const unarchive = useConversationPreferencesStore((s) => s.unarchive);
+  const hide = useConversationPreferencesStore((s) => s.hide);
+  const isPinned = useConversationPreferencesStore((s) => s.isPinned);
+  const isArchived = useConversationPreferencesStore((s) => s.isArchived);
+
   const {
     conversations,
     isLoading,
@@ -49,35 +63,48 @@ export function ConversationListScreen({ navigation }: Props) {
     error,
     refetch,
   } = useConversationsInfinite();
+  const { data: contacts = [] } = useMessagingContacts();
   const { data: setup } = useMessagingLines();
 
   const filtered = useMemo(
-    () => filterConversations(conversations, search),
-    [conversations, search],
+    () =>
+      applyConversationListFilters(conversations, {
+        query: search,
+        mode: listMode,
+        pinnedIds,
+        archivedIds,
+        hiddenIds,
+      }),
+    [archivedIds, conversations, hiddenIds, listMode, pinnedIds, search],
+  );
+
+  const openThread = useCallback(
+    (item: PlatformConversation) => {
+      const contact = resolveConversationContact(item, contacts);
+      navigation.navigate('ConversationThread', {
+        conversationId: item.id,
+        peerLabel: conversationDisplayName(item, contact),
+        lineLabel: item.line,
+        peerNumber: item.peer,
+      });
+    },
+    [contacts, navigation],
   );
 
   const renderItem = useCallback(
-    ({ item }: { item: PlatformConversation }) => {
-      const peer = formatPhoneDisplay(item.peer);
-      return (
-        <VspConversationRow
-          peerLabel={peer}
-          lineLabel={item.line}
-          preview={item.lastMessagePreview || 'No messages yet'}
-          timestamp={item.lastMessageAt || undefined}
-          unreadCount={item.unreadCount}
-          onPress={() =>
-            navigation.navigate('ConversationThread', {
-              conversationId: item.id,
-              peerLabel: peer,
-              lineLabel: item.line,
-              peerNumber: item.peer,
-            })
-          }
-        />
-      );
-    },
-    [navigation],
+    ({ item }: { item: PlatformConversation }) => (
+      <ConversationListRow
+        conversation={item}
+        contacts={contacts}
+        pinned={isPinned(item.id)}
+        archived={isArchived(item.id)}
+        onPress={() => openThread(item)}
+        onPin={() => togglePin(item.id)}
+        onArchive={() => (isArchived(item.id) ? unarchive(item.id) : archive(item.id))}
+        onDelete={() => hide(item.id)}
+      />
+    ),
+    [archive, contacts, hide, isArchived, isPinned, openThread, togglePin, unarchive],
   );
 
   const handleEndReached = useCallback(() => {
@@ -104,7 +131,7 @@ export function ConversationListScreen({ navigation }: Props) {
     () => (
       <EmptyState
         icon="💬"
-        title={search ? 'No matches' : 'No conversations'}
+        title={search ? 'No matches' : listMode === 'archived' ? 'No archived conversations' : 'No conversations'}
         message={
           search
             ? 'Try a different search term.'
@@ -112,7 +139,7 @@ export function ConversationListScreen({ navigation }: Props) {
         }
       />
     ),
-    [search],
+    [listMode, search],
   );
 
   if (isLoading && conversations.length === 0) {
@@ -157,23 +184,51 @@ export function ConversationListScreen({ navigation }: Props) {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>Text</Text>
-        <View style={styles.searchRow}>
-          <View style={styles.searchFlex}>
-            <SearchBar
-              value={search}
-              onChangeText={setSearch}
-              placeholder="Search"
-              accessibilityLabel="Search conversations"
-            />
-          </View>
+        <View style={styles.titleRow}>
+          <Text style={[styles.title, { color: colors.text }]}>Messages</Text>
           <Pressable
-            onPress={() => navigation.navigate('NewMessage', undefined)}
-            style={[styles.composeBtn, { backgroundColor: colors.primary }]}
+            onPress={() => navigation.navigate('MessageSearch')}
+            style={[styles.iconBtn, { backgroundColor: colors.surface }]}
             accessibilityRole="button"
-            accessibilityLabel="New message"
+            accessibilityLabel="Global message search"
           >
-            <Ionicons name="create-outline" size={22} color="#fff" />
+            <Ionicons name="search-outline" size={20} color={colors.text} />
+          </Pressable>
+        </View>
+        <SearchBar
+          value={search}
+          onChangeText={setSearch}
+          placeholder="Search conversations"
+          accessibilityLabel="Search conversations"
+        />
+        <View style={styles.segmentRow}>
+          <Pressable
+            onPress={() => setListMode('inbox')}
+            style={[
+              styles.segment,
+              {
+                backgroundColor: listMode === 'inbox' ? colors.primarySoft : colors.surface,
+                borderColor: listMode === 'inbox' ? colors.primary : colors.border,
+              },
+            ]}
+          >
+            <Text style={{ color: listMode === 'inbox' ? colors.primary : colors.textMuted, fontWeight: '600' }}>
+              Inbox
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setListMode('archived')}
+            style={[
+              styles.segment,
+              {
+                backgroundColor: listMode === 'archived' ? colors.primarySoft : colors.surface,
+                borderColor: listMode === 'archived' ? colors.primary : colors.border,
+              },
+            ]}
+          >
+            <Text style={{ color: listMode === 'archived' ? colors.primary : colors.textMuted, fontWeight: '600' }}>
+              Archived
+            </Text>
           </Pressable>
         </View>
       </View>
@@ -181,7 +236,7 @@ export function ConversationListScreen({ navigation }: Props) {
       {!isOnline ? (
         <MessagingStateBanner
           tone="offline"
-          message="You are offline. Conversations refresh when connectivity returns."
+          message="You are offline. Showing cached conversations; new messages queue until connectivity returns."
         />
       ) : null}
 
@@ -209,6 +264,15 @@ export function ConversationListScreen({ navigation }: Props) {
         ListEmptyComponent={listEmpty}
         renderItem={renderItem}
       />
+
+      <Pressable
+        onPress={() => navigation.navigate('NewMessage', undefined)}
+        style={[styles.fab, { backgroundColor: colors.primary }, tokens.shadow.hero]}
+        accessibilityRole="button"
+        accessibilityLabel="Compose message"
+      >
+        <Ionicons name="create-outline" size={26} color="#fff" />
+      </Pressable>
     </SafeAreaView>
   );
 }
@@ -221,27 +285,45 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
     gap: spacing.sm,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   title: {
     ...typography.display,
     fontSize: 34,
     fontWeight: '700',
   },
-  searchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  searchFlex: {
-    flex: 1,
-  },
-  composeBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  segmentRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  segment: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    borderRadius: tokens.radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
   footer: {
     paddingVertical: spacing.lg,
+  },
+  fab: {
+    position: 'absolute',
+    right: spacing.lg,
+    bottom: spacing.lg,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

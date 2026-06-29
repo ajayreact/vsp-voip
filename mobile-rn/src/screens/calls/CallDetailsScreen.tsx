@@ -4,6 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar, Button, VspBadge, VspPanel } from '../../components';
+import { AiSummaryCard } from '../../components/ai/AiSummaryCard';
+import { TranscriptCard } from '../../components/ai/TranscriptCard';
 import { RipplePressable } from '../../components/ui/RipplePressable';
 import { placeOutboundCall, getFriendlyCallError } from '../../calling/callingController';
 import { usePhoneConnection } from '../../hooks/usePhoneConnection';
@@ -109,6 +111,9 @@ export function CallDetailsScreen({ route, navigation }: Props) {
             />
           </VspPanel>
         ) : null}
+
+        <TranscriptCard entityType="call" entityId={call.id} />
+        <AiSummaryCard entityType="call" entityId={call.id} />
       </ScrollView>
     </SafeAreaView>
   );

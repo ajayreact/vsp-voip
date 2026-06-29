@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Button } from './Button';
+import { getFriendlyErrorMessage } from '../utils/friendlyError';
 import { logger } from '../lib/logger';
 import { spacing, typography } from '../shared/theme';
 
@@ -26,11 +27,20 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
   render() {
     if (this.state.error) {
+      const message = getFriendlyErrorMessage(this.state.error);
       return (
-        <View style={styles.container}>
-          <Text style={styles.title}>Something went wrong</Text>
-          <Text style={styles.message}>{this.state.error.message}</Text>
-          <Button label="Try again" onPress={() => this.setState({ error: null })} />
+        <View style={styles.container} accessibilityRole="alert">
+          <Text style={styles.title} accessibilityRole="header">
+            Something went wrong
+          </Text>
+          <Text style={styles.message} accessibilityLiveRegion="polite">
+            {message}
+          </Text>
+          <Button
+            label="Try again"
+            accessibilityHint="Dismisses the error and reloads this screen"
+            onPress={() => this.setState({ error: null })}
+          />
         </View>
       );
     }

@@ -70,10 +70,26 @@ function mergeUiState(
   if (!previous || previous.callId !== base.callId) return base;
   return {
     ...base,
+    identity: previous.identityLocked ? previous.identity : base.identity,
+    identityLocked: previous.identityLocked,
     showKeypad: previous.showKeypad,
     lastDtmf: previous.lastDtmf,
     speakerOn: previous.speakerOn,
     duration: isDurationEligible(base.state) ? base.duration : previous.duration,
+  };
+}
+
+function enrichIdentity(identity: ReturnType<typeof resolveLiveCallerIdentity>, displayNumber: string) {
+  const key = displayNumber.replace(/\D/g, '');
+  const contact = contactsCache.find((entry) => {
+    const extKey = entry.extensionNumber.replace(/\D/g, '');
+    const didKey = (entry.assignedDidNumber || '').replace(/\D/g, '');
+    return key === extKey || (key.length >= 10 && didKey.slice(-10) === key.slice(-10));
+  });
+
+  return {
+    ...identity,
+    company: contact?.department || undefined,
   };
 }
 
@@ -85,8 +101,20 @@ function buildSnapshot(call: Call, ownNumbers: string[]): CallSessionSnapshot {
         remotePartyNumber: call.destination,
       };
   const identity = call.isIncoming
-    ? resolveInboundCallIdentity(fields, ownNumbers, contactsCache).identity
-    : resolveLiveCallerIdentity(normalizeDestination(call.destination), contactsCache);
+    ? enrichIdentity(
+        resolveInboundCallIdentity(fields, ownNumbers, contactsCache).identity,
+        fields.remotePartyNumber || call.destination,
+      )
+    : enrichIdentity(resolveLiveCallerIdentity(normalizeDestination(call.destination), contactsCache), call.destination);
+
+  const businessLine = call.isIncoming
+    ? ownNumbers.includes(call.destination) ? call.destination : ownNumbers[0]
+    : useCallingStore.getState().defaultCallerId;
+
+  const identityWithLine = {
+    ...identity,
+    businessLine: businessLine || undefined,
+  };
 
   const duration = isDurationEligible(call.currentState) ? call.currentDuration : 0;
 
@@ -98,7 +126,7 @@ function buildSnapshot(call: Call, ownNumbers: string[]): CallSessionSnapshot {
     isHeld: call.currentIsHeld,
     duration,
     isIncoming: call.isIncoming,
-    identity,
+    identity: identityWithLine,
     showKeypad: false,
     lastDtmf: '',
     speakerOn: false,
@@ -197,21 +225,12 @@ export async function answerIncomingCall() {
   if (!incoming) return;
 
   markCallAccepted(incoming.callId);
+  useCallingStore.getState().patchIncomingCall({ identityLocked: true });
 
   void postCallAccepted().then((result) => {
     const pstnCaller = result.pstnCaller?.trim();
     if (!pstnCaller) return;
     updateTrackedRemoteNumber(incoming.callId, pstnCaller);
-    const { tenantNumbers } = useCallingStore.getState();
-    void ensureContacts().then(() => {
-      const fields = mapTelnyxCallToInboundFields(incoming.call);
-      fields.remotePartyNumber = pstnCaller;
-      const { identity } = resolveInboundCallIdentity(fields, tenantNumbers, contactsCache);
-      const active = useCallingStore.getState().activeCall;
-      if (active?.callId === incoming.callId) {
-        useCallingStore.getState().patchActiveCall({ identity });
-      }
-    });
   }).catch(() => {});
 
   await incoming.call.answer();

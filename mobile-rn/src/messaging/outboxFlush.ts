@@ -1,5 +1,10 @@
 import { useOutboxStore } from '../messaging/outboxStore';
 import { sendPlatformMessage } from '../messaging/messagingService';
+import {
+  conversationFromOutboundMessage,
+  reconcileThreadMessageByOutboxId,
+  upsertConversationSummary,
+} from '../messaging/messagingQueryCache';
 import { logger, withRetry } from '../lib/logger';
 import { getFriendlyErrorMessage } from '../utils/friendlyError';
 import type { QueryClient } from '@tanstack/react-query';
@@ -25,7 +30,7 @@ export async function flushMessagingOutbox(queryClient: QueryClient) {
       if (!stillQueued) continue;
 
       try {
-        await withRetry(
+        const res = await withRetry(
           () =>
             sendPlatformMessage({
               from: item.from,
@@ -35,6 +40,26 @@ export async function flushMessagingOutbox(queryClient: QueryClient) {
             }),
           { label: 'outbox-send', attempts: 2 },
         );
+
+        const conversationId = item.conversationId || res.message.conversationId;
+        const serverMessage = { ...res.message, _optimistic: false, _outboxId: item.id };
+
+        if (item.conversationId) {
+          reconcileThreadMessageByOutboxId(queryClient, conversationId, item.id, serverMessage);
+        } else {
+          reconcileThreadMessageByOutboxId(
+            queryClient,
+            res.message.conversationId,
+            item.id,
+            serverMessage,
+          );
+        }
+
+        upsertConversationSummary(
+          queryClient,
+          conversationFromOutboundMessage(serverMessage, item.to, item.from),
+        );
+
         useOutboxStore.getState().remove(item.id);
       } catch (error) {
         const friendly = getFriendlyErrorMessage(error, 'messages');
@@ -48,7 +73,6 @@ export async function flushMessagingOutbox(queryClient: QueryClient) {
         }
       }
     }
-    await queryClient.invalidateQueries({ queryKey: ['messaging'] });
   })().finally(() => {
     flushPromise = null;
   });

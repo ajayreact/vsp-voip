@@ -2,6 +2,8 @@
 
 Implementation status for `mobile-rn/`. Update this document as features ship.
 
+**Build order:** [04-development-sequence.md](./04-development-sequence.md) — 4.1 ✅ · **4.2 next**
+
 **Legend:** ✅ Done · 🔄 Partial · ❌ Not started · 🚫 Out of Phase 4 scope
 
 ---
@@ -11,11 +13,13 @@ Implementation status for `mobile-rn/`. Update this document as features ship.
 | Feature | Status | Location / notes |
 |---------|--------|------------------|
 | Email + password login | ✅ | `src/screens/LoginScreen.tsx`, `src/store/authStore.ts` |
-| QR Login (employee provision) | 🔄 | `src/screens/QrLoginScreen.tsx`, `src/auth/qrLogin.ts` — scan + redeem; polish error UX |
-| Remember Me | ❌ | Tokens in SecureStore; no explicit “remember me” toggle or username persistence |
-| Biometric Login | ❌ | Requires `expo-local-authentication` + unlock gate on cold start |
+| QR Login (employee provision) | ✅ | `src/screens/QrLoginScreen.tsx` — Phase 4.1 polish |
+| Remember Me | ✅ | `authPreferences.ts`, login toggle |
+| Biometric Login | ✅ | `biometricAuth.ts`, `BiometricUnlockScreen` — Phase 4.1 |
+| Auto login | ✅ | `sessionRestore.ts`, `authStore.bootstrap()` — Phase 4.1 |
 | Session refresh | ✅ | `src/auth/tokenStorage.ts`, API client interceptors |
 | Session expired UI | ✅ | `src/components/SessionExpiredScreen.tsx` |
+| Logout (all screens) | ✅ | `YouScreen` → `authStore.logout()` clears secure storage |
 
 ---
 
@@ -106,20 +110,11 @@ These exist in the app but are **not** Phase 4 deliverables unless reprioritized
 
 ## Suggested implementation order
 
-```mermaid
-flowchart TD
-  A[Auth: Remember Me + Biometric]
-  B[QR Login polish]
-  C[Push reliability]
-  D[Incoming + In-Call UI]
-  E[Dial Pad + Call History]
-  F[Contacts + Voicemail]
-  G[Settings + Desk QR UX]
+Superseded by the approved sequence in [04-development-sequence.md](./04-development-sequence.md):
 
-  A --> B --> C --> D --> E --> F --> G
-```
+**4.2** Calling UI → **4.3** Contacts & communication → **4.4** Settings → **4.5** Performance & polish
 
-Auth and push unblock calling UX. Telephony screens depend on reliable registration and notifications.
+Before modifying telephony modules, inspect existing code paths (see § Existing implementation map in 04-development-sequence.md). **Extend — do not replace.**
 
 ---
 

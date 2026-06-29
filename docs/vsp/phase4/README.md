@@ -6,7 +6,7 @@ Phase 2 PAT is complete and the backend is **feature-frozen**. All new product w
 
 | Item | Detail |
 |------|--------|
-| **Status** | Active |
+| **Status** | Active — 4.1 complete, **4.2 Calling UI next** |
 | **Codebase** | `mobile-rn/` |
 | **Backend baseline tag** | `phase2-production-ready` (`1c1fb1d`) |
 | **Backend changes** | Bug fixes discovered during mobile development only |
@@ -18,24 +18,24 @@ Phase 2 PAT is complete and the backend is **feature-frozen**. All new product w
 | Feature | Document |
 |---------|----------|
 | Feature matrix & current status | [01-mobile-feature-matrix.md](./01-mobile-feature-matrix.md) |
+| **Phase 4.1 — Authentication** | [../../../mobile-rn/docs/PHASE4-1-AUTH.md](../../../mobile-rn/docs/PHASE4-1-AUTH.md) |
 | Backend freeze rules | [02-backend-freeze-rules.md](./02-backend-freeze-rules.md) |
+| **Mobile development rules** | [03-mobile-development-rules.md](./03-mobile-development-rules.md) |
+| **Development sequence (4.2–4.5)** | [04-development-sequence.md](./04-development-sequence.md) |
 | Mobile design system | [../../../mobile-rn/docs/DESIGN.md](../../../mobile-rn/docs/DESIGN.md) |
 | Firebase / push setup | [../../../mobile-rn/docs/ANDROID-FIREBASE-SETUP.md](../../../mobile-rn/docs/ANDROID-FIREBASE-SETUP.md) |
 
-### Phase 4 feature list
+### Phase 4 build order
 
-1. **QR Login** — scan admin-generated provisioning QR; no manual SIP entry on happy path
-2. **Remember Me** — persist session across app restarts (SecureStore)
-3. **Biometric Login** — Face ID / Touch ID / Android biometrics for returning users
-4. **Dial Pad** — outbound PSTN and extension dialing
-5. **Contacts** — tenant directory and device contacts integration
-6. **Call History** — recent calls, detail, tap-to-call
-7. **Incoming Call UI** — full-screen answer/decline; lock-screen behavior
-8. **In-Call Screen** — mute, hold, hangup, DTMF, audio route
-9. **Voicemail** — list, playback, mark read
-10. **Push Notifications** — incoming call and message alerts (FCM / APNs)
-11. **Settings** — profile, theme, notifications, SIP diagnostics
-12. **Desk Phone Provisioning support** — scan desk SIP QR from admin portal
+See [04-development-sequence.md](./04-development-sequence.md).
+
+| Phase | Features |
+|-------|----------|
+| **4.1** ✅ | QR Login, Remember Me, Biometric, Auto-login, Session management |
+| **4.2** | Home, Dial Pad, Incoming, Outgoing, In-Call Screen |
+| **4.3** | Contacts, Favorites, Recents, Call History, Voicemail |
+| **4.4** | SIP Configuration, Desk Phone QR, Audio, Notifications, Profile |
+| **4.5** | Animations, skeletons, FlashList, memory, native transitions |
 
 ---
 
@@ -54,13 +54,20 @@ Do **not** implement in Phase 4:
 
 ---
 
-## Development rules
+## Development rules (mandatory)
 
-1. Work in `mobile-rn/` first. Reuse existing `/api/*` and softphone endpoints.
-2. Before any backend change, confirm it is a **confirmed bug** with a regression test.
-3. Run `npm run test:mobile` before every mobile PR.
-4. Run `npm run test:telephony` before any backend bug-fix PR.
-5. No new REST endpoints for mobile convenience — use existing contracts from Phase 2.
+**[03-mobile-development-rules.md](./03-mobile-development-rules.md)** — mandatory for all Phase 4 work.
+
+| Principle | Rule |
+|-----------|------|
+| Scope | `mobile-rn/` only |
+| Backend | Frozen — stop and report bugs; no mobile workarounds |
+| APIs | Existing backend is source of truth |
+| Telephony | Reuse production flows; verify Telnyx docs before changes |
+| UI/UX | Premium enterprise modernization; preserve functionality |
+| Performance | 60 FPS, FlashList, memoization, lazy loading |
+| Features | Complete one fully before starting the next |
+| Handoff | Use mandatory reporting format in § Reporting |
 
 ---
 

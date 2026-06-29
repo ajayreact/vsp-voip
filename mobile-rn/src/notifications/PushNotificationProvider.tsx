@@ -15,9 +15,9 @@ import {
 import {
   addNotificationResponseListener,
   handleNotificationAction,
-  initializeMessageNotifications,
+  initializeAppNotifications,
   requestNotificationPermissions,
-} from './messageNotifications';
+} from './appNotifications';
 import { navigateToConversation } from '../navigation/navigationRef';
 
 type Props = {
@@ -36,7 +36,7 @@ export function PushNotificationProvider({ children }: Props) {
   }, []);
 
   useEffect(() => {
-    void initializeMessageNotifications();
+    void initializeAppNotifications();
     const sub = addNotificationResponseListener((response) => {
       void handleNotificationAction(response);
     });

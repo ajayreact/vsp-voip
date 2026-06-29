@@ -4,6 +4,13 @@ import {
   createOutboxId,
   useOutboxStore,
 } from '../messaging/outboxStore';
+import {
+  conversationFromOutboundMessage,
+  patchThreadMessage,
+  reconcileOptimisticThreadMessage,
+  upsertConversationSummary,
+  upsertThreadMessage,
+} from '../messaging/messagingQueryCache';
 import { sendPlatformMessage, uploadMessageAttachment } from '../messaging/messagingService';
 import type { MessageAttachment, PlatformMessage } from '../messaging/types';
 import type { AttachmentUploadInput } from '../messaging/types';
@@ -16,6 +23,7 @@ type SendParams = {
   pendingUploads?: AttachmentUploadInput[];
   uploadedAttachments?: MessageAttachment[];
   outboxId?: string;
+  optimisticId?: string;
 };
 
 export function useSendMessage() {
@@ -35,18 +43,34 @@ export function useSendMessage() {
       });
     },
     onSuccess: (res, params) => {
-      void queryClient.invalidateQueries({ queryKey: ['messaging', 'conversations'] });
-      if (params.conversationId) {
-        void queryClient.invalidateQueries({
-          queryKey: ['messaging', 'thread', params.conversationId],
-        });
+      const conversationId = params.conversationId || res.message.conversationId;
+      const serverMessage = { ...res.message, _optimistic: false, _outboxId: params.outboxId };
+
+      if (params.optimisticId) {
+        reconcileOptimisticThreadMessage(
+          queryClient,
+          conversationId,
+          params.optimisticId,
+          serverMessage,
+        );
       } else {
-        void queryClient.invalidateQueries({
-          queryKey: ['messaging', 'thread', res.message.conversationId],
-        });
+        upsertThreadMessage(queryClient, conversationId, serverMessage);
       }
+
+      upsertConversationSummary(
+        queryClient,
+        conversationFromOutboundMessage(serverMessage, params.to, params.from),
+      );
     },
     onError: (error, params) => {
+      if (params.optimisticId && params.conversationId) {
+        patchThreadMessage(queryClient, params.conversationId, params.optimisticId, {
+          status: 'failed',
+          deliveryError: error instanceof Error ? error.message : 'Send failed',
+          _optimistic: false,
+        });
+      }
+
       const outboxId = params.outboxId || createOutboxId();
       useOutboxStore.getState().enqueue({
         id: outboxId,
@@ -78,7 +102,7 @@ export function buildOptimisticMessage(params: {
     body: params.text,
     direction: 'OUTBOUND',
     messageType: params.attachments?.length ? 'MMS' : 'SMS',
-    status: 'queued',
+    status: 'sending',
     createdAt: new Date().toISOString(),
     attachments: params.attachments,
     _optimistic: true,

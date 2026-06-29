@@ -183,6 +183,10 @@ model Tenant {
   ringGroups              RingGroup[]
   extensionProvisioningTokens ExtensionProvisioningToken[]
   didAssignmentHistory      DidAssignmentHistory[]
+  aiSettings                TenantAiSettings?
+  aiUsageLogs               AiUsageLog[]
+  aiSummaries               AiSummary[]
+  aiTranscripts             AiTranscript[]
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt
 
@@ -942,4 +946,99 @@ model CallQualityMetric {
   @@index([tenantId, occurredAt])
   @@index([occurredAt])
   @@index([callSessionId])
+}
+
+model TenantAiSettings {
+  id                  String   @id @default(uuid())
+  tenantId            String   @unique
+  tenant              Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  enabled             Boolean  @default(false)
+  allowedProvider     String?
+  allowedModel        String?
+  provider            String?
+  defaultModel        String?
+  features            Json     @default("{}")
+  piiRedactionEnabled Boolean  @default(true)
+  dailyBudgetCents    Int?
+  monthlyBudgetCents  Int?
+  maxRequestsPerDay   Int?
+  maxTokens           Int?
+  temperature         Float?
+  streamingEnabled    Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model AiUsageLog {
+  id           String   @id @default(uuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId       String?
+  operation    String
+  module       String?
+  provider     String
+  model        String
+  inputTokens  Int      @default(0)
+  outputTokens Int      @default(0)
+  costMicros   Int      @default(0)
+  status       String
+  errorCode    String?
+  latencyMs    Int?
+  streamUsed   Boolean  @default(false)
+  retryCount   Int      @default(0)
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([createdAt])
+}
+
+model AiSummary {
+  id           String    @id @default(uuid())
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  entityType   String
+  entityId     String
+  status       String    @default("pending")
+  transcript   String?   @db.Text
+  result       Json?
+  provider     String?
+  model        String?
+  confidence   Float?
+  messageCount Int?
+  errorCode    String?
+  errorMessage String?
+  retryCount   Int       @default(0)
+  generatedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([tenantId, entityType, entityId])
+  @@index([tenantId, entityType, status])
+  @@index([entityType, entityId])
+}
+
+model AiTranscript {
+  id               String    @id @default(uuid())
+  tenantId         String
+  tenant           Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  entityType       String
+  entityId         String
+  status           String    @default("pending")
+  transcript       String?   @db.Text
+  confidence       Float?
+  detectedLanguage String?
+  provider         String?
+  model            String?
+  durationSeconds  Int?
+  processingTimeMs Int?
+  errorCode        String?
+  errorMessage     String?
+  retryCount       Int       @default(0)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@unique([tenantId, entityType, entityId])
+  @@index([tenantId, entityType, status])
+  @@index([entityType, entityId])
 }

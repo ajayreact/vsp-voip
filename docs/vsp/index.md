@@ -7,7 +7,7 @@ Search here **first** (Step 1) before `docs/telnyx/` or source code.
 | Topic | Location |
 |-------|----------|
 | **Phase 2 — Complete (backend frozen)** | [phase2/README.md](./phase2/README.md) · tag `phase2-production-ready` |
-| **Phase 4 — Mobile (active)** | [phase4/README.md](./phase4/README.md) |
+| **Phase 4 — Mobile (active)** | [phase4/README.md](./phase4/README.md) · [03-mobile-development-rules.md](./phase4/03-mobile-development-rules.md) · [04-development-sequence.md](./phase4/04-development-sequence.md) |
 | **Phase 3 — Production readiness (audit)** | [phase3/README.md](./phase3/README.md) |
 | **Multi-tenant extension isolation audit** | [phase2/05-multi-tenant-extension-isolation-audit.md](./phase2/05-multi-tenant-extension-isolation-audit.md) |
 | **PBX architecture KB** | [pbx/README.md](./pbx/README.md) |
@@ -34,6 +34,7 @@ Search here **first** (Step 1) before `docs/telnyx/` or source code.
 | Branch strategy | [git/01-branch-strategy.md](./git/01-branch-strategy.md) |
 | Release workflow & tagging | [git/03-release-workflow.md](./git/03-release-workflow.md), [git/04-tagging.md](./git/04-tagging.md) |
 | Merge & release checklists | [git/05-merge-checklist.md](./git/05-merge-checklist.md), [git/06-release-checklist.md](./git/06-release-checklist.md) |
+| **RC1 validation & sign-off** | [release/RC1-VALIDATION.md](./release/RC1-VALIDATION.md) |
 | Git rollback | [git/07-rollback-strategy.md](./git/07-rollback-strategy.md) |
 | Git KB validation | [git/VALIDATION.md](./git/VALIDATION.md) |
 

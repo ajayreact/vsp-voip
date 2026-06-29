@@ -1,54 +1,96 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect } from 'react';
+import { Alert, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { VoicemailRecord } from '../../api/types';
-import { Button, ErrorScreen, VspBadge, VspPanel, FriendlyError } from '../../components';
-import { FadeInView } from '../../components/ui/FadeInView';
+import { Button, FriendlyError, VspBadge, VspPanel } from '../../components';
+import { AiSummaryCard } from '../../components/ai/AiSummaryCard';
+import { TranscriptCard } from '../../components/ai/TranscriptCard';
+import { VoicemailPlayer } from '../../components/voicemail/VoicemailPlayer';
 import { SkeletonVoicemailDetail } from '../../components/ui/SkeletonLoader';
+import { buildUnifiedContactPhoneMap } from '../../contacts/unifiedContactIndex';
+import { useContactsDirectory } from '../../hooks/useContactsDirectory';
+import { useHiddenVoicemailIds } from '../../hooks/useHiddenVoicemailIds';
+import {
+  useHideVoicemailLocal,
+  useMarkVoicemailRead,
+  useMarkVoicemailUnreadLocal,
+  useVoicemailById,
+  useVoicemails,
+} from '../../hooks/useVoicemails';
+import { useVoicemailPlayback } from '../../hooks/useVoicemailPlayback';
 import type { CallsStackParamList, YouStackParamList } from '../../navigation/types';
-import { fetchVoicemails, markVoicemailRead } from '../../voicemail';
+import { enrichVoicemail, formatVoicemailDuration, voicemailDisplayName } from '../../voicemail/voicemailDisplay';
+import { voicemailStreamPath, voicemailPlaybackManager } from '../../voicemail';
+import { env } from '../../shared/config/env';
 import { useTheme } from '../../shared/theme';
 import { formatPhone, formatRelativeTime } from '../../utils/format';
-import { getFriendlyErrorMessage } from '../../utils/friendlyError';
 import { spacing, typography } from '../../shared/theme';
 
 type Props = NativeStackScreenProps<CallsStackParamList & YouStackParamList, 'VoicemailDetail'>;
 
-export function VoicemailDetailScreen({ route }: Props) {
+export function VoicemailDetailScreen({ route, navigation }: Props) {
   const { voicemailId } = route.params;
   const { colors } = useTheme();
-  const [vm, setVm] = useState<VoicemailRecord | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const vmRaw = useVoicemailById(voicemailId);
+  const { isLoading, isError } = useVoicemails();
+  const { allContacts } = useContactsDirectory();
+  const markRead = useMarkVoicemailRead();
+  const markUnread = useMarkVoicemailUnreadLocal();
+  const hideLocal = useHideVoicemailLocal();
+  const { hideVoicemail } = useHiddenVoicemailIds();
+  const playback = useVoicemailPlayback();
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const list = await fetchVoicemails();
-      const found = list.find((v) => v.id === voicemailId) || null;
-      setVm(found);
-      if (found && !found.isRead) {
-        const updated = await markVoicemailRead(voicemailId);
-        setVm(updated);
-      }
-    } catch (err) {
-      setError(getFriendlyErrorMessage(err, 'voicemail'));
-    } finally {
-      setLoading(false);
-    }
-  }, [voicemailId]);
+  const vm = vmRaw
+    ? enrichVoicemail(vmRaw, buildUnifiedContactPhoneMap(allContacts))
+    : null;
 
   useEffect(() => {
-    load();
-  }, [load]);
+    if (vmRaw && !vmRaw.isRead) {
+      markRead.mutate(voicemailId);
+    }
+  }, [markRead, vmRaw, voicemailId]);
 
-  if (loading) return <SkeletonVoicemailDetail />;
-  if (error || !vm) {
+  useEffect(() => () => {
+    void voicemailPlaybackManager.stop();
+  }, []);
+
+  const isActive = playback.voicemailId === voicemailId;
+
+  const handleShare = useCallback(async () => {
+    if (!vm) return;
+    const streamUrl = `${env.apiBaseUrl}${voicemailStreamPath(voicemailId)}`;
+    await Share.share({
+      message: `Voicemail from ${voicemailDisplayName(vm)} (${formatVoicemailDuration(vm.durationSeconds)})\n${streamUrl}`,
+      title: 'Share voicemail',
+    });
+  }, [vm, voicemailId]);
+
+  const handleDelete = useCallback(() => {
+    Alert.alert(
+      'Remove voicemail',
+      'Hide this voicemail on this device? The recording remains on the server.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: () => {
+            void playback.stop();
+            hideVoicemail(voicemailId);
+            hideLocal.mutate(voicemailId);
+            navigation.goBack();
+          },
+        },
+      ],
+    );
+  }, [hideLocal, hideVoicemail, navigation, playback, voicemailId]);
+
+  if (isLoading) return <SkeletonVoicemailDetail />;
+  if (isError || !vm) {
     return (
       <FriendlyError
-        message={error || 'Voicemail not found'}
-        onRetry={load}
+        message="Voicemail not found"
+        onRetry={() => navigation.goBack()}
       />
     );
   }
@@ -57,24 +99,59 @@ export function VoicemailDetailScreen({ route }: Props) {
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={styles.content}>
       <VspPanel>
         <View style={styles.meta}>
-          <Text style={[styles.from, { color: colors.text }]}>{formatPhone(vm.from)}</Text>
+          <Text style={[styles.from, { color: colors.text }]}>{voicemailDisplayName(vm)}</Text>
           <VspBadge label={vm.isRead ? 'Read' : 'New'} tone={vm.isRead ? 'muted' : 'voicemail'} />
         </View>
+        {vm.contactCompany ? (
+          <Text style={[styles.sub, { color: colors.textMuted }]}>{vm.contactCompany}</Text>
+        ) : null}
         <Text style={[styles.sub, { color: colors.textMuted }]}>
-          To {formatPhone(vm.to)} · {formatRelativeTime(vm.createdAt)}
+          {formatPhone(vm.from)} · {formatRelativeTime(vm.createdAt)}
+        </Text>
+        <Text style={[styles.sub, { color: colors.textMuted }]}>
+          Business line {vm.businessDidLabel}
         </Text>
         <Text style={[styles.duration, { color: colors.textSecondary }]}>
-          Duration {vm.durationSeconds ?? 0}s
+          Duration {formatVoicemailDuration(vm.durationSeconds)}
         </Text>
       </VspPanel>
 
-      <View style={[styles.player, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
-        <Text style={[styles.playerLabel, { color: colors.textMuted }]}>Playback</Text>
-        <Button label="Play recording" variant="primary" disabled={!vm.recordingUrl} onPress={() => {}} />
-        {!vm.recordingUrl ? (
-          <Text style={[styles.note, { color: colors.textMuted }]}>Recording URL unavailable</Text>
-        ) : null}
+      <VoicemailPlayer
+        isActive={isActive}
+        status={isActive ? playback.status : 'idle'}
+        positionMillis={isActive ? playback.positionMillis : 0}
+        durationMillis={isActive ? playback.durationMillis : (vm.durationSeconds ?? 0) * 1000}
+        durationSeconds={vm.durationSeconds}
+        error={isActive ? playback.error : null}
+        onToggle={() => void playback.toggle(voicemailId)}
+        onSeek={(ms) => void playback.seek(ms)}
+      />
+
+      <View style={styles.actions}>
+        <Button
+          label={vm.isRead ? 'Mark unread' : 'Mark read'}
+          variant="secondary"
+          onPress={() => {
+            if (vm.isRead) markUnread.mutate(voicemailId);
+            else markRead.mutate(voicemailId);
+          }}
+        />
+        <Button label="Share" variant="secondary" onPress={() => void handleShare()} />
+        <Button label="Remove" variant="secondary" onPress={handleDelete} />
       </View>
+
+      <TranscriptCard entityType="voicemail" entityId={voicemailId} />
+      <AiSummaryCard entityType="voicemail" entityId={voicemailId} />
+
+      <VspPanel>
+        <View style={styles.placeholderRow}>
+          <Ionicons name="analytics-outline" size={20} color={colors.textMuted} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.placeholderTitle, { color: colors.text }]}>Analytics</Text>
+            <Text style={[styles.placeholderSub, { color: colors.textMuted }]}>Coming soon</Text>
+          </View>
+        </View>
+      </VspPanel>
     </ScrollView>
   );
 }
@@ -102,17 +179,14 @@ const styles = StyleSheet.create({
     ...typography.caption,
     marginTop: spacing.sm,
   },
-  player: {
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: spacing.lg,
+  actions: {
     gap: spacing.sm,
+  },
+  placeholderRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.md,
   },
-  playerLabel: {
-    ...typography.label,
-  },
-  note: {
-    ...typography.caption,
-  },
+  placeholderTitle: { ...typography.bodyMedium },
+  placeholderSub: { ...typography.caption, marginTop: 2 },
 });

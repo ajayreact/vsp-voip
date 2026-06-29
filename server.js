@@ -33,6 +33,10 @@ const { startBillingIntegrityScheduler } = require('./lib/billingIntegrityJob');
 const { webhookLimiter } = require('./lib/rateLimit');
 const { logger } = require('./lib/logger');
 const messagingRoutes = require('./routes/messaging');
+const aiRoutes = require('./routes/ai');
+const aiSummaryRoutes = require('./routes/aiSummaries');
+const aiTranscriptRoutes = require('./routes/aiTranscripts');
+const aiAssistantRoutes = require('./routes/aiAssistant');
 const portalRoutes = require('./routes/portal');
 const adminRoutes = require('./routes/admin');
 const { handleStripeWebhook } = require('./lib/billing');
@@ -205,6 +209,10 @@ app.use((req, res, next) => {
 app.use('/uploads/greetings', express.static(path.join(__dirname, 'uploads', 'greetings')));
 app.use('/uploads/payment-proofs', express.static(path.join(__dirname, 'uploads', 'payment-proofs')));
 app.use('/api', messagingRoutes);
+app.use('/api', aiRoutes);
+app.use('/api', aiSummaryRoutes);
+app.use('/api', aiTranscriptRoutes);
+app.use('/api', aiAssistantRoutes);
 app.use('/api', portalRoutes);
 app.use('/api/admin', adminRoutes);
 

@@ -1,9 +1,20 @@
-import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useMemo, useState } from 'react';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 import { TelnyxCallState } from '@telnyx/react-voice-commons-sdk';
-import { Avatar, VspDialPad, VspIconButton } from '../../components';
+import { VspDialPad, VspActionBar } from '../../components';
+import {
+  AudioRouteChip,
+  AudioRoutePicker,
+  CallCallerCard,
+  CallControlButton,
+  useAvailableAudioRoutes,
+} from '../../components/calls';
 import type { CallSessionSnapshot } from '../../store/callingStore';
+import {
+  getCallStatusLabel,
+  getConnectionQualityLabel,
+  resolveCallPhase,
+} from '../../calling/callDisplay';
 import {
   hangupActiveCall,
   sendDtmf,
@@ -12,6 +23,7 @@ import {
   toggleMute,
   toggleSpeaker,
 } from '../../calling/callingController';
+import { useAudioRoute } from '../../hooks/useAudioRoute';
 import { useTheme } from '../../shared/theme';
 import { formatCallDuration } from '../../utils/format';
 import { spacing, typography } from '../../shared/theme';
@@ -20,44 +32,47 @@ type Props = {
   session: CallSessionSnapshot;
 };
 
-function callStatusLabel(state: TelnyxCallState, isIncoming: boolean, isHeld: boolean): string {
-  if (isHeld || state === TelnyxCallState.HELD) return 'On hold';
-  switch (state) {
-    case TelnyxCallState.ACTIVE:
-      return 'Connected';
-    case TelnyxCallState.RINGING:
-      return isIncoming ? 'Ringing…' : 'Calling…';
-    case TelnyxCallState.CONNECTING:
-      return isIncoming ? 'Connecting…' : 'Calling…';
-    case TelnyxCallState.DROPPED:
-      return 'Reconnecting…';
-    case TelnyxCallState.FAILED:
-      return 'Call failed';
-    default:
-      return isIncoming ? 'Incoming…' : 'Calling…';
-  }
+function controlsEnabled(state: TelnyxCallState) {
+  return state === TelnyxCallState.ACTIVE || state === TelnyxCallState.HELD;
 }
 
 export const ActiveCallScreen = React.memo(function ActiveCallScreen({ session }: Props) {
   const { colors } = useTheme();
   const { identity, state, isMuted, isHeld, duration, showKeypad, lastDtmf, speakerOn, isIncoming } =
     session;
-  const statusLabel = callStatusLabel(state, isIncoming, isHeld);
-  const controlsEnabled = state === TelnyxCallState.ACTIVE || state === TelnyxCallState.HELD;
-  const showTimer = controlsEnabled;
+
+  const phase = resolveCallPhase(state, isIncoming, isHeld);
+  const statusLabel = getCallStatusLabel(phase);
+  const qualityLabel = getConnectionQualityLabel(phase);
+  const enabled = controlsEnabled(state);
+  const showTimer = phase === 'connected' || phase === 'held';
+  const { route, label: audioRouteLabel, detectedRoutes } = useAudioRoute(speakerOn);
+  const availableRoutes = useAvailableAudioRoutes(route, detectedRoutes);
+  const [routePickerVisible, setRoutePickerVisible] = useState(false);
+
+  const durationLabel = useMemo(
+    () => (showTimer ? formatCallDuration(duration) : undefined),
+    [duration, showTimer],
+  );
+
+  const handleTransfer = () => {
+    Alert.alert('Transfer', 'Call transfer will be available in a future update.');
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
-        <Avatar name={identity.name} size={88} />
-        <Text style={[styles.name, { color: colors.text }]}>{identity.name}</Text>
-        <Text style={[styles.number, { color: colors.textMuted }]}>{identity.number}</Text>
-        <Text style={[styles.status, { color: colors.primary }]}>{statusLabel}</Text>
-        {showTimer ? (
-          <Text style={[styles.timer, { color: colors.text }]} accessibilityLabel="Call duration">
-            {formatCallDuration(duration)}
-          </Text>
-        ) : null}
+        <CallCallerCard
+          identity={identity}
+          statusLabel={statusLabel}
+          qualityLabel={qualityLabel}
+          durationLabel={durationLabel}
+        />
+        <AudioRouteChip
+          label={audioRouteLabel}
+          route={route}
+          onPress={enabled ? () => setRoutePickerVisible(true) : undefined}
+        />
         {showKeypad && lastDtmf ? (
           <Text style={[styles.dtmfEcho, { color: colors.textMuted }]}>{lastDtmf}</Text>
         ) : null}
@@ -65,49 +80,79 @@ export const ActiveCallScreen = React.memo(function ActiveCallScreen({ session }
 
       {showKeypad ? (
         <View style={styles.keypadWrap}>
-          <VspDialPad onDigit={(digit) => void sendDtmf(digit)} variant="iphone" />
+          <VspDialPad onDigit={(digit) => void sendDtmf(digit)} variant="default" />
         </View>
       ) : (
         <View style={styles.spacer} />
       )}
 
-      <View style={styles.controls}>
-        <View style={styles.controlRow}>
-          <VspIconButton
-            icon={speakerOn ? 'volume-high-outline' : 'volume-medium-outline'}
-            label={speakerOn ? 'Speaker' : 'Speaker'}
-            onPress={toggleSpeaker}
-            disabled={!controlsEnabled}
-          />
-          <VspIconButton
-            icon={isMuted ? 'mic-off-outline' : 'mic-outline'}
-            label={isMuted ? 'Unmute' : 'Mute'}
-            onPress={() => void toggleMute()}
-            disabled={!controlsEnabled}
-          />
-          <VspIconButton
-            icon="pause-outline"
-            label={isHeld ? 'Resume' : 'Hold'}
-            onPress={() => void toggleHold()}
-            disabled={!controlsEnabled}
-          />
-          <VspIconButton
-            icon="keypad-outline"
-            label={showKeypad ? 'Hide' : 'Keypad'}
-            onPress={toggleInCallKeypad}
-            disabled={!controlsEnabled}
-          />
-        </View>
+      <VspActionBar style={styles.actionBar}>
+        <CallControlButton
+          icon={speakerOn ? 'volume-high-outline' : 'volume-medium-outline'}
+          label="Speaker"
+          active={speakerOn}
+          onPress={toggleSpeaker}
+          disabled={!enabled}
+        />
+        <CallControlButton
+          icon={isMuted ? 'mic-off-outline' : 'mic-outline'}
+          label={isMuted ? 'Unmute' : 'Mute'}
+          active={isMuted}
+          onPress={() => void toggleMute()}
+          disabled={!enabled}
+        />
+        <CallControlButton
+          icon="pause-outline"
+          label={isHeld ? 'Resume' : 'Hold'}
+          active={isHeld}
+          onPress={() => void toggleHold()}
+          disabled={!enabled}
+        />
+        <CallControlButton
+          icon="keypad-outline"
+          label={showKeypad ? 'Hide' : 'Keypad'}
+          active={showKeypad}
+          onPress={toggleInCallKeypad}
+          disabled={!enabled}
+        />
+      </VspActionBar>
 
-        <Pressable
-          onPress={() => void hangupActiveCall()}
-          style={styles.endCallButton}
-          accessibilityRole="button"
-          accessibilityLabel="End call"
-        >
-          <Ionicons name="call" size={32} color="#fff" style={styles.endCallIcon} />
-        </Pressable>
+      <View style={styles.secondaryRow}>
+        <CallControlButton
+          icon="swap-horizontal-outline"
+          label="Transfer"
+          onPress={handleTransfer}
+          disabled={!enabled}
+        />
+        <CallControlButton
+          icon="person-add-outline"
+          label="Add call"
+          disabled
+        />
+        <CallControlButton
+          icon="recording-outline"
+          label="Record"
+          disabled
+        />
       </View>
+
+      <View style={styles.endWrap}>
+        <CallControlButton
+          icon="close"
+          label="End"
+          variant="danger"
+          size="lg"
+          onPress={() => void hangupActiveCall()}
+        />
+      </View>
+
+      <AudioRoutePicker
+        visible={routePickerVisible}
+        currentRoute={route}
+        availableRoutes={availableRoutes}
+        onClose={() => setRoutePickerVisible(false)}
+        onRouteSelected={() => {}}
+      />
     </View>
   );
 });
@@ -117,62 +162,35 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xxl,
+    gap: spacing.md,
   },
   header: {
     flex: 1,
-    alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.sm,
-    paddingTop: spacing.xxl,
-  },
-  name: {
-    ...typography.title,
-    marginTop: spacing.md,
-    textAlign: 'center',
-  },
-  number: {
-    ...typography.body,
-    textAlign: 'center',
-  },
-  status: {
-    ...typography.bodyMedium,
-    marginTop: spacing.sm,
-  },
-  timer: {
-    ...typography.display,
-    fontVariant: ['tabular-nums'],
-    marginTop: spacing.xs,
+    gap: spacing.md,
+    paddingTop: spacing.xl,
   },
   dtmfEcho: {
     ...typography.mono,
     letterSpacing: 4,
-    marginTop: spacing.xs,
+    textAlign: 'center',
   },
   keypadWrap: {
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   spacer: {
     flex: 0,
   },
-  controls: {
-    alignItems: 'center',
-    gap: spacing.xl,
+  actionBar: {
+    marginHorizontal: 0,
   },
-  controlRow: {
+  secondaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    width: '100%',
-    maxWidth: 360,
+    paddingHorizontal: spacing.sm,
   },
-  endCallButton: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: '#FF3B30',
+  endWrap: {
     alignItems: 'center',
-    justifyContent: 'center',
-  },
-  endCallIcon: {
-    transform: [{ rotate: '135deg' }],
+    paddingTop: spacing.sm,
   },
 });

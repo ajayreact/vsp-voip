@@ -1,3 +1,16 @@
+/**
+ * Future-ready client extensions (Phase 4.4+). Not implemented — types only.
+ * MMS, voice notes, AI suggestions will extend PlatformMessage / MessageComposer
+ * without changing backend contracts until server support is approved.
+ */
+export type FutureMessageCapabilities = {
+  mms?: boolean;
+  voiceNote?: boolean;
+  aiReplySuggestion?: boolean;
+  aiSummary?: boolean;
+  aiTranslation?: boolean;
+};
+
 export type MessageAttachment = {
   id: string;
   messageId?: string;

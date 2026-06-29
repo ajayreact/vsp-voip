@@ -55,6 +55,7 @@ describe('mobile / QR provisioning (Phase 2.5)', () => {
       'utf8',
     );
     expect(source).toContain('provisionWithQr');
+    expect(source).toContain('mapProvisionError');
     expect(source).not.toContain('loginWithQrToken(payload.token');
   });
 });

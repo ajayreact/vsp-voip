@@ -16,6 +16,8 @@ type ButtonProps = {
   loading?: boolean;
   variant?: 'primary' | 'secondary' | 'ghost';
   style?: ViewStyle;
+  accessibilityHint?: string;
+  accessibilityLabel?: string;
 };
 
 export function Button({
@@ -25,6 +27,8 @@ export function Button({
   loading = false,
   variant = 'primary',
   style,
+  accessibilityHint,
+  accessibilityLabel,
 }: ButtonProps) {
   const { colors } = useTheme();
   const isDisabled = disabled || loading;
@@ -38,6 +42,9 @@ export function Button({
   return (
     <RipplePressable
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? label}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{ disabled: isDisabled, busy: loading }}
       onPress={onPress}
       disabled={isDisabled}
       style={[

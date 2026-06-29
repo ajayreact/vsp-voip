@@ -6,6 +6,8 @@ export type CallUiIdentity = {
   name: string;
   number: string;
   initials?: string;
+  company?: string;
+  businessLine?: string;
 };
 
 export type CallSessionSnapshot = {
@@ -17,6 +19,7 @@ export type CallSessionSnapshot = {
   duration: number;
   isIncoming: boolean;
   identity: CallUiIdentity;
+  identityLocked?: boolean;
   showKeypad: boolean;
   lastDtmf: string;
   speakerOn: boolean;

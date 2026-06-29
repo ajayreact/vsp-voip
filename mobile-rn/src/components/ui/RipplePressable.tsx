@@ -1,4 +1,4 @@
-import React, { ReactNode } from 'react';
+import React, { memo, ReactNode } from 'react';
 import { Platform, Pressable, PressableProps, StyleProp, ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { MOTION } from '../../lib/animations';
@@ -12,7 +12,7 @@ type Props = PressableProps & {
   scaleOnPress?: boolean;
 };
 
-export function RipplePressable({
+export const RipplePressable = memo(function RipplePressable({
   children,
   style,
   ripple = true,
@@ -63,4 +63,4 @@ export function RipplePressable({
       <Animated.View style={animatedStyle}>{children}</Animated.View>
     </Pressable>
   );
-}
+});

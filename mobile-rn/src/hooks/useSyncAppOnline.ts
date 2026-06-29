@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import NetInfo from '@react-native-community/netinfo';
 import { onlineManager } from '@tanstack/react-query';
 import { useAppStore } from '../store/appStore';
 
@@ -7,6 +8,9 @@ export function useSyncAppOnline() {
   const setOnline = useAppStore((s) => s.setOnline);
 
   useEffect(() => {
+    void NetInfo.fetch().then((state) => {
+      setOnline(state.isConnected !== false);
+    });
     setOnline(onlineManager.isOnline());
     return onlineManager.subscribe((online) => {
       setOnline(online);

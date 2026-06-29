@@ -1,45 +1,66 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { RefreshControl, StyleSheet, View } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import type { CallLogEntry } from '../../api/types';
-import { Avatar, Button, VspPanel, VspSectionHeader } from '../../components';
+import {
+  AskVspWidget,
+  BusinessInsightsSection,
+  DailyBriefCard,
+  IntelligenceHeader,
+  RecommendationCard,
+  SmartAiBanner,
+} from '../../components/intelligence';
+import { EmptyState } from '../../components/Card';
 import { FriendlyError } from '../../components/ui/FriendlyError';
-import { ConnectionBadge } from '../../components/ui/ConnectionBadge';
 import { FadeInView } from '../../components/ui/FadeInView';
 import { RipplePressable } from '../../components/ui/RipplePressable';
-import { SkeletonCards, SkeletonList, Skeleton } from '../../components/ui/SkeletonLoader';
+import { Skeleton } from '../../components/ui/SkeletonLoader';
+import { VspSectionHeader } from '../../components';
 import { fetchDashboardStats } from '../../dashboard';
-import { useAfterInteractions } from '../../hooks/useAfterInteractions';
+import { maybeScheduleDailyBriefNotification } from '../../intelligence';
+import { VSP_AI_BRANDING } from '../../ai/vspAiBranding';
+import { buildNotification, useNotificationsStore } from '../../notifications/notificationsStore';
 import { usePreloadMainTabs } from '../../hooks/usePreloadMainTabs';
-import { useAuth } from '../../hooks/useAuth';
-import { useCanPlaceCalls } from '../../calling/TelnyxCallingProvider';
+import { useCallerProfile } from '../../hooks/useCallerProfile';
+import { useIntelligenceDashboard } from '../../hooks/useIntelligenceDashboard';
+import { useRecentCalls } from '../../hooks/useRecentCalls';
+import { useVoicemails } from '../../hooks/useVoicemails';
+import { useConversations } from '../../hooks/useConversations';
 import { useAppStore } from '../../store/appStore';
-import { useFavoritesStore } from '../../store/favoritesStore';
 import { useTheme } from '../../shared/theme';
-import { formatPhone, formatRelativeTime } from '../../utils/format';
+import { formatPhone } from '../../utils/format';
 import { getFriendlyErrorMessage } from '../../utils/friendlyError';
-import { spacing, tokens, typography } from '../../shared/theme';
-import type { HomeStackParamList } from '../../navigation/types';
-import type { MainTabParamList } from '../../navigation/types';
+import { spacing, typography } from '../../shared/theme';
+import type { HomeStackParamList, MainTabParamList } from '../../navigation/types';
+import type { IntelligenceRecommendation } from '../../intelligence/types';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'HomeMain'>;
 
 export function DashboardScreen({ navigation }: Props) {
-  const { user } = useAuth();
+  const profile = useCallerProfile();
   const { colors } = useTheme();
   const setDashboardStats = useAppStore((s) => s.setDashboardStats);
-  const { favoriteIds, hydrate } = useFavoritesStore();
-  const connected = useCanPlaceCalls();
-  const interactionsReady = useAfterInteractions();
+  const notificationUnread = useNotificationsStore((s) => s.unreadCount());
   const tabNavigation = navigation.getParent<BottomTabNavigationProp<MainTabParamList>>();
   usePreloadMainTabs(tabNavigation ?? undefined);
+
   const [stats, setStats] = useState<Awaited<ReturnType<typeof fetchDashboardStats>> | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [quickDial] = useState('');
+
+  const { data: calls = [], refetch: refetchCalls } = useRecentCalls();
+  const { data: voicemails = [], refetch: refetchVoicemails } = useVoicemails();
+  const { data: conversations = [], refetch: refetchConversations } = useConversations();
+
+  const { dailyBrief, recommendations, businessInsights, banners } = useIntelligenceDashboard({
+    stats,
+    calls: stats?.recentCalls?.length ? stats.recentCalls : calls,
+    voicemails,
+    conversations,
+  });
 
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -49,6 +70,23 @@ export function DashboardScreen({ navigation }: Props) {
       const data = await fetchDashboardStats();
       setStats(data);
       setDashboardStats(data);
+
+      const upsert = useNotificationsStore.getState().upsert;
+      for (const call of data.recentCalls ?? []) {
+        if (!(call.status || '').toLowerCase().includes('miss')) continue;
+        const peer = call.direction === 'inbound' ? call.from : call.to;
+        upsert(
+          buildNotification({
+            kind: 'missed_call',
+            referenceId: call.id,
+            title: formatPhone(peer),
+            body: 'Missed call',
+            createdAt: call.createdAt,
+            isRead: true,
+            deepLink: { screen: 'recent', filter: 'missed' },
+          }),
+        );
+      }
     } catch (err) {
       setError(getFriendlyErrorMessage(err, 'dashboard'));
     } finally {
@@ -58,238 +96,234 @@ export function DashboardScreen({ navigation }: Props) {
   }, [setDashboardStats]);
 
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
 
   useEffect(() => {
-    if (!interactionsReady) return;
-    hydrate();
-  }, [hydrate, interactionsReady]);
+    if (!dailyBrief || loading) return;
+    void maybeScheduleDailyBriefNotification(dailyBrief);
+  }, [dailyBrief, loading]);
 
-  const firstName = user?.name?.split(' ')[0] || 'there';
-  const recentCalls = stats?.recentCalls?.slice(0, 6) ?? [];
-  const favorites = useMemo(
-    () => recentCalls.slice(0, 4),
-    [recentCalls],
+  const onRefresh = useCallback(async () => {
+    await Promise.all([load(true), refetchCalls(), refetchVoicemails(), refetchConversations()]);
+  }, [load, refetchCalls, refetchConversations, refetchVoicemails]);
+
+  const openAskVsp = useCallback(
+    (question: string) => {
+      tabNavigation?.navigate('AI', {
+        screen: 'AssistantHome',
+        params: { initialQuestion: question },
+      });
+    },
+    [tabNavigation],
   );
 
-  function openCallDetails(call: CallLogEntry) {
-    navigation.navigate('CallDetails', { callId: call.id, call });
-  }
+  const openRecommendation = useCallback(
+    (item: IntelligenceRecommendation) => {
+      const link = item.deepLink;
+      if (!link || !tabNavigation) return;
+      if (link.tab === 'AI') {
+        tabNavigation.navigate('AI', {
+          screen: 'AssistantHome',
+          params: link.params as { initialQuestion?: string },
+        });
+        return;
+      }
+      if (link.screen) {
+        tabNavigation.navigate(link.tab, { screen: link.screen, params: link.params } as never);
+        return;
+      }
+      tabNavigation.navigate(link.tab, undefined as never);
+    },
+    [tabNavigation],
+  );
 
-  async function handleQuickCall() {
-    navigation.getParent()?.navigate('Keypad');
-  }
+  const bannerRecommendationMap = useMemo(() => {
+    const map = new Map<string, IntelligenceRecommendation>();
+    for (const banner of banners) {
+      if (!banner.recommendationId) continue;
+      const rec = recommendations.find((item) => item.id === banner.recommendationId);
+      if (rec) map.set(banner.id, rec);
+    }
+    return map;
+  }, [banners, recommendations]);
+
+  const handleBannerPress = useCallback(
+    (bannerId: string) => {
+      const rec = bannerRecommendationMap.get(bannerId);
+      if (rec) openRecommendation(rec);
+    },
+    [bannerRecommendationMap, openRecommendation],
+  );
+
+  const renderRecommendation = useCallback(
+    ({ item }: { item: IntelligenceRecommendation }) => (
+      <View style={styles.listItem}>
+        <RecommendationCard item={item} onPress={openRecommendation} />
+      </View>
+    ),
+    [openRecommendation],
+  );
+
+  const listHeader = useMemo(
+    () => (
+      <View style={styles.content}>
+        <View style={styles.topBar}>
+          <Text style={[styles.homeTitle, { color: colors.text }]} accessibilityRole="header">
+            {VSP_AI_BRANDING.productName}
+          </Text>
+          <RipplePressable
+            onPress={() => navigation.navigate('NotificationsCenter')}
+            style={[styles.bellBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            accessibilityRole="button"
+            accessibilityLabel={`Notifications${notificationUnread > 0 ? `, ${notificationUnread} unread` : ''}`}
+          >
+            <Ionicons name="notifications-outline" size={22} color={colors.primary} />
+            {notificationUnread > 0 ? (
+              <View style={[styles.bellBadge, { backgroundColor: colors.primary }]}>
+                <Text style={styles.bellBadgeText}>
+                  {notificationUnread > 99 ? '99+' : notificationUnread}
+                </Text>
+              </View>
+            ) : null}
+          </RipplePressable>
+        </View>
+
+        <IntelligenceHeader
+          name={profile.name}
+          tenantName={profile.tenantName}
+          extension={profile.extension}
+          businessDid={profile.businessDid}
+          registrationLabel={profile.registrationLabel}
+          isRegistered={profile.isRegistered}
+        />
+
+        <AskVspWidget onSubmit={openAskVsp} />
+
+        {banners.length > 0 ? (
+          <View style={styles.bannerStack}>
+            {banners.map((banner) => (
+              <SmartAiBanner
+                key={banner.id}
+                banner={banner}
+                onPress={
+                  bannerRecommendationMap.has(banner.id)
+                    ? () => handleBannerPress(banner.id)
+                    : undefined
+                }
+              />
+            ))}
+          </View>
+        ) : null}
+
+        <DailyBriefCard brief={dailyBrief} loading={loading && !stats} />
+
+        <BusinessInsightsSection insights={businessInsights} />
+
+        {recommendations.length > 0 ? (
+          <VspSectionHeader title={VSP_AI_BRANDING.recommendedBy} />
+        ) : null}
+      </View>
+    ),
+    [
+      bannerRecommendationMap,
+      banners,
+      businessInsights,
+      colors,
+      dailyBrief,
+      handleBannerPress,
+      loading,
+      navigation,
+      notificationUnread,
+      openAskVsp,
+      profile.businessDid,
+      profile.extension,
+      profile.isRegistered,
+      profile.name,
+      profile.registrationLabel,
+      profile.tenantName,
+      recommendations.length,
+      stats,
+    ],
+  );
+
+  const listEmpty = useMemo(
+    () => (
+      <View style={styles.emptyWrap}>
+        <EmptyState
+          icon="✨"
+          title="You're caught up"
+          message={`${VSP_AI_BRANDING.productName} will surface recommendations as activity arrives.`}
+        />
+      </View>
+    ),
+    [],
+  );
 
   if (loading && !stats) {
     return (
-      <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={styles.content}>
-        <Skeleton height={28} width="60%" />
-        <Skeleton height={16} width="40%" style={{ marginTop: spacing.sm }} />
-        <SkeletonCards count={2} />
-        <SkeletonList rows={4} />
-      </ScrollView>
+      <View style={[styles.flex, { backgroundColor: colors.background }]}>
+        <View style={styles.content}>
+          <Skeleton height={28} width="70%" />
+          <Skeleton height={120} />
+          <Skeleton height={96} />
+          <Skeleton height={180} />
+        </View>
+      </View>
     );
   }
 
   if (error && !stats) {
-    return <FriendlyError title="Couldn't load home" message={error} onRetry={() => load()} />;
+    return <FriendlyError title="Couldn't load home" message={error} onRetry={() => void load()} />;
   }
 
   return (
-    <FadeInView style={{ flex: 1 }}>
-    <ScrollView
-      style={{ flex: 1, backgroundColor: colors.background }}
-      contentContainerStyle={styles.content}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={colors.primary} />
-      }
-    >
-      <View style={styles.topRow}>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.greeting, { color: colors.textMuted }]}>Welcome back</Text>
-          <Text style={[styles.name, { color: colors.text }]}>{firstName}</Text>
-        </View>
-        <RipplePressable onPress={() => navigation.navigate('NotificationsCenter')}>
-          <Ionicons name="notifications-outline" size={26} color={colors.text} />
-        </RipplePressable>
-      </View>
-
-      <ConnectionBadge connected={connected} />
-
-      <VspPanel>
-        <VspSectionHeader title="Quick dial" />
-        <View style={styles.quickDialRow}>
-          <RipplePressable
-            style={[styles.quickInput, { backgroundColor: colors.backgroundAlt, borderColor: colors.border }]}
-            onPress={() => navigation.getParent()?.navigate('Keypad')}
-          >
-            <Text style={{ color: quickDial ? colors.text : colors.textMuted }}>
-              {quickDial || 'Enter number…'}
-            </Text>
-          </RipplePressable>
-          <Button label="Open dial pad" onPress={handleQuickCall} />
-        </View>
-      </VspPanel>
-
-      <VspPanel padded={false}>
-        <View style={{ padding: spacing.md }}>
-          <VspSectionHeader title="Favorites" />
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.favRow}>
-          {favoriteIds.length === 0 ? (
-            <Text style={[styles.emptyHint, { color: colors.textMuted, paddingHorizontal: spacing.md }]}>
-              Star contacts to see them here
-            </Text>
-          ) : (
-            favorites.map((call, i) => (
-              <RipplePressable key={call.id || i} style={styles.favItem} onPress={() => openCallDetails(call)}>
-                <Avatar name={call.from || call.to} size={56} />
-                <Text style={[styles.favName, { color: colors.text }]} numberOfLines={1}>
-                  {formatPhone(call.direction === 'inbound' ? call.from : call.to)}
-                </Text>
-              </RipplePressable>
-            ))
-          )}
-        </ScrollView>
-      </VspPanel>
-
-      <VspPanel padded={false}>
-        <View style={{ padding: spacing.md }}>
-          <VspSectionHeader
-            title="Recent activity"
-            action={
-              <RipplePressable onPress={() => navigation.getParent()?.navigate('Recent')}>
-                <Text style={{ color: colors.primary, fontWeight: '600' }}>See all</Text>
-              </RipplePressable>
-            }
-          />
-        </View>
-        {recentCalls.length === 0 ? (
-          <Text style={[styles.emptyHint, { color: colors.textMuted, padding: spacing.md }]}>
-            Recent calls will appear here
-          </Text>
-        ) : (
-          recentCalls.map((call) => (
-            <RipplePressable
-              key={call.id}
-              onPress={() => openCallDetails(call)}
-              style={[styles.activityRow, { backgroundColor: colors.surface, borderColor: colors.border }]}
-            >
-              <Avatar name={call.direction === 'inbound' ? call.from : call.to} size={44} />
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.activityTitle, { color: colors.text }]}>
-                  {formatPhone(call.direction === 'inbound' ? call.from : call.to)}
-                </Text>
-                <Text style={[styles.activitySub, { color: colors.textMuted }]}>
-                  {call.status} · {formatRelativeTime(call.createdAt)}
-                </Text>
-              </View>
-              <Ionicons
-                name={call.direction === 'inbound' ? 'arrow-down-outline' : 'arrow-up-outline'}
-                size={18}
-                color={colors.primary}
-              />
-            </RipplePressable>
-          ))
-        )}
-      </VspPanel>
-
-      <View style={styles.quickActions}>
-        <QuickAction
-          icon="call"
-          label="Recent"
-          color={colors.primary}
-          onPress={() => navigation.getParent()?.navigate('Recent')}
-        />
-        <QuickAction
-          icon="chatbubble-ellipses"
-          label="Text"
-          color={colors.secondary}
-          onPress={() => navigation.getParent()?.navigate('Text')}
-        />
-        <QuickAction
-          icon="people"
-          label="Contacts"
-          color={colors.primary}
-          onPress={() => navigation.getParent()?.navigate('Contacts')}
-        />
-      </View>
-    </ScrollView>
+    <FadeInView style={styles.flex}>
+      <FlashList
+        data={recommendations}
+        keyExtractor={(item) => item.id}
+        renderItem={renderRecommendation}
+        ListHeaderComponent={listHeader}
+        ListEmptyComponent={listEmpty}
+        estimatedItemSize={96}
+        drawDistance={320}
+        contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} tintColor={colors.primary} />
+        }
+      />
     </FadeInView>
   );
 }
 
-function QuickAction({
-  icon,
-  label,
-  color,
-  onPress,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  color: string;
-  onPress: () => void;
-}) {
-  const { colors } = useTheme();
-  return (
-    <RipplePressable
-      onPress={onPress}
-      style={[styles.actionBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
-    >
-      <View style={[styles.actionIcon, { backgroundColor: colors.primarySoft }]}>
-        <Ionicons name={icon} size={22} color={color} />
-      </View>
-      <Text style={[styles.actionLabel, { color: colors.text }]}>{label}</Text>
-    </RipplePressable>
-  );
-}
-
 const styles = StyleSheet.create({
-  content: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxl },
-  topRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  greeting: { ...typography.caption, fontWeight: '600' },
-  name: { ...typography.title },
-  quickDialRow: { flexDirection: 'row', gap: spacing.sm, alignItems: 'center' },
-  quickInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: tokens.radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    minHeight: 48,
-    justifyContent: 'center',
-  },
-  favRow: { paddingHorizontal: spacing.md, paddingBottom: spacing.md, gap: spacing.md },
-  favItem: { alignItems: 'center', width: 72, gap: spacing.xs },
-  favName: { ...typography.caption, textAlign: 'center' },
-  activityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  activityTitle: { ...typography.bodyMedium },
-  activitySub: { ...typography.caption, marginTop: 2 },
-  emptyHint: { ...typography.body },
-  quickActions: { flexDirection: 'row', gap: spacing.sm },
-  actionBtn: {
-    flex: 1,
-    alignItems: 'center',
-    padding: spacing.md,
-    borderRadius: tokens.radius.lg,
-    borderWidth: 1,
-    gap: spacing.sm,
-    ...tokens.shadow.card,
-  },
-  actionIcon: {
+  flex: { flex: 1 },
+  content: { padding: spacing.lg, gap: spacing.md },
+  listContent: { paddingBottom: spacing.xxl },
+  listItem: { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
+  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  homeTitle: { ...typography.title, fontWeight: '700' },
+  bellBtn: {
     width: 44,
     height: 44,
     borderRadius: 14,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
   },
-  actionLabel: { ...typography.caption, fontWeight: '600' },
+  bellBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  bellBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
+  bannerStack: { gap: spacing.sm },
+  emptyWrap: { paddingHorizontal: spacing.lg, paddingBottom: spacing.lg },
 });

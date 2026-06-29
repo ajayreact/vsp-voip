@@ -1,14 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
-import { fetchContactDetail, fetchContacts } from '../contacts/contactsService';
+import { fetchContactDetail } from '../contacts/contactsService';
+import { useContactsDirectory } from './useContactsDirectory';
+
+export { useContactsDirectory };
 
 export function useContacts() {
-  return useQuery({
-    queryKey: ['contacts', 'directory'],
-    queryFn: fetchContacts,
-    staleTime: 5 * 60_000,
-    gcTime: 30 * 60_000,
-    refetchOnReconnect: true,
-  });
+  return useContactsDirectory();
 }
 
 export function useContactDetail(contactId: string) {

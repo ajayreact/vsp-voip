@@ -59,6 +59,26 @@ export function isPendingMessageStatus(status?: string) {
   return PENDING_STATUSES.has(String(status || ''));
 }
 
+export function isSendingMessageStatus(status?: string) {
+  const key = String(status || '').toLowerCase();
+  return key === 'queued' || key === 'sending';
+}
+
+export function resolveOutboundStatusLabel(params: {
+  status?: string;
+  optimistic?: boolean;
+  deliveredAt?: string | null;
+  readAt?: string | null;
+}) {
+  if (params.optimistic || isSendingMessageStatus(params.status)) return 'Sending…';
+  if (isFailedMessageStatus(params.status)) return 'Failed';
+  if (params.readAt) return 'Read';
+  if (params.deliveredAt) return 'Delivered';
+  const key = String(params.status || '').toLowerCase();
+  if (key === 'sent' || key === 'delivery_unconfirmed') return 'Sent';
+  return formatMessageStatus(params.status);
+}
+
 export function peerInitials(label: string) {
   const digits = label.replace(/\D/g, '');
   if (digits.length >= 2 && !/[a-z]/i.test(label)) {

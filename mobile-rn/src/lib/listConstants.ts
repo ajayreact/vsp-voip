@@ -2,7 +2,7 @@
 export const LIST_ITEM_HEIGHT = {
   call: 64,
   contact: 68,
-  conversation: 76,
+  conversation: 88,
   voicemail: 72,
   message: 120,
   separator: 36,

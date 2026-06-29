@@ -12,11 +12,14 @@ import { spacing, typography } from '../../shared/theme';
 type RecentCallRowProps = {
   call: CallLogEntry;
   contact?: ContactEntry;
+  isFavorite?: boolean;
   isEditing?: boolean;
   selected?: boolean;
   onPress: () => void;
   onInfoPress: () => void;
   onCall: () => void;
+  onMessage: () => void;
+  onFavorite: () => void;
   onDelete: () => void;
 };
 
@@ -122,11 +125,14 @@ function RowContent({
 function RecentCallRowComponent({
   call,
   contact,
+  isFavorite,
   isEditing,
   selected,
   onPress,
   onInfoPress,
   onCall,
+  onMessage,
+  onFavorite,
   onDelete,
 }: RecentCallRowProps) {
   const swipeRef = useRef<Swipeable>(null);
@@ -160,18 +166,44 @@ function RecentCallRowComponent({
   );
 
   const renderRightActions = () => (
-    <Pressable
-      onPress={() => {
-        swipeRef.current?.close();
-        onDelete();
-      }}
-      style={[styles.swipeAction, styles.swipeDelete]}
-      accessibilityRole="button"
-      accessibilityLabel="Delete"
-    >
-      <Ionicons name="trash-outline" size={22} color="#fff" />
-      <Text style={styles.swipeLabel}>Delete</Text>
-    </Pressable>
+    <View style={styles.swipeRightRow}>
+      <Pressable
+        onPress={() => {
+          swipeRef.current?.close();
+          onMessage();
+        }}
+        style={[styles.swipeAction, styles.swipeMessage]}
+        accessibilityRole="button"
+        accessibilityLabel="Message"
+      >
+        <Ionicons name="chatbubble-outline" size={20} color="#fff" />
+        <Text style={styles.swipeLabel}>Text</Text>
+      </Pressable>
+      <Pressable
+        onPress={() => {
+          swipeRef.current?.close();
+          onFavorite();
+        }}
+        style={[styles.swipeAction, styles.swipeFavorite]}
+        accessibilityRole="button"
+        accessibilityLabel={isFavorite ? 'Unfavorite' : 'Favorite'}
+      >
+        <Ionicons name={isFavorite ? 'star' : 'star-outline'} size={20} color="#fff" />
+        <Text style={styles.swipeLabel}>{isFavorite ? 'Unstar' : 'Star'}</Text>
+      </Pressable>
+      <Pressable
+        onPress={() => {
+          swipeRef.current?.close();
+          onDelete();
+        }}
+        style={[styles.swipeAction, styles.swipeDelete]}
+        accessibilityRole="button"
+        accessibilityLabel="Delete"
+      >
+        <Ionicons name="trash-outline" size={20} color="#fff" />
+        <Text style={styles.swipeLabel}>Delete</Text>
+      </Pressable>
+    </View>
   );
 
   return (
@@ -251,14 +283,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  swipeRightRow: {
+    flexDirection: 'row',
+  },
   swipeAction: {
     justifyContent: 'center',
     alignItems: 'center',
-    width: 80,
+    width: 72,
     gap: 4,
   },
   swipeCall: {
     backgroundColor: '#34C759',
+  },
+  swipeMessage: {
+    backgroundColor: '#007AFF',
+  },
+  swipeFavorite: {
+    backgroundColor: '#FF9500',
   },
   swipeDelete: {
     backgroundColor: '#FF3B30',
@@ -267,6 +308,6 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: '#fff',
     fontWeight: '600',
-    fontSize: 12,
+    fontSize: 11,
   },
 });

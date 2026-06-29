@@ -1,0 +1,46 @@
+---
+description: MANDATORY Phase 4 mobile rules — backend frozen, inspect-before-change, no rewrites, mobile-rn only
+globs: mobile-rn/**
+alwaysApply: false
+---
+
+# Phase 4 Mobile Development Rules (Mandatory)
+
+Phase 2 complete and frozen. Phase 4 = **React Native only** (`mobile-rn/`). Sequence: [04-development-sequence.md](../../docs/vsp/phase4/04-development-sequence.md)
+
+## Backend freeze (STRICT)
+
+Do NOT modify backend unless approved production bug. Backend bug → **STOP**, report root cause / files / fix. **No mobile workarounds.**
+
+## Inspect before modifying telephony
+
+Before changing SIP registration, call controller, push, auth, QR provisioning, or call state — **read existing code first**. Decide if change is necessary.
+
+| Area | Start here |
+|------|------------|
+| SIP registration | `sip/service.ts`, `calling/TelnyxCallingProvider.tsx` |
+| Call controller | `calling/callingController.ts` |
+| Push | `notifications/PushNotificationProvider.tsx` |
+| Auth | `store/authStore.ts`, `auth/authService.ts` |
+| QR provisioning | `auth/provisionService.ts`, `screens/QrLoginScreen.tsx` |
+| Call state | `store/callingStore.ts`, `calling/CallOverlay.tsx` |
+
+**Extend — do not replace** working modules.
+
+## Do not rewrite
+
+No rewrites for style/architecture preference. Incremental improvements only. Preserve API contracts and public interfaces unless explicitly approved.
+
+## Telephony
+
+Production-approved flows. Reuse `calling/*`, `sip/*`, notifications. Verify `docs/telnyx/` before signaling/media changes. UI must not alter call behavior.
+
+## UI/UX & performance
+
+Premium enterprise UI (`mobile-rn/docs/DESIGN.md`). 60 FPS, FlashList, memoization, lazy loading. One feature production-ready before the next.
+
+## Completion
+
+`npm run test:mobile` · no backend changes · mandatory handoff report.
+
+Full rules: `docs/vsp/phase4/03-mobile-development-rules.md`

@@ -6,6 +6,8 @@ import { Download, Eye, Loader2 } from 'lucide-react';
 import 'sweetalert2/dist/sweetalert2.min.css';
 import Swal from 'sweetalert2';
 import { DataTable, type DataTableColumn } from '@/components/data-table';
+import { AiSummaryCard } from '@/components/ai/ai-summary-card';
+import { TranscriptCard } from '@/components/ai/transcript-card';
 import { PortalPageHeader } from '@/components/portal/page-header';
 import { enrichCallRow } from '@/lib/call-enrichment';
 import { getCalls, getExtensions, getMe, isUnauthorizedError } from '@/lib/api';
@@ -45,6 +47,7 @@ export function CallsManagerPage() {
   const [error, setError] = useState('');
   const [calls, setCalls] = useState<CallRow[]>([]);
   const [direction, setDirection] = useState<DirectionFilter>('all');
+  const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     const [callsRes, extRes] = await Promise.all([getCalls(200), getExtensions()]);
@@ -78,6 +81,7 @@ export function CallsManagerPage() {
   }, [calls, direction]);
 
   async function onViewDetails(call: CallRow) {
+    setSelectedCallId(call.id);
     await Swal.fire({
       title: 'Call details',
       html: `
@@ -250,6 +254,13 @@ export function CallsManagerPage() {
         emptyMessage="No call logs yet"
         columns={columns}
       />
+
+      {selectedCallId ? (
+        <>
+          <TranscriptCard entityType="call" entityId={selectedCallId} />
+          <AiSummaryCard entityType="call" entityId={selectedCallId} />
+        </>
+      ) : null}
     </div>
   );
 }

@@ -1,24 +1,21 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import React, { useMemo } from 'react';
+import React from 'react';
 import { RecentCallsScreen } from '../screens/calls/RecentCallsScreen';
-import { CallDetailsScreen } from '../screens/calls/CallDetailsScreen';
-import { useTheme } from '../shared/theme';
-import { createStackScreenOptions, DETAIL_SCREEN_OPTIONS } from './screenOptions';
+import { useStackScreenOptions } from '../hooks/useStackScreenOptions';
 import type { RecentStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RecentStackParamList>();
 
 export function RecentStackNavigator() {
-  const { colors } = useTheme();
-  const screenOptions = useMemo(() => createStackScreenOptions(colors), [colors]);
+  const { screenOptions, detailOptions } = useStackScreenOptions();
 
   return (
     <Stack.Navigator screenOptions={screenOptions}>
       <Stack.Screen name="RecentMain" component={RecentCallsScreen} options={{ headerShown: false }} />
       <Stack.Screen
         name="CallDetails"
-        component={CallDetailsScreen}
-        options={{ title: 'Call Details', ...DETAIL_SCREEN_OPTIONS }}
+        getComponent={() => require('../screens/calls/CallDetailsScreen').CallDetailsScreen}
+        options={{ title: 'Call Details', ...detailOptions }}
       />
     </Stack.Navigator>
   );

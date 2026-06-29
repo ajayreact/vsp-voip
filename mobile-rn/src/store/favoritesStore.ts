@@ -9,6 +9,8 @@ type FavoritesState = {
   hydrate: () => Promise<void>;
   toggleFavorite: (id: string) => Promise<void>;
   isFavorite: (id: string) => boolean;
+  toggleFavoriteContact: (contact: { id: string; kind: 'company' | 'customer' }) => Promise<void>;
+  isFavoriteContact: (contact: { id: string; kind: 'company' | 'customer' }) => boolean;
 };
 
 export const useFavoritesStore = create<FavoritesState>((set, get) => ({
@@ -37,4 +39,14 @@ export const useFavoritesStore = create<FavoritesState>((set, get) => ({
   },
 
   isFavorite: (id) => get().favoriteIds.includes(id),
+
+  toggleFavoriteContact: async (contact: { id: string; kind: 'company' | 'customer' }) => {
+    const key = contact.kind === 'customer' ? `customer:${contact.id}` : contact.id;
+    await get().toggleFavorite(key);
+  },
+
+  isFavoriteContact: (contact: { id: string; kind: 'company' | 'customer' }) => {
+    const key = contact.kind === 'customer' ? `customer:${contact.id}` : contact.id;
+    return get().isFavorite(key);
+  },
 }));

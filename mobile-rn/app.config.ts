@@ -50,6 +50,26 @@ const plugins: ExpoConfig['plugins'] = [
       sounds: [],
     },
   ],
+  [
+    'expo-splash-screen',
+    {
+      image: './assets/splash-icon.png',
+      resizeMode: 'contain',
+      backgroundColor: '#F7F8FA',
+    },
+  ],
+  [
+    'expo-local-authentication',
+    {
+      faceIDPermission: 'Allow VSP Phone to use Face ID for quick sign-in.',
+    },
+  ],
+  [
+    'expo-image-picker',
+    {
+      photosPermission: 'VSP Phone accesses photos to attach images to text messages.',
+    },
+  ],
   '@react-native-firebase/app',
   [
     'expo-camera',

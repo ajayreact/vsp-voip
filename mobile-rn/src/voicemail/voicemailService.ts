@@ -17,3 +17,7 @@ export async function markVoicemailRead(id: string): Promise<VoicemailRecord> {
   );
   return response.voicemail;
 }
+
+export function voicemailStreamPath(id: string): string {
+  return endpoints.voicemail.stream(id);
+}

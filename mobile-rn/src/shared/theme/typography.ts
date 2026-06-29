@@ -1,4 +1,22 @@
-import { Platform } from 'react-native';
+import { Platform, type TextStyle } from 'react-native';
+import type { FontSizePreference } from '../../settings/types';
+
+export const FONT_SIZE_MULTIPLIERS: Record<FontSizePreference, number> = {
+  default: 1,
+  large: 1.125,
+  extraLarge: 1.25,
+};
+
+export function scaleTextStyle(style: TextStyle, scale: number): TextStyle {
+  if (scale === 1 || style.fontSize == null) return style;
+  const lineHeight =
+    typeof style.lineHeight === 'number' ? Math.round(style.lineHeight * scale) : style.lineHeight;
+  return {
+    ...style,
+    fontSize: Math.round(style.fontSize * scale),
+    lineHeight,
+  };
+}
 
 export const fontFamily = {
   regular: Platform.select({ ios: 'Inter_400Regular', android: 'Inter_400Regular', default: 'System' }),

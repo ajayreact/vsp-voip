@@ -13,7 +13,7 @@ export type HomeStackParamList = {
 };
 
 export type RecentStackParamList = {
-  RecentMain: undefined;
+  RecentMain: { initialFilter?: string } | undefined;
   CallDetails: { callId: string; call?: CallLogEntry };
 };
 
@@ -32,14 +32,16 @@ export type MessagesStackParamList = {
     lineLabel?: string;
     peerNumber?: string;
   };
-  NewMessage: { peerNumber?: string; peerLabel?: string } | undefined;
+  NewMessage: { peerNumber?: string; peerLabel?: string; draft?: string } | undefined;
   Attachments: { conversationId?: string };
   MessageSearch: undefined;
 };
 
 export type ContactsStackParamList = {
   ContactsList: undefined;
-  ContactDetail: { contactId: string };
+  ContactDetail: { contactId: string; kind?: 'company' | 'customer' };
+  CustomerContactDetail: { customerId: string };
+  CustomerContactForm: { customerId?: string };
 };
 
 export type YouStackParamList = {
@@ -54,13 +56,29 @@ export type YouStackParamList = {
   About: undefined;
   VoicemailList: undefined;
   VoicemailDetail: { voicemailId: string };
+  SettingsDevices: undefined;
+  SettingsDeviceInfo: undefined;
+  SettingsCalling: undefined;
+  SettingsVoicemail: undefined;
+  SettingsMessaging: undefined;
+  SettingsSecurity: undefined;
+  SettingsDiagnostics: undefined;
+  SettingsSupport: undefined;
+  SettingsChangePassword: undefined;
+  QrProvision: undefined;
+};
+
+export type AiStackParamList = {
+  AssistantHome: { initialQuestion?: string } | undefined;
 };
 
 export type MainTabParamList = {
+  Home: NavigatorScreenParams<HomeStackParamList>;
   Recent: NavigatorScreenParams<RecentStackParamList>;
   Contacts: NavigatorScreenParams<ContactsStackParamList>;
   Keypad: undefined;
   Text: NavigatorScreenParams<MessagesStackParamList>;
+  AI: NavigatorScreenParams<AiStackParamList>;
   You: NavigatorScreenParams<YouStackParamList>;
 };
 

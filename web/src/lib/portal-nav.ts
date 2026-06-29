@@ -13,6 +13,7 @@ import {
   CreditCard,
   Settings,
   MessagesSquare,
+  Sparkles,
   ShoppingCart,
 } from 'lucide-react';
 
@@ -79,6 +80,13 @@ export function buildPortalNavSections(): PortalNavSection[] {
         { href: '/recordings', label: 'Recordings', icon: Mic, matchPrefix: '/recordings' },
         { href: '/voicemail', label: 'Voicemail', icon: Voicemail, matchPrefix: '/voicemail', badgeKey: 'voicemail' },
         { href: '/sms', label: 'Messages', icon: MessagesSquare, matchPrefix: '/sms', badgeKey: 'sms' },
+      ],
+    },
+    {
+      id: 'ai',
+      label: 'AI',
+      items: [
+        { href: '/assistant', label: 'Enterprise Assistant', icon: Sparkles, matchPrefix: '/assistant' },
       ],
     },
     {

@@ -1,4 +1,4 @@
-import React, { ReactNode } from 'react';
+import React, { memo, ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { RipplePressable } from './ui/RipplePressable';
 import { useTheme } from '../shared/theme';
@@ -83,17 +83,17 @@ type EmptyStateProps = {
   icon?: string;
 };
 
-export function EmptyState({ title, message, icon = '📭' }: EmptyStateProps) {
+export const EmptyState = memo(function EmptyState({ title, message, icon = '📭' }: EmptyStateProps) {
   const { colors } = useTheme();
 
   return (
-    <View style={styles.empty}>
+    <View style={styles.empty} accessibilityRole="text" accessibilityLabel={`${title}. ${message}`}>
       <Text style={styles.emptyIcon}>{icon}</Text>
       <Text style={[styles.emptyTitle, { color: colors.text }]}>{title}</Text>
       <Text style={[styles.emptyMessage, { color: colors.textMuted }]}>{message}</Text>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   card: {

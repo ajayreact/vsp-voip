@@ -3,7 +3,7 @@ import { InteractionManager } from 'react-native';
 import type { NavigationProp, ParamListBase } from '@react-navigation/native';
 import type { MainTabParamList } from '../navigation/types';
 
-const PRELOAD_TABS: (keyof MainTabParamList)[] = ['Contacts', 'Text', 'Keypad'];
+const PRELOAD_TABS: (keyof MainTabParamList)[] = ['Contacts', 'Recent'];
 
 /** Preloads primary tab stacks after Recent is interactive. */
 export function usePreloadMainTabs(navigation: NavigationProp<ParamListBase> | undefined) {

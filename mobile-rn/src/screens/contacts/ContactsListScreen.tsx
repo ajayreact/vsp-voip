@@ -1,24 +1,35 @@
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
-import { RefreshControl, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { ContactEntry } from '../../api/types';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { Ionicons } from '@expo/vector-icons';
 import { EmptyState, ErrorScreen, SearchBar } from '../../components';
 import { AlphabetIndex } from '../../components/contacts/AlphabetIndex';
-import { ContactRow } from '../../components/contacts/ContactRow';
+import { ContactListRow } from '../../components/contacts/ContactListRow';
 import { ContactSectionHeader } from '../../components/contacts/ContactSectionHeader';
-import { RipplePressable } from '../../components/ui/RipplePressable';
-import { SkeletonList } from '../../components/ui/SkeletonLoader';
-import { filterContacts } from '../../contacts';
+import { VspSegmentedControl } from '../../components/vsp/VspBadge';
 import {
-  flattenContactsWithSections,
-  groupContactsByLetter,
-  type ContactListItem,
-} from '../../contacts/contactIndex';
-import { useContacts } from '../../hooks/useContacts';
+  callUnifiedContact,
+  messageUnifiedContact,
+  openUnifiedContact,
+} from '../../contacts/contactActions';
+import { searchUnifiedContacts } from '../../contacts/contactSearch';
+import type { ContactDirectoryMode } from '../../contacts/types';
+import { favoriteKeyForContact, type UnifiedContact } from '../../contacts/types';
+import {
+  flattenRecentContacts,
+  flattenUnifiedContactsWithSections,
+  groupUnifiedContactsByLetter,
+  type UnifiedContactListItem,
+} from '../../contacts/unifiedContactIndex';
+import { useContactsDirectory } from '../../hooks/useContactsDirectory';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
-import type { ContactsStackParamList } from '../../navigation/types';
+import { usePhoneConnection } from '../../hooks/usePhoneConnection';
+import { useRecentContactsDirectory } from '../../hooks/useRecentContactsDirectory';
+import { useConversations } from '../../hooks/useConversations';
+import type { ContactsStackParamList, MainTabParamList } from '../../navigation/types';
 import { useFavoritesStore } from '../../store/favoritesStore';
 import { useTheme } from '../../shared/theme';
 import { LIST_ITEM_HEIGHT } from '../../lib/listConstants';
@@ -26,14 +37,26 @@ import { spacing, typography } from '../../shared/theme';
 
 type Props = NativeStackScreenProps<ContactsStackParamList, 'ContactsList'>;
 
+const MODES: { id: ContactDirectoryMode; label: string }[] = [
+  { id: 'company', label: 'Company' },
+  { id: 'customers', label: 'Customers' },
+  { id: 'favorites', label: 'Favorites' },
+  { id: 'recent', label: 'Recent' },
+];
+
 export function ContactsListScreen({ navigation }: Props) {
   const { colors } = useTheme();
-  const listRef = useRef<FlashListRef<ContactListItem>>(null);
-  const { favoriteIds, hydrate, hydrated } = useFavoritesStore();
-  const [search, setSearch] = React.useState('');
-  const debouncedSearch = useDebouncedValue(search, 250);
-  const [showFavoritesOnly, setShowFavoritesOnly] = React.useState(false);
-  const { data: contacts = [], isLoading, isRefetching, error, refetch } = useContacts();
+  const listRef = useRef<FlashListRef<UnifiedContactListItem>>(null);
+  const tabNavigation = navigation.getParent<BottomTabNavigationProp<MainTabParamList>>();
+  const { favoriteIds, hydrate, hydrated, toggleFavoriteContact, isFavoriteContact } = useFavoritesStore();
+  const [search, setSearch] = useState('');
+  const [mode, setMode] = useState<ContactDirectoryMode>('company');
+  const debouncedSearch = useDebouncedValue(search, 200);
+  const { companyDirectory, customerDirectory, allContacts, isLoading, isRefetching, error, refetch } =
+    useContactsDirectory();
+  const { recentContacts } = useRecentContactsDirectory();
+  const { data: conversations = [] } = useConversations();
+  const { canPlaceCalls } = usePhoneConnection();
 
   useEffect(() => {
     hydrate();
@@ -41,26 +64,32 @@ export function ContactsListScreen({ navigation }: Props) {
 
   const favoriteSet = useMemo(() => new Set(favoriteIds), [favoriteIds]);
 
-  const filtered = useMemo(() => {
-    let list = filterContacts(contacts, debouncedSearch);
-    if (showFavoritesOnly) {
-      list = list.filter((c) => favoriteSet.has(c.id));
-    } else {
-      list = [...list].sort((a, b) => {
-        const aFav = favoriteSet.has(a.id) ? 0 : 1;
-        const bFav = favoriteSet.has(b.id) ? 0 : 1;
-        if (aFav !== bFav) return aFav - bFav;
-        return a.name.localeCompare(b.name);
-      });
+  const baseContacts = useMemo(() => {
+    switch (mode) {
+      case 'customers':
+        return customerDirectory;
+      case 'favorites':
+        return allContacts.filter((contact) => favoriteSet.has(favoriteKeyForContact(contact)));
+      case 'recent':
+        return recentContacts;
+      default:
+        return companyDirectory;
     }
-    return list;
-  }, [contacts, debouncedSearch, showFavoritesOnly, favoriteSet]);
+  }, [allContacts, companyDirectory, customerDirectory, favoriteSet, mode, recentContacts]);
 
-  const listItems = useMemo(() => flattenContactsWithSections(filtered), [filtered]);
+  const filtered = useMemo(
+    () => searchUnifiedContacts(baseContacts, debouncedSearch),
+    [baseContacts, debouncedSearch],
+  );
+
+  const listItems = useMemo(() => {
+    if (mode === 'recent') return flattenRecentContacts(filtered);
+    return flattenUnifiedContactsWithSections(filtered);
+  }, [filtered, mode]);
 
   const sectionLetters = useMemo(
-    () => groupContactsByLetter(filtered).map((group) => group.letter),
-    [filtered],
+    () => (mode === 'recent' ? [] : groupUnifiedContactsByLetter(filtered).map((group) => group.letter)),
+    [filtered, mode],
   );
 
   const sectionIndexByLetter = useMemo(() => {
@@ -71,11 +100,32 @@ export function ContactsListScreen({ navigation }: Props) {
     return map;
   }, [listItems]);
 
-  const handleContactPress = useCallback(
-    (contactId: string) => {
-      navigation.navigate('ContactDetail', { contactId });
+  const handlePress = useCallback(
+    (contact: UnifiedContact) => {
+      openUnifiedContact(contact, navigation as never);
     },
     [navigation],
+  );
+
+  const handleCall = useCallback(
+    (contact: UnifiedContact) => {
+      void callUnifiedContact(contact, canPlaceCalls);
+    },
+    [canPlaceCalls],
+  );
+
+  const handleMessage = useCallback(
+    (contact: UnifiedContact) => {
+      messageUnifiedContact(contact, conversations, tabNavigation);
+    },
+    [conversations, tabNavigation],
+  );
+
+  const handleFavorite = useCallback(
+    (contact: UnifiedContact) => {
+      void toggleFavoriteContact({ id: contact.id, kind: contact.kind });
+    },
+    [toggleFavoriteContact],
   );
 
   const handleJumpToLetter = useCallback(
@@ -88,53 +138,66 @@ export function ContactsListScreen({ navigation }: Props) {
   );
 
   const renderItem = useCallback(
-    ({ item }: { item: ContactListItem }) => {
+    ({ item }: { item: UnifiedContactListItem }) => {
       if (item.type === 'section') {
         return <ContactSectionHeader letter={item.letter} />;
       }
       return (
-        <ContactRow
-          item={item.contact}
-          isFavorite={hydrated && favoriteSet.has(item.contact.id)}
-          onPress={handleContactPress}
+        <ContactListRow
+          contact={item.contact}
+          isFavorite={hydrated && isFavoriteContact(item.contact)}
+          onPress={handlePress}
+          onCall={handleCall}
+          onMessage={handleMessage}
+          onFavorite={handleFavorite}
         />
       );
     },
-    [favoriteSet, handleContactPress, hydrated],
+    [handleCall, handleFavorite, handleMessage, handlePress, hydrated, isFavoriteContact],
   );
-
-  const keyExtractor = useCallback((item: ContactListItem) => item.key, []);
-  const getItemType = useCallback((item: ContactListItem) => item.type, []);
 
   const onRefresh = useCallback(() => {
     void refetch();
   }, [refetch]);
 
-  const refreshControl = useMemo(
-    () => <RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={colors.primary} />,
-    [colors.primary, isRefetching, onRefresh],
-  );
-
   const listEmpty = useMemo(
     () => (
       <EmptyState
         icon="👥"
-        title={showFavoritesOnly ? 'No favorites yet' : 'No contacts found'}
+        title={
+          mode === 'favorites'
+            ? 'No favorites yet'
+            : mode === 'customers'
+              ? 'No customer contacts'
+              : mode === 'recent'
+                ? 'No recent contacts'
+                : 'No contacts found'
+        }
         message={
-          showFavoritesOnly
-            ? 'Star contacts from their detail screen to add them here.'
-            : 'Active extensions in your organization appear here.'
+          mode === 'favorites'
+            ? 'Star contacts from the list or detail screen.'
+            : mode === 'customers'
+              ? 'Add customer contacts with the + button. Sync across devices requires a backend API.'
+              : mode === 'recent'
+                ? 'Recent calls and messages will appear here.'
+                : 'Active extensions in your organization appear here.'
         }
       />
     ),
-    [showFavoritesOnly],
+    [mode],
   );
 
-  if (isLoading && contacts.length === 0) {
-    return <SkeletonList rows={8} />;
+  if (isLoading && companyDirectory.length === 0) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={styles.header}>
+          <Text style={[styles.title, { color: colors.text }]}>Contacts</Text>
+        </View>
+      </SafeAreaView>
+    );
   }
 
-  if (error && contacts.length === 0) {
+  if (error && companyDirectory.length === 0) {
     return (
       <ErrorScreen
         message={error instanceof Error ? error.message : 'Failed to load contacts'}
@@ -149,54 +212,48 @@ export function ContactsListScreen({ navigation }: Props) {
         <Text style={[styles.title, { color: colors.text }]} accessibilityRole="header">
           Contacts
         </Text>
-        <SearchBar value={search} onChangeText={setSearch} placeholder="Search name, ext, department" />
-        <View style={styles.filters}>
-          <RipplePressable
-            onPress={() => setShowFavoritesOnly(false)}
-            style={[
-              styles.chip,
-              {
-                backgroundColor: !showFavoritesOnly ? colors.primary : colors.backgroundAlt,
-                borderColor: colors.border,
-              },
-            ]}
-            accessibilityRole="button"
-            accessibilityState={{ selected: !showFavoritesOnly }}
-          >
-            <Text style={{ color: !showFavoritesOnly ? '#fff' : colors.text }}>All</Text>
-          </RipplePressable>
-          <RipplePressable
-            onPress={() => setShowFavoritesOnly(true)}
-            style={[
-              styles.chip,
-              {
-                backgroundColor: showFavoritesOnly ? colors.primary : colors.backgroundAlt,
-                borderColor: colors.border,
-              },
-            ]}
-            accessibilityRole="button"
-            accessibilityState={{ selected: showFavoritesOnly }}
-          >
-            <Text style={{ color: showFavoritesOnly ? '#fff' : colors.text }}>Favorites</Text>
-          </RipplePressable>
-        </View>
+        <SearchBar
+          value={search}
+          onChangeText={setSearch}
+          placeholder="Search name, ext, DID, email, company"
+        />
+        <VspSegmentedControl
+          options={MODES.map((item) => ({ key: item.id, label: item.label }))}
+          value={mode}
+          onChange={(next) => setMode(next as ContactDirectoryMode)}
+        />
       </View>
 
       <View style={styles.listWrap}>
         <FlashList
           ref={listRef}
           data={listItems}
-          keyExtractor={keyExtractor}
-          getItemType={getItemType}
-          drawDistance={LIST_ITEM_HEIGHT.contact * 10}
+          keyExtractor={(item) => item.key}
+          getItemType={(item) => item.type}
+          drawDistance={LIST_ITEM_HEIGHT.contact * 12}
           removeClippedSubviews
-          refreshControl={refreshControl}
+          refreshControl={
+            <RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={colors.primary} />
+          }
           ListEmptyComponent={listEmpty}
           renderItem={renderItem}
           contentContainerStyle={listItems.length === 0 ? styles.emptyList : undefined}
         />
-        <AlphabetIndex letters={sectionLetters} onJump={handleJumpToLetter} />
+        {mode !== 'recent' ? (
+          <AlphabetIndex letters={sectionLetters} onJump={handleJumpToLetter} />
+        ) : null}
       </View>
+
+      {mode === 'customers' ? (
+        <Pressable
+          onPress={() => navigation.navigate('CustomerContactForm', {})}
+          style={[styles.fab, { backgroundColor: colors.primary }]}
+          accessibilityRole="button"
+          accessibilityLabel="Add customer contact"
+        >
+          <Ionicons name="add" size={28} color="#fff" />
+        </Pressable>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -214,20 +271,22 @@ const styles = StyleSheet.create({
     fontSize: 34,
     fontWeight: '700',
   },
-  filters: { flexDirection: 'row', gap: spacing.sm },
-  chip: {
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    minHeight: 36,
-    justifyContent: 'center',
-  },
   listWrap: {
     flex: 1,
     position: 'relative',
   },
   emptyList: {
     flexGrow: 1,
+  },
+  fab: {
+    position: 'absolute',
+    right: spacing.lg,
+    bottom: spacing.xl,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
   },
 });

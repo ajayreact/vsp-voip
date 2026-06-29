@@ -35,6 +35,38 @@ export default defineConfig({
         __dirname,
         'tests/mobile/stubs/expo-modules-core.ts',
       ),
+      'expo-secure-store': path.resolve(
+        __dirname,
+        'tests/mobile/stubs/expo-secure-store.ts',
+      ),
+      'expo-local-authentication': path.resolve(
+        __dirname,
+        'tests/mobile/stubs/expo-local-authentication.ts',
+      ),
+      'expo-clipboard': path.resolve(
+        __dirname,
+        'tests/mobile/stubs/expo-clipboard.ts',
+      ),
+      'expo-haptics': path.resolve(
+        __dirname,
+        'tests/mobile/stubs/expo-haptics.ts',
+      ),
+      'expo-av': path.resolve(
+        __dirname,
+        'tests/mobile/stubs/expo-av.ts',
+      ),
+      'expo-file-system': path.resolve(
+        __dirname,
+        'tests/mobile/stubs/expo-file-system.ts',
+      ),
+      '@react-native-async-storage/async-storage': path.resolve(
+        __dirname,
+        'tests/mobile/stubs/async-storage.ts',
+      ),
+      '@tanstack/react-query': path.resolve(
+        __dirname,
+        'mobile-rn/node_modules/@tanstack/react-query',
+      ),
       [path.resolve(__dirname, 'mobile-rn/src/components/Button.tsx')]: path.resolve(
         __dirname,
         'tests/mobile/stubs/Button.tsx',

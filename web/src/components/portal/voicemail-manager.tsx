@@ -7,6 +7,8 @@ import { Download, Forward, Loader2, Trash2 } from 'lucide-react';
 import 'sweetalert2/dist/sweetalert2.min.css';
 import Swal from 'sweetalert2';
 import { AuthenticatedAudioPlayer } from '@/components/authenticated-audio-player';
+import { AiSummaryCard } from '@/components/ai/ai-summary-card';
+import { TranscriptCard } from '@/components/ai/transcript-card';
 import { VoicemailAudioScope } from '@/components/voicemail-audio-scope';
 import { DataTable, type DataTableColumn } from '@/components/data-table';
 import { PortalPageHeader } from '@/components/portal/page-header';
@@ -285,17 +287,21 @@ export function VoicemailManagerPage() {
         />
 
         {expandedId ? (
-          <div className="panel-card p-4">
-            <p className="text-sm font-medium text-slate-900">Playback</p>
-            <AuthenticatedAudioPlayer
-              streamPath={`/api/tenant/voicemails/${expandedId}/stream`}
-              className="mt-3 w-full max-w-md"
-              playerId={expandedId}
-              onPlay={() => {
-                const vm = voicemails.find((v) => v.id === expandedId);
-                if (vm && !vm.isRead) onPlay(vm);
-              }}
-            />
+          <div className="space-y-4">
+            <div className="panel-card p-4">
+              <p className="text-sm font-medium text-slate-900">Playback</p>
+              <AuthenticatedAudioPlayer
+                streamPath={`/api/tenant/voicemails/${expandedId}/stream`}
+                className="mt-3 w-full max-w-md"
+                playerId={expandedId}
+                onPlay={() => {
+                  const vm = voicemails.find((v) => v.id === expandedId);
+                  if (vm && !vm.isRead) onPlay(vm);
+                }}
+              />
+            </div>
+            <TranscriptCard entityType="voicemail" entityId={expandedId} />
+            <AiSummaryCard entityType="voicemail" entityId={expandedId} />
           </div>
         ) : null}
       </VoicemailAudioScope>

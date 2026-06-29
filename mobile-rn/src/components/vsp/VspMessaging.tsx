@@ -1,6 +1,7 @@
 import React, { memo, useCallback } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
+import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '../Avatar';
 import { RipplePressable } from '../ui/RipplePressable';
 import { VspBadge } from './VspBadge';
@@ -8,28 +9,37 @@ import { useTheme } from '../../shared/theme';
 import {
   attachmentUri,
   formatAttachmentSize,
-  formatMessageStatus,
   formatMessagingTime,
+  formatPhoneDisplay,
   isFailedMessageStatus,
+  resolveOutboundStatusLabel,
 } from '../../messaging/format';
 import type { MessageAttachment } from '../../messaging/types';
 import { spacing, tokens, typography } from '../../shared/theme';
 
 type VspConversationRowProps = {
   peerLabel: string;
+  phoneNumber?: string;
   lineLabel?: string;
   preview: string;
   timestamp?: string;
   unreadCount?: number;
+  deliveryStatus?: string;
+  pinned?: boolean;
+  archived?: boolean;
   onPress?: () => void;
 };
 
 export const VspConversationRow = memo(function VspConversationRow({
   peerLabel,
+  phoneNumber,
   lineLabel,
   preview,
   timestamp,
   unreadCount = 0,
+  deliveryStatus,
+  pinned = false,
+  archived = false,
   onPress,
 }: VspConversationRowProps) {
   const { colors } = useTheme();
@@ -39,28 +49,58 @@ export const VspConversationRow = memo(function VspConversationRow({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`Conversation with ${peerLabel}${unreadCount ? `, ${unreadCount} unread` : ''}`}
-      style={[styles.row, { backgroundColor: colors.surface, borderColor: colors.border }]}
+      style={[styles.row, { backgroundColor: colors.surface }]}
     >
-      <Avatar name={peerLabel} size={48} />
+      <View style={styles.avatarWrap}>
+        <Avatar name={peerLabel} size={48} />
+        {pinned ? (
+          <View style={[styles.pinBadge, { backgroundColor: colors.primary }]}>
+            <Ionicons name="pin" size={10} color="#fff" />
+          </View>
+        ) : null}
+      </View>
       <View style={styles.content}>
         <View style={styles.topLine}>
           <Text style={[styles.peer, { color: colors.text }]} numberOfLines={1}>
             {peerLabel}
           </Text>
-          {timestamp ? (
-            <Text style={[styles.time, { color: colors.textMuted }]}>
-              {formatMessagingTime(timestamp)}
+          <View style={styles.metaRight}>
+            {archived ? (
+              <Ionicons name="archive-outline" size={14} color={colors.textMuted} accessibilityLabel="Archived" />
+            ) : null}
+            {timestamp ? (
+              <Text style={[styles.time, { color: colors.textMuted }]}>
+                {formatMessagingTime(timestamp)}
+              </Text>
+            ) : null}
+          </View>
+        </View>
+        {phoneNumber ? (
+          <Text style={[styles.phone, { color: colors.textMuted }]} numberOfLines={1}>
+            {phoneNumber}
+          </Text>
+        ) : null}
+        {lineLabel ? (
+          <Text style={[styles.line, { color: colors.primary }]} numberOfLines={1}>
+            via {formatPhoneDisplay(lineLabel)}
+          </Text>
+        ) : null}
+        <View style={styles.previewRow}>
+          <Text
+            style={[
+              styles.preview,
+              { color: unreadCount > 0 ? colors.text : colors.textMuted, fontWeight: unreadCount > 0 ? '600' : '400' },
+            ]}
+            numberOfLines={1}
+          >
+            {preview}
+          </Text>
+          {deliveryStatus ? (
+            <Text style={[styles.delivery, { color: colors.textMuted }]} numberOfLines={1}>
+              {deliveryStatus}
             </Text>
           ) : null}
         </View>
-        {lineLabel ? (
-          <Text style={[styles.line, { color: colors.textMuted }]} numberOfLines={1}>
-            Line {lineLabel}
-          </Text>
-        ) : null}
-        <Text style={[styles.preview, { color: unreadCount > 0 ? colors.text : colors.textMuted }]} numberOfLines={1}>
-          {preview}
-        </Text>
       </View>
       {unreadCount > 0 ? (
         <View style={[styles.unread, { backgroundColor: colors.primary }]}>
@@ -83,6 +123,7 @@ type VspMessageBlockProps = {
   optimistic?: boolean;
   attachments?: MessageAttachment[];
   onAttachmentPress?: (attachment: MessageAttachment) => void;
+  onLongPress?: () => void;
 };
 
 export const VspMessageBlock = memo(function VspMessageBlock({
@@ -97,15 +138,21 @@ export const VspMessageBlock = memo(function VspMessageBlock({
   optimistic,
   attachments,
   onAttachmentPress,
+  onLongPress,
 }: VspMessageBlockProps) {
   const { colors } = useTheme();
   const isOutbound = direction === 'outbound';
   const failed = isFailedMessageStatus(status);
-  const statusLabel = optimistic ? 'Sending…' : formatMessageStatus(status);
-  const readLabel = readAt ? 'Read' : deliveredAt ? 'Delivered' : null;
+  const statusLabel =
+    direction === 'outbound'
+      ? resolveOutboundStatusLabel({ status, optimistic, deliveredAt, readAt })
+      : '';
+  const readLabel = null;
 
   return (
-    <View
+    <Pressable
+      onLongPress={onLongPress}
+      delayLongPress={280}
       style={[
         styles.block,
         isOutbound ? styles.blockOut : styles.blockIn,
@@ -151,7 +198,7 @@ export const VspMessageBlock = memo(function VspMessageBlock({
           {deliveryError}
         </Text>
       ) : null}
-    </View>
+    </Pressable>
   );
 });
 
@@ -209,7 +256,20 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    minHeight: 88,
+  },
+  avatarWrap: {
+    position: 'relative',
+  },
+  pinBadge: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   content: {
     flex: 1,
@@ -219,20 +279,40 @@ const styles = StyleSheet.create({
   topLine: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     gap: spacing.sm,
+  },
+  metaRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
   peer: {
     ...typography.bodyMedium,
     flex: 1,
+  },
+  phone: {
+    ...typography.caption,
   },
   time: {
     ...typography.caption,
   },
   line: {
     ...typography.caption,
+    fontWeight: '600',
+  },
+  previewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   preview: {
     ...typography.caption,
+    flex: 1,
+  },
+  delivery: {
+    ...typography.caption,
+    fontSize: 10,
   },
   unread: {
     minWidth: 22,

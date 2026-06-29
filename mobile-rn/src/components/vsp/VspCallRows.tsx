@@ -55,6 +55,9 @@ export const VspCallRow = memo(VspCallRowComponent);
 
 type VspVoicemailRowProps = {
   from: string;
+  contactName?: string;
+  contactCompany?: string;
+  businessDid?: string;
   durationSeconds?: number | null;
   isRead: boolean;
   timestamp: string;
@@ -63,6 +66,9 @@ type VspVoicemailRowProps = {
 
 function VspVoicemailRowComponent({
   from,
+  contactName,
+  contactCompany,
+  businessDid,
   durationSeconds,
   isRead,
   timestamp,
@@ -70,6 +76,7 @@ function VspVoicemailRowComponent({
 }: VspVoicemailRowProps) {
   const { colors } = useTheme();
   const duration = durationSeconds ? `${Math.round(durationSeconds)}s` : '—';
+  const displayName = contactName || formatPhone(from);
 
   return (
     <RipplePressable
@@ -89,10 +96,16 @@ function VspVoicemailRowComponent({
       </View>
       <View style={styles.content}>
         <Text style={[styles.peer, { color: colors.text, fontWeight: isRead ? '500' : '700' }]} numberOfLines={1}>
-          {formatPhone(from)}
+          {displayName}
         </Text>
-        <Text style={[styles.meta, { color: colors.textMuted }]}>
+        {contactCompany ? (
+          <Text style={[styles.meta, { color: colors.textMuted }]} numberOfLines={1}>
+            {contactCompany}
+          </Text>
+        ) : null}
+        <Text style={[styles.meta, { color: colors.textMuted }]} numberOfLines={1}>
           Voicemail · {duration}
+          {businessDid ? ` · ${businessDid}` : ''}
         </Text>
       </View>
       {!isRead ? <View style={[styles.dot, { backgroundColor: colors.primary }]} /> : null}

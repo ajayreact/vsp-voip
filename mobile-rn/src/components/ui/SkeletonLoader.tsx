@@ -8,16 +8,23 @@ import Animated, {
 } from 'react-native-reanimated';
 import { StyleSheet, View, ViewStyle } from 'react-native';
 import { useTheme } from '../../shared/theme';
+import { MOTION } from '../../lib/animations';
+import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { spacing, tokens } from '../../shared/theme';
 
 const SkeletonPulseContext = createContext<SharedValue<number> | null>(null);
 
 function SkeletonPulseProvider({ children }: { children: ReactNode }) {
-  const opacity = useSharedValue(0.45);
+  const reduceMotion = useReducedMotion();
+  const opacity = useSharedValue(reduceMotion ? 1 : 0.45);
 
   useEffect(() => {
-    opacity.value = withRepeat(withTiming(1, { duration: 900 }), -1, true);
-  }, [opacity]);
+    if (reduceMotion) {
+      opacity.value = 1;
+      return;
+    }
+    opacity.value = withRepeat(withTiming(1, { duration: MOTION.skeletonPulseMs }), -1, true);
+  }, [opacity, reduceMotion]);
 
   return (
     <SkeletonPulseContext.Provider value={opacity}>{children}</SkeletonPulseContext.Provider>
@@ -33,13 +40,14 @@ type SkeletonProps = {
 
 export function Skeleton({ width = '100%', height = 16, borderRadius = tokens.radius.sm, style }: SkeletonProps) {
   const { colors } = useTheme();
+  const reduceMotion = useReducedMotion();
   const sharedPulse = useContext(SkeletonPulseContext);
-  const localOpacity = useSharedValue(0.45);
+  const localOpacity = useSharedValue(reduceMotion ? 1 : 0.45);
 
   useEffect(() => {
-    if (sharedPulse) return;
-    localOpacity.value = withRepeat(withTiming(1, { duration: 900 }), -1, true);
-  }, [localOpacity, sharedPulse]);
+    if (sharedPulse || reduceMotion) return;
+    localOpacity.value = withRepeat(withTiming(1, { duration: MOTION.skeletonPulseMs }), -1, true);
+  }, [localOpacity, reduceMotion, sharedPulse]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: sharedPulse ? sharedPulse.value : localOpacity.value,

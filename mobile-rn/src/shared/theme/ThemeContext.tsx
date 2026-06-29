@@ -8,12 +8,14 @@ export type ThemeContextValue = {
   mode: ThemeMode;
   resolved: 'light' | 'dark';
   colors: ThemeColors;
+  fontScale: number;
 };
 
 export const ThemeContext = createContext<ThemeContextValue>({
   mode: 'dark',
   resolved: 'dark',
   colors: darkColors,
+  fontScale: 1,
 });
 
 export function useTheme() {

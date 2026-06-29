@@ -1,38 +1,18 @@
 import React from 'react';
-import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text } from 'react-native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { SettingsGroup } from '../../components/ui/SettingsRow';
+import { SettingsToggleRow } from '../../components/settings/SettingsToggleRow';
+import { SettingsStatusRow } from '../../components/settings/SettingsStatusRow';
 import { useSettingsStore } from '../../store/settingsStore';
 import { usePushRegistrationStore } from '../../notifications';
 import { useTheme } from '../../shared/theme';
 import { spacing, typography } from '../../shared/theme';
+import type { YouStackParamList } from '../../navigation/types';
 
-function ToggleRow({
-  label,
-  description,
-  value,
-  onValueChange,
-}: {
-  label: string;
-  description: string;
-  value: boolean;
-  onValueChange: (v: boolean) => void;
-}) {
-  const { colors } = useTheme();
-  return (
-    <View style={[styles.row, { borderBottomColor: colors.border }]}>
-      <View style={styles.rowText}>
-        <Text style={[styles.label, { color: colors.text }]}>{label}</Text>
-        <Text style={[styles.desc, { color: colors.textMuted }]}>{description}</Text>
-      </View>
-      <Switch
-        value={value}
-        onValueChange={onValueChange}
-        trackColor={{ false: colors.border, true: colors.primary }}
-      />
-    </View>
-  );
-}
+type Props = NativeStackScreenProps<YouStackParamList, 'Notifications'>;
 
-export function NotificationsScreen() {
+export function NotificationsScreen(_props: Props) {
   const { colors } = useTheme();
   const prefs = useSettingsStore((s) => s.notificationPrefs);
   const setNotificationPrefs = useSettingsStore((s) => s.setNotificationPrefs);
@@ -49,60 +29,53 @@ export function NotificationsScreen() {
   }[pushStatus];
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.background }}>
+    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={styles.content}>
       <Text style={[styles.intro, { color: colors.textMuted }]}>
-        Push delivery status: {pushStatusLabel}
+        Choose which alerts this device should show and play.
       </Text>
-      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <ToggleRow
+
+      <SettingsGroup>
+        <SettingsStatusRow label="Push delivery" value={pushStatusLabel} />
+      </SettingsGroup>
+
+      <SettingsGroup>
+        <SettingsToggleRow
           label="Push notifications"
-          description="Enable mobile alerts"
+          description="Master switch for mobile alerts"
           value={prefs.pushEnabled}
           onValueChange={(pushEnabled) => setNotificationPrefs({ pushEnabled })}
         />
-        <ToggleRow
+        <SettingsToggleRow
           label="Incoming calls"
           description="Alert for inbound calls"
           value={prefs.callAlerts}
           onValueChange={(callAlerts) => setNotificationPrefs({ callAlerts })}
         />
-        <ToggleRow
+        <SettingsToggleRow
           label="Messages"
           description="Alert for new SMS/MMS"
           value={prefs.messageAlerts}
           onValueChange={(messageAlerts) => setNotificationPrefs({ messageAlerts })}
         />
-        <ToggleRow
+        <SettingsToggleRow
           label="Voicemail"
           description="Alert for new voicemail"
           value={prefs.voicemailAlerts}
           onValueChange={(voicemailAlerts) => setNotificationPrefs({ voicemailAlerts })}
         />
-      </View>
+        <SettingsToggleRow
+          label="System"
+          description="Registration and system notices"
+          value={prefs.systemAlerts}
+          onValueChange={(systemAlerts) => setNotificationPrefs({ systemAlerts })}
+          last
+        />
+      </SettingsGroup>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  intro: {
-    ...typography.body,
-    padding: spacing.lg,
-    paddingBottom: spacing.sm,
-  },
-  card: {
-    marginHorizontal: spacing.lg,
-    borderRadius: 16,
-    borderWidth: 1,
-    overflow: 'hidden',
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    gap: spacing.md,
-  },
-  rowText: { flex: 1 },
-  label: { ...typography.body, fontWeight: '600' },
-  desc: { ...typography.caption, marginTop: 2 },
+  content: { paddingVertical: spacing.md, paddingBottom: spacing.xxl, gap: spacing.sm },
+  intro: { ...typography.body, paddingHorizontal: spacing.lg, marginBottom: spacing.sm },
 });

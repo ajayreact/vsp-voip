@@ -9,6 +9,7 @@
     "test:browser": "playwright test --config tests/playwright.config.ts",
     "test:api": "vitest run --config vitest.config.ts tests/api",
     "test:mobile": "vitest run --config vitest.config.ts tests/mobile",
+    "test:ai": "vitest run --config vitest.config.ts tests/lib/ai-foundation.test.ts tests/lib/ai-foundation-hardening.test.ts tests/lib/ai-summaries.test.ts tests/lib/ai-transcription.test.ts tests/lib/ai-assistant.test.ts",
     "smoke:deploy": "node scripts/smoke-deploy.js",
     "release:checklist": "node scripts/run-release-checklist.js",
     "qa:perf:messaging": "k6 run tests/performance/k6-messaging.js",
@@ -70,6 +71,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "@prisma/sdk": "^3.15.2",
@@ -82,11 +84,11 @@
     "ioredis": "^5.11.1",
     "nodemailer": "^9.0.1",
     "pg": "^8.21.0",
+    "prisma": "^7.8.0",
     "razorpay": "^2.9.6",
     "stripe": "^22.2.2",
     "telnyx": "^6.83.0",
-    "tsx": "^4.22.4",
-    "prisma": "^7.8.0"
+    "tsx": "^4.22.4"
   },
   "devDependencies": {
     "@playwright/test": "^1.51.0",

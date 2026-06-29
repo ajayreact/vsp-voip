@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActionSheetIOS,
   Alert,
@@ -32,6 +32,7 @@ import { buildContactLookupMaps, findContactInMaps } from '../../contacts/contac
 import { useContacts } from '../../hooks/useContacts';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { useHiddenCallIds } from '../../hooks/useHiddenCallIds';
+import { useFavoritesStore } from '../../store/favoritesStore';
 import { usePreloadMainTabs } from '../../hooks/usePreloadMainTabs';
 import { useRecentCalls } from '../../hooks/useRecentCalls';
 import { LIST_ITEM_HEIGHT } from '../../lib/listConstants';
@@ -51,24 +52,40 @@ const EMPTY_CALLS = (
   <EmptyState icon="📞" title="No recent calls" message="Your call history will appear here." />
 );
 
-export function RecentCallsScreen({ navigation }: Props) {
+export function RecentCallsScreen({ navigation, route }: Props) {
   const { colors } = useTheme();
   const tabNavigation = navigation.getParent<BottomTabNavigationProp<MainTabParamList>>();
   usePreloadMainTabs(tabNavigation ?? undefined);
 
   const [segment, setSegment] = useState('all');
-  const [advancedFilter, setAdvancedFilter] = useState('all');
+  const [advancedFilter, setAdvancedFilter] = useState(route.params?.initialFilter ?? 'all');
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search, 250);
   const [isEditing, setIsEditing] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const { canPlaceCalls } = usePhoneConnection();
   const { hiddenIds, hideCall, hideCalls } = useHiddenCallIds();
+  const { favoriteIds, toggleFavorite, hydrate: hydrateFavorites } = useFavoritesStore();
 
   const { data: calls = [], isLoading, isRefetching, error, refetch } = useRecentCalls();
   const { data: contacts = [] } = useContacts();
 
   const contactMaps = useMemo(() => buildContactLookupMaps(contacts), [contacts]);
+  const favoriteSet = useMemo(() => new Set(favoriteIds), [favoriteIds]);
+
+  useEffect(() => {
+    void hydrateFavorites();
+  }, [hydrateFavorites]);
+
+  useEffect(() => {
+    const initial = route.params?.initialFilter;
+    if (initial === 'missed') {
+      setSegment('missed');
+      setAdvancedFilter('missed');
+    } else if (initial) {
+      setAdvancedFilter(initial);
+    }
+  }, [route.params?.initialFilter]);
 
   const filtered = useMemo(() => {
     const visible = calls.filter((call) => {
@@ -171,6 +188,34 @@ export function RecentCallsScreen({ navigation }: Props) {
     [hideCall],
   );
 
+  const handleMessage = useCallback(
+    (call: RecentCallListItem & { type: 'call' }) => {
+      const peer = call.call.direction === 'inbound' ? call.call.from : call.call.to;
+      const contact = findContactInMaps(contactMaps, peer);
+      tabNavigation?.navigate('Text', {
+        screen: 'NewMessage',
+        params: {
+          peerNumber: peer,
+          peerLabel: contact?.name || peer,
+        },
+      });
+    },
+    [contactMaps, tabNavigation],
+  );
+
+  const handleFavorite = useCallback(
+    (call: RecentCallListItem & { type: 'call' }) => {
+      const peer = call.call.direction === 'inbound' ? call.call.from : call.call.to;
+      const contact = findContactInMaps(contactMaps, peer);
+      if (contact) {
+        void toggleFavorite(contact.id);
+        return;
+      }
+      Alert.alert('Favorite', 'Add this number as a contact to favorite them from recents.');
+    },
+    [contactMaps, toggleFavorite],
+  );
+
   const showFilterMenu = useCallback(() => {
     const options = ['All calls', 'Incoming', 'Outgoing', 'Missed', 'Voicemail', 'Cancel'];
     const cancelIndex = 5;
@@ -209,16 +254,19 @@ export function RecentCallsScreen({ navigation }: Props) {
         <RecentCallRow
           call={item.call}
           contact={contact}
+          isFavorite={contact ? favoriteSet.has(contact.id) : false}
           isEditing={isEditing}
           selected={selectedIds.has(item.call.id)}
           onPress={() => handleCallPress(item)}
           onInfoPress={() => handleInfoPress(item)}
           onCall={() => handleSwipeCall(item)}
+          onMessage={() => handleMessage(item)}
+          onFavorite={() => handleFavorite(item)}
           onDelete={() => handleDelete(item.call.id)}
         />
       );
     },
-    [contactMaps, handleCallPress, handleDelete, handleInfoPress, handleSwipeCall, isEditing, selectedIds],
+    [contactMaps, favoriteSet, handleCallPress, handleDelete, handleFavorite, handleInfoPress, handleMessage, handleSwipeCall, isEditing, selectedIds],
   );
 
   const keyExtractor = useCallback((item: RecentCallListItem) => item.key, []);

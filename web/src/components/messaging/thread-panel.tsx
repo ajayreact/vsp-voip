@@ -16,6 +16,7 @@ import {
   normalizeDirection,
 } from '@/lib/messaging/format';
 import { AttachmentChip, MessageBlock, PendingAttachmentChip } from '@/components/messaging/message-block';
+import { AiSummaryCard } from '@/components/ai/ai-summary-card';
 import { DateSeparator, MessagingStateBanner, ThreadSkeleton } from '@/components/messaging/messaging-states';
 import type { MessagingLine } from '@/lib/messaging/types';
 
@@ -312,6 +313,12 @@ export function ThreadPanel({
       {threadError ? (
         <div className="border-b border-slate-200 p-3">
           <MessagingStateBanner message={threadError} onRetry={onRetryThread} />
+        </div>
+      ) : null}
+
+      {conversation ? (
+        <div className="border-b border-slate-200 p-3">
+          <AiSummaryCard entityType="conversation" entityId={conversation.id} className="border-0 p-0 shadow-none" />
         </div>
       ) : null}
 

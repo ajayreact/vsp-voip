@@ -512,7 +512,7 @@ export function SipConfigurationScreen() {
           </SipSectionCard>
         ) : null}
 
-        {visible.logging ? (
+        {visible.logging && __DEV__ ? (
           <SipSectionCard title="Logging" collapsible defaultCollapsed>
             <SipToggleField label="Enable SIP Logs" value={profile.enableSipLogs} onChange={(enableSipLogs) => update({ enableSipLogs })} />
             <SipToggleField label="Enable RTP Logs" value={profile.enableRtpLogs} onChange={(enableRtpLogs) => update({ enableRtpLogs })} />

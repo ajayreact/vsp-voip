@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '../../shared/theme';
+import { dialPadHaptic } from '../../lib/haptics';
 import { spacing, typography } from '../../shared/theme';
 
 type VspDialKeyProps = {
@@ -83,10 +84,16 @@ const DIAL_ROWS: { digit: string; sub?: string }[][] = [
 type VspDialPadProps = {
   onDigit: (digit: string) => void;
   variant?: 'default' | 'iphone';
+  enableHaptics?: boolean;
 };
 
-export function VspDialPad({ onDigit, variant = 'default' }: VspDialPadProps) {
+export function VspDialPad({ onDigit, variant = 'default', enableHaptics = true }: VspDialPadProps) {
   const isIphone = variant === 'iphone';
+
+  const handleDigit = (digit: string) => {
+    if (enableHaptics) dialPadHaptic();
+    onDigit(digit);
+  };
 
   return (
     <View style={isIphone ? styles.iphonePad : styles.pad}>
@@ -97,8 +104,8 @@ export function VspDialPad({ onDigit, variant = 'default' }: VspDialPadProps) {
               key={key.digit}
               digit={key.digit}
               subLabel={key.sub || undefined}
-              onPress={onDigit}
-              onLongPress={key.digit === '0' ? () => onDigit('+') : undefined}
+              onPress={handleDigit}
+              onLongPress={key.digit === '0' ? () => handleDigit('+') : undefined}
               variant={variant}
             />
           ))}
@@ -130,9 +137,9 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
   },
   key: {
-    width: 76,
-    height: 76,
-    borderRadius: 18,
+    width: 80,
+    height: 80,
+    borderRadius: 20,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',

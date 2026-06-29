@@ -3,30 +3,41 @@
 **Audience:** Developers working in `mobile-rn/`.  
 **Authoritative scope:** [docs/vsp/phase4/README.md](../../docs/vsp/phase4/README.md)
 
+**Mandatory rules:** [docs/vsp/phase4/03-mobile-development-rules.md](../../docs/vsp/phase4/03-mobile-development-rules.md)  
+**Build sequence:** [docs/vsp/phase4/04-development-sequence.md](../../docs/vsp/phase4/04-development-sequence.md)
+
 ---
 
-## Backend is frozen
+## Build order
 
-The API at tag `phase2-production-ready` is the contract. Do not add endpoints or change telephony behavior. If you hit a backend bug, follow [02-backend-freeze-rules.md](../../docs/vsp/phase4/02-backend-freeze-rules.md).
+| Phase | Status |
+|-------|--------|
+| 4.1 Authentication | ✅ Complete — [PHASE4-1-AUTH.md](./PHASE4-1-AUTH.md) |
+| 4.2 Calling UI | **Next** |
+| 4.3 Contacts & communication | Planned |
+| 4.4 Settings | Planned |
+| 4.5 Performance & polish | Planned |
+
+The API at tag `phase2-production-ready` is the contract. Do not add endpoints or change telephony behavior. If you hit a backend bug, **stop and report** — see [03-mobile-development-rules.md](../../docs/vsp/phase4/03-mobile-development-rules.md).
 
 ---
 
 ## Phase 4 deliverables
 
-| # | Feature | Start here |
-|---|---------|------------|
-| 1 | QR Login | `src/screens/QrLoginScreen.tsx`, `src/auth/qrLogin.ts` |
-| 2 | Remember Me | `src/auth/tokenStorage.ts`, `LoginScreen.tsx` |
-| 3 | Biometric Login | New — `expo-local-authentication` |
-| 4 | Dial Pad | `src/screens/calls/DialPadScreen.tsx` |
-| 5 | Contacts | `src/screens/contacts/*`, `contactsService.ts` |
-| 6 | Call History | `RecentCallsScreen.tsx`, `useRecentCalls.ts` |
-| 7 | Incoming Call UI | `IncomingCallScreen.tsx` |
-| 8 | In-Call Screen | `ActiveCallScreen.tsx` |
-| 9 | Voicemail | `src/screens/voicemail/*` |
-| 10 | Push Notifications | `src/notifications/*` |
-| 11 | Settings | `src/screens/settings/*` |
-| 12 | Desk Phone Provisioning | `SipConfigurationScreen.tsx`, `provisionService.ts` |
+| Phase | Doc |
+|-------|-----|
+| **4.1 Authentication** | [PHASE4-1-AUTH.md](./PHASE4-1-AUTH.md) |
+
+### Remaining scope by phase
+
+| Phase | Screens / areas |
+|-------|-----------------|
+| **4.2** | Home, Dial Pad, Incoming, Outgoing, In-Call |
+| **4.3** | Contacts, Favorites, Recents, Call History, Voicemail |
+| **4.4** | SIP Configuration, Desk Phone QR, Audio, Notifications, Profile |
+| **4.5** | Animations, skeletons, FlashList, memory, transitions |
+
+Before touching telephony modules, inspect existing code — see [04-development-sequence.md](../../docs/vsp/phase4/04-development-sequence.md#existing-implementation-map).
 
 Feature status matrix: [01-mobile-feature-matrix.md](../../docs/vsp/phase4/01-mobile-feature-matrix.md)
 

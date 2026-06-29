@@ -45,6 +45,29 @@ export function MessageDateSeparator({ label }: { label: string }) {
   );
 }
 
+type NewMessagesProps = {
+  count: number;
+  onPress: () => void;
+};
+
+export function NewMessagesBanner({ count, onPress }: NewMessagesProps) {
+  const { colors } = useTheme();
+  if (count <= 0) return null;
+
+  const label = count === 1 ? '1 new message' : `${count} new messages`;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${label}. Tap to scroll to newest messages.`}
+      style={[styles.newMessages, { backgroundColor: colors.primary, shadowColor: colors.text }]}
+    >
+      <Text style={styles.newMessagesText}>{label}</Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   banner: {
     borderWidth: 1,
@@ -75,5 +98,23 @@ const styles = StyleSheet.create({
   separatorLabel: {
     ...typography.caption,
     fontWeight: '600',
+  },
+  newMessages: {
+    position: 'absolute',
+    bottom: spacing.md,
+    alignSelf: 'center',
+    borderRadius: 999,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    zIndex: 2,
+    elevation: 4,
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  newMessagesText: {
+    ...typography.caption,
+    color: '#fff',
+    fontWeight: '700',
   },
 });

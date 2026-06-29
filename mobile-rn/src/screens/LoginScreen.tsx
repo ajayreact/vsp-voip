@@ -1,9 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   View,
   useWindowDimensions,
@@ -21,11 +23,18 @@ import { getFriendlyErrorMessage } from '../utils/friendlyError';
 type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 
 export function LoginScreen({ navigation }: Props) {
-  const { login, isSubmitting, error, clearError } = useAuth();
+  const { login, isSubmitting, error, clearError, lastUsername } = useAuth();
   const { colors } = useTheme();
   const { width } = useWindowDimensions();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
+
+  useEffect(() => {
+    if (lastUsername) {
+      setUsername(lastUsername);
+    }
+  }, [lastUsername]);
 
   const cardWidth = useMemo(() => {
     if (width >= 768) return Math.min(440, width * 0.55);
@@ -34,7 +43,7 @@ export function LoginScreen({ navigation }: Props) {
 
   async function handleSubmit() {
     clearError();
-    await login(username.trim(), password);
+    await login(username.trim(), password, rememberMe);
   }
 
   const friendlyError = error ? getFriendlyErrorMessage(new Error(error)) : null;
@@ -45,7 +54,7 @@ export function LoginScreen({ navigation }: Props) {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <LoadingOverlay visible={isSubmitting} />
+        <LoadingOverlay visible={isSubmitting} message="Signing in…" />
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
@@ -98,6 +107,27 @@ export function LoginScreen({ navigation }: Props) {
                 onSubmitEditing={() => void handleSubmit()}
                 accessibilityLabel="Password"
               />
+
+              <Pressable
+                style={styles.rememberRow}
+                onPress={() => setRememberMe((value) => !value)}
+                accessibilityRole="switch"
+                accessibilityState={{ checked: rememberMe }}
+                accessibilityLabel="Remember me"
+              >
+                <View style={styles.rememberCopy}>
+                  <Text style={[styles.rememberTitle, { color: colors.text }]}>Remember me</Text>
+                  <Text style={[styles.rememberHint, { color: colors.textMuted }]}>
+                    Stay signed in on this device
+                  </Text>
+                </View>
+                <Switch
+                  value={rememberMe}
+                  onValueChange={setRememberMe}
+                  trackColor={{ false: colors.border, true: colors.primarySoft }}
+                  thumbColor={rememberMe ? colors.primary : colors.surface}
+                />
+              </Pressable>
 
               {friendlyError ? (
                 <View
@@ -187,6 +217,23 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     gap: spacing.md,
     ...tokens.shadow.card,
+  },
+  rememberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  rememberCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  rememberTitle: {
+    ...typography.body,
+    fontWeight: '600',
+  },
+  rememberHint: {
+    ...typography.caption,
   },
   errorBox: {
     flexDirection: 'row',

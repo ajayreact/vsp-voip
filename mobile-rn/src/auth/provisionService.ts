@@ -1,4 +1,5 @@
 import { env } from '../shared/config/env';
+import { isTrustedProvisionHost } from '../shared/config/apiEnvironment';
 import type { User } from '../api/types';
 import {
   parseMobileProvisionQr,
@@ -33,7 +34,11 @@ export type MobileProvisionResponse = {
 };
 
 function resolveProvisionApiUrl(payload: MobileProvisionQrPayload): string {
-  return (payload.apiUrl || env.apiBaseUrl).replace(/\/$/, '');
+  const requested = (payload.apiUrl || env.apiBaseUrl).replace(/\/$/, '');
+  if (!isTrustedProvisionHost(requested, env.apiBaseUrl)) {
+    throw new Error('This QR code points to an unrecognized server. Contact your administrator.');
+  }
+  return requested;
 }
 
 export async function redeemProvisioningQr(

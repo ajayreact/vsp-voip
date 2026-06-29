@@ -27,10 +27,16 @@ export function getCachedAccessToken(): string | null {
   return accessTokenCache;
 }
 
-async function setSessionTokens(accessToken: string, refreshToken?: string | null) {
+async function setSessionTokens(
+  accessToken: string,
+  refreshToken?: string | null,
+  options: { persist?: boolean } = {},
+) {
   accessTokenCache = accessToken;
   refreshTokenCache = refreshToken ?? null;
-  await saveTokens(accessToken, refreshToken ?? null);
+  if (options.persist !== false) {
+    await saveTokens(accessToken, refreshToken ?? null);
+  }
 }
 
 export async function clearSession(): Promise<void> {
@@ -40,14 +46,26 @@ export async function clearSession(): Promise<void> {
   await clearTokens();
 }
 
-export async function loginWithAccessToken(accessToken: string, refreshToken?: string | null): Promise<User> {
-  await setSessionTokens(accessToken, refreshToken ?? null);
+export async function loginWithAccessToken(
+  accessToken: string,
+  refreshToken?: string | null,
+  options: { persist?: boolean } = {},
+): Promise<User> {
+  await setSessionTokens(accessToken, refreshToken ?? null, options);
   return fetchCurrentUser();
 }
 
-export async function login(email: string, password: string): Promise<LoginResponse> {
+export async function login(
+  email: string,
+  password: string,
+  options: { persistSession?: boolean } = {},
+): Promise<LoginResponse> {
   const response = await loginRequest(email.trim(), password);
-  await setSessionTokens(response.accessToken, response.refreshToken ?? null);
+  await setSessionTokens(
+    response.accessToken,
+    response.refreshToken ?? null,
+    { persist: options.persistSession !== false },
+  );
   return response;
 }
 
