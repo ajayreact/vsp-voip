@@ -13,7 +13,6 @@ import { AiStackNavigator } from './AiStackNavigator';
 import { VSP_AI_BRANDING } from '../ai/vspAiBranding';
 import { YouStackNavigator } from './YouStackNavigator';
 import { HomeStackNavigator } from './HomeStackNavigator';
-import { DialPadScreen } from '../screens/calls/DialPadScreen';
 import type { MainTabParamList } from './types';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -85,7 +84,7 @@ export function MainTabNavigator() {
       />
       <Tab.Screen
         name="Keypad"
-        component={DialPadScreen}
+        getComponent={() => require('../screens/calls/DialPadScreen').DialPadScreen}
         options={{ tabBarIcon: KEYPAD_ICON, title: 'Keypad' }}
       />
       <Tab.Screen name="Text" component={MessagesStackNavigator} options={textOptions} />

@@ -239,10 +239,6 @@ export function TelnyxCallingProvider({ children }: Props) {
   );
 }
 
-export function useCanPlaceCalls() {
-  return usePhoneConnection().canPlaceCalls;
-}
-
 export function connectionLabel(state: TelnyxConnectionState) {
   switch (state) {
     case TelnyxConnectionState.CONNECTED:

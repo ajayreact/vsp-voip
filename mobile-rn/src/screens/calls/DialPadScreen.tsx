@@ -17,7 +17,7 @@ import {
   collectRecentDialNumbers,
   filterDialSuggestions,
 } from '../../calling/callDisplay';
-import { useCanPlaceCalls } from '../../calling/TelnyxCallingProvider';
+import { useCanPlaceCalls } from '../../hooks/useCanPlaceCalls';
 import { useContacts } from '../../hooks/useContacts';
 import { usePhoneConnection } from '../../hooks/usePhoneConnection';
 import { useRecentCalls } from '../../hooks/useRecentCalls';

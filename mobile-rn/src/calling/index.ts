@@ -12,7 +12,8 @@ export type {
   CallAcceptedResponse,
   CallLogPayload,
 } from './softphoneService';
-export { TelnyxCallingProvider, useCanPlaceCalls, connectionLabel } from './TelnyxCallingProvider';
+export { TelnyxCallingProvider, connectionLabel } from './TelnyxCallingProvider';
+export { useCanPlaceCalls } from '../hooks/useCanPlaceCalls';
 export { CallOverlay } from './CallOverlay';
 export {
   resolveInboundCallerDisplay,

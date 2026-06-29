@@ -1,6 +1,8 @@
 import { create } from 'zustand';
-import type { Call } from '@telnyx/react-voice-commons-sdk';
 import { VspCallState, VspConnectionState } from '../calling/vspTelephonyState';
+
+/** Opaque Telnyx call handle — only the calling layer touches the native SDK object. */
+export type TelnyxCallHandle = object;
 
 export type CallUiIdentity = {
   name: string;
@@ -11,7 +13,7 @@ export type CallUiIdentity = {
 };
 
 export type CallSessionSnapshot = {
-  call: Call;
+  call: TelnyxCallHandle;
   callId: string;
   state: VspCallState;
   isMuted: boolean;

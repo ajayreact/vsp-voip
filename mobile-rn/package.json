@@ -59,7 +59,8 @@
     "ios": "expo run:ios",
     "prebuild": "expo prebuild",
     "web": "expo start --web",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:android:release": "expo run:android --variant release"
   },
   "private": true,
   "expo": {

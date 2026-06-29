@@ -85,6 +85,7 @@ const config: ExpoConfig = {
   name: 'VSP Phone',
   slug: 'vsp-phone',
   version: '1.0.0',
+  newArchEnabled: false,
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'automatic',
