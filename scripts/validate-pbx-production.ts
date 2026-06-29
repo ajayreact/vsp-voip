@@ -28,6 +28,12 @@ function warn(scenario, message) {
   warnings.push({ scenario, message });
 }
 
+function pass(scenario, message) {
+  // Collected for optional verbose reporting; does not affect exit code.
+  void scenario;
+  void message;
+}
+
 function read(rel) {
   return fs.readFileSync(path.join(ROOT, rel), 'utf8');
 }
