@@ -25,6 +25,10 @@ describe('parked WebRTC outbound routing helpers', () => {
       direction: 'outgoing',
     }, platform)).toBe(true);
     expect(isCredentialConnectionOutbound({
+      connection_id: 'cred-conn-1',
+      direction: 'outbound',
+    }, platform)).toBe(true);
+    expect(isCredentialConnectionOutbound({
       connection_id: 'cc-app-1',
       direction: 'outgoing',
     }, platform)).toBe(false);

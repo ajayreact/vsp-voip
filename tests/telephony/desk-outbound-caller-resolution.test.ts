@@ -42,6 +42,52 @@ describe('telephony / desk outbound caller resolution', () => {
     );
   });
 
+  it('resolveCallerFromPayload resolves desk phone via unique registered extension when sip_username missing', async () => {
+    const tenantId = 'tenant-a-id';
+    const prisma = {
+      extension: { findFirst: vi.fn().mockResolvedValue(null) },
+      user: {
+        findFirst: vi.fn().mockResolvedValue(null),
+        findMany: vi.fn().mockResolvedValue([{
+          tenantId,
+          id: 'user-a',
+          telnyxSipUsername: 'gencred-desk-user-a',
+          extensions: [{ id: 'ext-a', extensionNumber: '101', tenantId }],
+        }]),
+      },
+      phoneNumber: { findUnique: vi.fn().mockResolvedValue(null) },
+    };
+
+    const result = await resolveCallerFromPayload(prisma, {
+      from: 'sip:101@sip.telnyx.com',
+      direction: 'outbound',
+    });
+
+    expect(result?.tenantId).toBe(tenantId);
+    expect(result?.resolvedVia).toBe('unique_registered_extension');
+  });
+
+  it('resolveCallerFromPayload does not resolve extension when multiple tenants share the number', async () => {
+    const prisma = {
+      extension: { findFirst: vi.fn().mockResolvedValue(null) },
+      user: {
+        findFirst: vi.fn().mockResolvedValue(null),
+        findMany: vi.fn().mockResolvedValue([
+          { tenantId: 'tenant-a', id: 'user-a', telnyxSipUsername: 'cred-a', extensions: [] },
+          { tenantId: 'tenant-b', id: 'user-b', telnyxSipUsername: 'cred-b', extensions: [] },
+        ]),
+      },
+      phoneNumber: { findUnique: vi.fn().mockResolvedValue(null) },
+    };
+
+    const result = await resolveCallerFromPayload(prisma, {
+      from: 'sip:101@sip.telnyx.com',
+      direction: 'outgoing',
+    });
+
+    expect(result).toBeNull();
+  });
+
   it('resolveCallerFromPayload still ignores bare ext:101 without credential username', async () => {
     const findFirst = vi.fn().mockResolvedValue(null);
     const prisma = {
