@@ -1,6 +1,7 @@
 # Phase 3 — Production Readiness
 
-**Status:** Phase 2 feature-complete. Feature development **frozen**.  
+**Status:** Phase 2 PAT **accepted** — backend **feature-frozen** (tag `phase2-production-ready`).  
+**Active product work:** [Phase 4 mobile](../phase4/README.md) (`mobile-rn/` only).  
 **Current increment:** 3.2 — Production hardening (3.2.1 webhook deduplication shipped)
 
 ---

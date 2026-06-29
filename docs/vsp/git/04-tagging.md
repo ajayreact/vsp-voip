@@ -35,6 +35,8 @@ Format: `vX.Y.Z`
 |-----|-------|
 | `v1.0` | Early tag — align to SemVer going forward |
 | `v1.0-telephony-stable` | Telephony stable baseline reference |
+| `phase2-production-ready` | Phase 2 PAT accepted — backend frozen (`1c1fb1d`) |
+| `phase2-reset-pbx-stable` | Tenant PBX reset feature rollback point (`107e027`) |
 
 Recommended: annotate stable telephony baseline:
 

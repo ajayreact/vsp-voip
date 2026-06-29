@@ -18,6 +18,7 @@ Planning hub for VSP Phone product direction, priorities, dependencies, and rele
 | 06 | Performance plan | [06-performance-plan.md](./06-performance-plan.md) |
 | 07 | Security plan | [07-security-plan.md](./07-security-plan.md) |
 | 08 | Mobile roadmap | [08-mobile-roadmap.md](./08-mobile-roadmap.md) |
+| — | **Phase 4 mobile (active)** | [../phase4/README.md](../phase4/README.md) |
 | 09 | AI roadmap | [09-ai-roadmap.md](./09-ai-roadmap.md) |
 | 10 | Enterprise roadmap | [10-enterprise-roadmap.md](./10-enterprise-roadmap.md) |
 

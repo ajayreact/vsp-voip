@@ -65,14 +65,27 @@ What VSP Phone implements today (June 2026). Source: codebase, [../features.md](
 
 ---
 
-## Mobile — partial
+## Mobile — Phase 4 (React Native)
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Flutter Android | ✅ | Inbound/outbound WebRTC |
+| React Native (`mobile-rn/`) | 🔄 Phase 4 active | Primary mobile client |
+| QR Login | 🔄 Partial | Scan + provision flow exists |
+| Remember Me / Biometric | ❌ | Phase 4 scope |
+| Inbound/outbound WebRTC | ✅ | Telnyx SDK in `mobile-rn/` |
+| Push notifications | 🔄 Partial | Android FCM |
 | iOS | ❌ | Not shipped |
-| Mobile blind transfer | ❌ | Web only |
-| Push notifications | 🔄 Partial | Android FCM setup |
+| Desk phone QR (mobile) | 🔄 Partial | SIP settings screen |
+
+See [phase4/README.md](../phase4/README.md).
+
+---
+
+## Mobile — legacy (removed)
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Flutter Android | ❌ Removed | Phase 2.8 — use `mobile-rn/` |
 
 ---
 

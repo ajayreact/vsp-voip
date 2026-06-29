@@ -83,8 +83,9 @@ APIs: `loadPortalDashboardSnapshot()`, `GET /api/calls` (period filter client-si
 
 ## Validation checklist
 
-- [ ] Production build passes
-- [ ] Telephony tests pass
-- [ ] Mobile tests pass
-- [ ] No changes under `lib/` call control, routing, provisioning (unless production bug fix)
-- [ ] Legacy routes redirect to canonical paths
+- [x] Production build passes
+- [x] Telephony tests pass
+- [x] Mobile tests pass
+- [x] Phase 2 Production Acceptance Testing accepted — see [10-production-acceptance.md](./10-production-acceptance.md)
+- [x] Backend frozen — no changes under `lib/` call control, routing, provisioning (unless production bug fix)
+- [x] Legacy routes redirect to canonical paths

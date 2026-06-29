@@ -6,7 +6,8 @@ Search here **first** (Step 1) before `docs/telnyx/` or source code.
 
 | Topic | Location |
 |-------|----------|
-| **Phase 2 architecture (approved)** | [phase2/README.md](./phase2/README.md) |
+| **Phase 2 — Complete (backend frozen)** | [phase2/README.md](./phase2/README.md) · tag `phase2-production-ready` |
+| **Phase 4 — Mobile (active)** | [phase4/README.md](./phase4/README.md) |
 | **Phase 3 — Production readiness (audit)** | [phase3/README.md](./phase3/README.md) |
 | **Multi-tenant extension isolation audit** | [phase2/05-multi-tenant-extension-isolation-audit.md](./phase2/05-multi-tenant-extension-isolation-audit.md) |
 | **PBX architecture KB** | [pbx/README.md](./pbx/README.md) |

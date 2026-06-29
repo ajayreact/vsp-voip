@@ -1,6 +1,8 @@
 # Mobile Roadmap
 
-Flutter mobile platform plan — Android today, iOS and native telephony integration tomorrow.
+React Native mobile platform — **Phase 4 active**. Flutter `mobile/` was removed in Phase 2.8.
+
+**Authoritative Phase 4 scope:** [../phase4/README.md](../phase4/README.md)
 
 ---
 
@@ -8,72 +10,51 @@ Flutter mobile platform plan — Android today, iOS and native telephony integra
 
 | Item | Status |
 |------|--------|
-| Flutter Android app | ✅ Inbound/outbound WebRTC |
-| API integration | ✅ Same JWT + softphone token endpoints |
-| FCM push (Android) | 🔄 Partial |
-| iOS app | ❌ Not shipped |
-| Blind transfer on mobile | ❌ |
-| Ring group admin | ❌ Web only |
-| WebRTC diagnostics | ❌ Web only |
+| React Native app (`mobile-rn/`) | 🔄 Phase 4 — primary client |
+| Android | 🔄 In development |
+| iOS | ❌ Not shipped |
+| QR Login | 🔄 Partial |
+| Remember Me / Biometric | ❌ Phase 4 |
+| Push notifications (FCM) | 🔄 Partial |
+| Incoming / in-call UI polish | 🔄 Phase 4 |
+| Desk phone QR (mobile side) | 🔄 Partial |
+| Flutter Android | ❌ Removed |
 
-Code: `mobile/` — see [../pbx/19-mobile-app.md](../pbx/19-mobile-app.md)
-
----
-
-## Mobile roadmap phases
-
-```mermaid
-flowchart LR
-  A[v1.2 Parity fixes]
-  B[v2.0 Android GA]
-  C[v2.0 iOS beta]
-  D[v2.1 Native call UI]
-  E[v2.5 Enterprise mobile]
-
-  A --> B --> C --> D --> E
-```
+Code: `mobile-rn/` — see [../pbx/19-mobile-app.md](../pbx/19-mobile-app.md), [../../../mobile-rn/docs/PHASE4.md](../../../mobile-rn/docs/PHASE4.md)
 
 ---
 
-## Phase 1 — v1.2 (parity & stability)
+## Phase 4 — React Native GA (active)
 
 | Item | Detail |
 |------|--------|
-| Two-way audio | Align with web P0 fixes |
-| Push reliability | FCM delivery metrics |
-| Background registration | Keep-alive strategy |
-| `call-accepted` bridge grace | Match web inbound flow |
+| **Platform** | React Native / Expo (`mobile-rn/`) |
+| **Backend** | Frozen at `phase2-production-ready` — bug fixes only |
+| **Auth** | QR Login, Remember Me, Biometric |
+| **Calling** | Dial pad, call history, incoming UI, in-call screen |
+| **Voicemail** | List + playback |
+| **Push** | Reliable incoming call alert (FCM; APNs later) |
+| **Desk phone** | Scan admin SIP QR from mobile settings |
+| **Release tag** | TBD after Phase 4 PAT |
+
+See [../phase4/01-mobile-feature-matrix.md](../phase4/01-mobile-feature-matrix.md) for per-feature status.
 
 ---
 
-## Phase 2 — v2.0 Flutter GA
-
-| Item | Detail |
-|------|--------|
-| **Flutter** | Android production GA on Play / APK |
-| **Push notifications** | Reliable incoming call alert |
-| **iOS beta** | TestFlight with Telnyx Flutter SDK |
-| Feature parity | VM, recordings, CDR, SMS read |
-| Blind transfer | Port web transfer APIs |
-
-Release tag: **v2.0.0** — [04-release-plan.md](./04-release-plan.md)
-
----
-
-## Phase 3 — v2.1 Native telephony UI
+## Future — Native telephony UI (post Phase 4)
 
 | Item | Platform | Detail |
 |------|----------|--------|
 | **CallKit** | iOS | Native incoming call screen, lock screen |
 | **ConnectionService** | Android | System call UI, Bluetooth routing |
 | **Background calls** | Both | Answer/hangup when app backgrounded |
-| **Offline handling** | Both | Queue CDR sync; show stale state clearly |
+| **iOS GA** | iOS | TestFlight → App Store |
 
-**Depends on:** Push notifications reliable (Phase 2).
+**Depends on:** Push notifications reliable in Phase 4.
 
 ---
 
-## Phase 4 — v2.5 Enterprise mobile
+## Future — Enterprise mobile
 
 | Item | Detail |
 |------|--------|
@@ -89,15 +70,10 @@ Release tag: **v2.0.0** — [04-release-plan.md](./04-release-plan.md)
 | Test | Method |
 |------|--------|
 | Auth | `scripts/verify-mobile-auth.js` |
+| Unit / integration | `npm run test:mobile` |
 | Inbound | Physical device + Telnyx debugger |
 | Push | FCM test payload |
 | Background | OS-specific QA matrix |
-
-Build:
-
-```powershell
-npm run build:mobile:android:release
-```
 
 ---
 
@@ -107,8 +83,8 @@ npm run build:mobile:android:release
 |----------------|----------|
 | CallKit | iOS app, push |
 | ConnectionService | Android GA |
-| Transfer | Web transfer API stable (v1.1 ✅) |
-| Enterprise SSO | v2.5 auth backend |
+| QR Login | Phase 2 provisioning API (frozen ✅) |
+| Desk phone QR | Phase 2 portal QR generation (frozen ✅) |
 
 See [03-feature-dependencies.md](./03-feature-dependencies.md)
 
@@ -116,6 +92,7 @@ See [03-feature-dependencies.md](./03-feature-dependencies.md)
 
 ## Related docs
 
+- [Phase 4 README](../phase4/README.md)
 - [04-release-plan.md](./04-release-plan.md)
 - [../pbx/19-mobile-app.md](../pbx/19-mobile-app.md)
-- [docs/telnyx/javascript-sdk/flutter/](../../telnyx/javascript-sdk/flutter/)
+- [mobile-rn/docs/DESIGN.md](../../../mobile-rn/docs/DESIGN.md)
