@@ -442,6 +442,98 @@ router.put('/tenant/profile', authMiddleware, requireRole('TENANT_ADMIN'), async
   }
 });
 
+router.post('/tenant/pbx/reset', authMiddleware, requireRole('TENANT_ADMIN'), async (req, res) => {
+  try {
+    if (!req.user.tenantId) {
+      return res.status(403).json({ error: 'No organization linked to this account' });
+    }
+
+    const { password, confirmationPhrase, clearCallHistory } = req.body || {};
+    if (String(confirmationPhrase || '').trim() !== 'RESET PBX') {
+      return res.status(400).json({ error: 'Confirmation phrase must be exactly RESET PBX' });
+    }
+    if (!password || typeof password !== 'string') {
+      return res.status(400).json({ error: 'Password is required to confirm this action' });
+    }
+
+    const prisma = await getPrisma();
+    await assertTenantActive(prisma, req.user.tenantId);
+
+    const admin = await prisma.user.findUnique({
+      where: { id: req.user.sub },
+      select: {
+        id: true,
+        passwordHash: true,
+        role: true,
+        tenantId: true,
+        email: true,
+        name: true,
+      },
+    });
+    if (!admin || admin.role !== 'TENANT_ADMIN' || admin.tenantId !== req.user.tenantId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const passwordOk = await comparePassword(String(password), admin.passwordHash);
+    if (!passwordOk) {
+      return res.status(401).json({ error: 'Incorrect password' });
+    }
+
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: req.user.tenantId },
+      select: { id: true, name: true },
+    });
+    if (!tenant) {
+      return res.status(404).json({ error: 'Organization not found' });
+    }
+
+    const { resetTenantPbxData } = require('../lib/tenantPbxReset');
+    const report = await resetTenantPbxData(prisma, req.user.tenantId, {
+      clearCallHistory: Boolean(clearCallHistory),
+      skipTelnyx: false,
+      flushRedis: true,
+    });
+
+    if (!report.ok) {
+      return res.status(500).json({
+        error: 'PBX reset completed with validation issues',
+        issues: report.after?.issues || [],
+      });
+    }
+
+    const { writeAuditLog } = require('../lib/auditLog');
+    await writeAuditLog(prisma, req, {
+      action: 'tenant.pbx_configuration_reset',
+      entityType: 'Tenant',
+      entityId: tenant.id,
+      details: {
+        title: 'Tenant PBX Configuration Reset',
+        tenantId: tenant.id,
+        tenantName: tenant.name,
+        tenantAdminId: admin.id,
+        tenantAdminEmail: admin.email,
+        tenantAdminName: admin.name,
+        clearCallHistory: Boolean(clearCallHistory),
+        timestamp: new Date().toISOString(),
+        checklist: report.after?.checklist || null,
+      },
+    });
+
+    res.json({
+      success: true,
+      message: 'PBX configuration reset completed',
+      report: {
+        checklist: report.after?.checklist,
+        counts: report.after?.counts,
+        deleted: report.deleted,
+      },
+    });
+  } catch (error) {
+    console.error('Tenant PBX reset error:', error.message);
+    res.status(500).json({ error: error.message || 'Failed to reset PBX configuration' });
+  }
+});
+
 router.get('/tenant/users', authMiddleware, requireRole('SUPER_ADMIN', 'TENANT_ADMIN'), async (req, res) => {
   try {
     if (!req.user.tenantId) {

@@ -45,6 +45,7 @@ export const REST_ENDPOINTS: EndpointSpec[] = [
   { group: 'tenant', method: 'PUT', path: '/api/tenant/profile', auth: 'jwt', anonAccept: [401], authedAccept: [400, 403, 200], body: {}, skipProbe: true },
   { group: 'tenant', method: 'GET', path: '/api/tenant/users', auth: 'jwt', anonAccept: [401], authedAccept: [200, 403] },
   { group: 'tenant', method: 'GET', path: '/api/tenant/subscription', auth: 'jwt', anonAccept: [401], authedAccept: [200] },
+  { group: 'tenant', method: 'POST', path: '/api/tenant/pbx/reset', auth: 'jwt', anonAccept: [401], authedAccept: [400, 401, 403], body: { password: 'wrong', confirmationPhrase: 'RESET PBX' }, skipProbe: true },
   { group: 'tenant', method: 'GET', path: '/api/dashboard/stats', auth: 'jwt', anonAccept: [401], authedAccept: [200] },
 
   // Softphone (route existence + auth only)

@@ -10,6 +10,7 @@ import {
   CreditCard,
   Loader2,
   Phone,
+  Settings2,
   Shield,
   User,
   Voicemail,
@@ -24,6 +25,7 @@ type SettingsSection = {
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   adminOnly?: boolean;
+  tenantAdminOnly?: boolean;
 };
 
 const SECTIONS: SettingsSection[] = [
@@ -83,6 +85,14 @@ const SECTIONS: SettingsSection[] = [
     adminOnly: true,
   },
   {
+    id: 'advanced',
+    title: 'Advanced',
+    description: 'Danger zone and administrative PBX configuration controls.',
+    href: '/settings/advanced',
+    icon: Settings2,
+    tenantAdminOnly: true,
+  },
+  {
     id: 'preferences',
     title: 'User preferences',
     description: 'Your account profile and contact details.',
@@ -117,7 +127,11 @@ export function SettingsHubPage() {
   }, [router]);
 
   const isAdmin = role === 'TENANT_ADMIN' || role === 'SUPER_ADMIN';
-  const visible = SECTIONS.filter((s) => !s.adminOnly || isAdmin);
+  const visible = SECTIONS.filter((section) => {
+    if (section.tenantAdminOnly) return role === 'TENANT_ADMIN';
+    if (section.adminOnly) return isAdmin;
+    return true;
+  });
 
   if (loading) {
     return (

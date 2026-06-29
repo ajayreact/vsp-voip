@@ -1210,6 +1210,38 @@ export async function updateTenantProfile(data: { contactEmail?: string; timezon
   });
 }
 
+export type TenantPbxResetChecklist = {
+  tenantAdminLoginReady: boolean;
+  zeroEmployees: boolean;
+  zeroExtensions: boolean;
+  zeroRingGroups: boolean;
+  zeroRegisteredDevices: boolean;
+  zeroQrTokens: boolean;
+  zeroSipRegistrations: boolean;
+  purchasedDidsAvailable: boolean;
+  noOrphanRecords: boolean;
+  superAdminPreserved: boolean;
+};
+
+export async function resetTenantPbxConfiguration(data: {
+  password: string;
+  confirmationPhrase: string;
+  clearCallHistory?: boolean;
+}) {
+  return apiFetch<{
+    success: boolean;
+    message: string;
+    report: {
+      checklist: TenantPbxResetChecklist;
+      counts: Record<string, number>;
+      deleted: Record<string, number>;
+    };
+  }>('/api/tenant/pbx/reset', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
 export async function getTenantUsers() {
   return apiFetch<{ users: TenantTeamUser[] }>('/api/tenant/users');
 }

@@ -9,6 +9,7 @@ const links = [
   { href: '/settings/subscription', label: 'Subscription' },
   { href: '/settings/payment-methods', label: 'Payment methods', adminOnly: true },
   { href: '/settings/profile', label: 'Company profile' },
+  { href: '/settings/advanced', label: 'Advanced', tenantAdminOnly: true },
   { href: '/employees', label: 'Team', adminOnly: true },
 ];
 
@@ -18,7 +19,11 @@ export function SettingsNav({ role }: { role?: string }) {
   return (
     <nav className="-mx-4 flex gap-2 overflow-x-auto border-b border-slate-200 px-4 pb-4 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
       {links
-        .filter((link) => !link.adminOnly || role === 'TENANT_ADMIN')
+        .filter((link) => {
+          if (link.tenantAdminOnly) return role === 'TENANT_ADMIN';
+          if (link.adminOnly) return role === 'TENANT_ADMIN';
+          return true;
+        })
         .map((link) => {
           const active =
             link.href === '/settings'
