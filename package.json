@@ -23,6 +23,7 @@
     "start": "tsx server.js",
     "seed": "tsx seed.ts",
     "cleanup:tenants": "tsx scripts/cleanup-duplicate-tenants.ts",
+    "reset:tenant-pbx": "node scripts/reset-tenant-pbx-data.js",
     "dev:api": "tsx server.js",
     "dev:web": "npm run dev --prefix web",
     "dev": "echo Run 'npm run dev:api' and 'npm run dev:web' in two terminals",
