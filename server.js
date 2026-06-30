@@ -576,7 +576,7 @@ async function handleTelnyxCallControlWebhook(req, res) {
                 await handleCallControlRecordingWebhook(prisma, req.body);
                 return;
             }
-            await handleInboundCallControlEvent(prisma, req.body);
+            await handleInboundCallControlEvent(prisma, req.body, { webhookSource: 'call-control' });
         } catch (error) {
             const telnyxDetail = error.telnyx?.errors?.[0]?.detail;
             console.error('❌ Call Control handler error:', telnyxDetail || error.message);
@@ -610,7 +610,7 @@ async function handleTelnyxVoiceWebhook(req, res) {
                 && eventType.startsWith('call.')
                 && eventType !== 'call.recording.saved'
             ) {
-                await handleInboundCallControlEvent(prisma, req.body);
+                await handleInboundCallControlEvent(prisma, req.body, { webhookSource: 'voice' });
             }
             const quality = await handleTelnyxVoiceTelemetryEvent(prisma, req.body);
             if (quality) {
