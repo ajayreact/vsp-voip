@@ -141,15 +141,16 @@ describe('telephony / desk Extension V2 router', () => {
       callerExtension: { id: 'ext-a', extensionNumber: '101' },
     };
     const resolveCaller = vi.fn();
-    const resolveDestination = vi.fn().mockReturnValue({
+    const resolveDestination = vi.fn().mockResolvedValue({
       kind: 'EXTENSION',
       extensionNumber: '102',
       tenantId: 'tenant-a-id',
     });
     const handleExtensionOutbound = vi.fn().mockResolvedValue(true);
 
+    const prisma = makePrisma();
     const result = await routeDeskExtensionOutboundV2(
-      makePrisma(),
+      prisma,
       deskExtensionPayload,
       platform,
       { caller, callerProvided: true },
@@ -164,7 +165,7 @@ describe('telephony / desk Extension V2 router', () => {
     expect(result).toBe(true);
     expect(resolveCaller).not.toHaveBeenCalled();
     expect(resolveDestination).toHaveBeenCalledTimes(1);
-    expect(resolveDestination).toHaveBeenCalledWith(deskExtensionPayload, caller);
+    expect(resolveDestination).toHaveBeenCalledWith(prisma, deskExtensionPayload, caller);
     expect(handleExtensionOutbound).toHaveBeenCalledTimes(1);
     expect(handleExtensionOutbound).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -300,10 +301,11 @@ describe('telephony / desk Extension V2 router', () => {
     const { resolveOutboundDestination } = await import('../../lib/telephony/DestinationResolver.js');
     const caller = { tenantId: 'tenant-a-id' };
 
-    expect(resolveOutboundDestination(deskExtensionPayload, caller)).toEqual({
+    await expect(resolveOutboundDestination(null, deskExtensionPayload, caller)).resolves.toEqual({
       kind: 'EXTENSION',
       extensionNumber: '102',
       tenantId: 'tenant-a-id',
+      resolvedVia: 'extension_digits',
     });
   });
 });

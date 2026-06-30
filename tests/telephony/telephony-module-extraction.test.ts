@@ -1,10 +1,14 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   parseInternalExtensionDestination,
   isPstnDestination,
+  isTelnyxCredentialSipDestination,
   describeCredentialConnectionOutboundGate,
 } from '../../lib/telephony/PayloadNormalizer.js';
-import { classifyDestinationKind } from '../../lib/telephony/DestinationResolver.js';
+import {
+  classifyDestinationKind,
+  resolveExtensionNumberFromTo,
+} from '../../lib/telephony/DestinationResolver.js';
 import { isDeskCallRouterV2Enabled } from '../../lib/telephony/constants.js';
 import {
   parseInternalExtensionDestination as legacyParse,
@@ -36,13 +40,49 @@ describe('telephony / module extraction parity', () => {
     );
   });
 
-  it('classifyDestinationKind identifies extension vs PSTN', () => {
+  it('classifyDestinationKind identifies extension vs PSTN vs credential SIP', () => {
     expect(classifyDestinationKind('101')).toEqual({ kind: 'EXTENSION', extensionNumber: '101' });
     expect(classifyDestinationKind('+13135551212')).toEqual({
       kind: 'PSTN',
       pstnNumber: '+13135551212',
     });
     expect(classifyDestinationKind('')).toEqual({ kind: 'UNKNOWN' });
+    expect(
+      classifyDestinationKind('sip:gencred3a9GoMgohOzCHT92aQZ7cvcRPP0FZhrb2hP7EyOyCL@sip.telnyx.com'),
+    ).toEqual({
+      kind: 'CREDENTIAL_SIP',
+      sipUsername: 'gencred3a9GoMgohOzCHT92aQZ7cvcRPP0FZhrb2hP7EyOyCL',
+    });
+    expect(isTelnyxCredentialSipDestination('sip:gencredDesk@sip.telnyx.com')).toBe(true);
+    expect(parseInternalExtensionDestination('sip:gencredDesk@sip.telnyx.com')).toBeNull();
+  });
+
+  it('resolveExtensionNumberFromTo maps gencred SIP URI to extension via DB', async () => {
+    const prisma = {
+      user: {
+        findFirst: vi.fn().mockResolvedValue({
+          tenantId: 'tenant-a',
+          extensions: [{ extensionNumber: '102', status: 'ACTIVE' }],
+        }),
+      },
+      extension: { findFirst: vi.fn() },
+    };
+
+    const extensionNumber = await resolveExtensionNumberFromTo(
+      prisma,
+      'sip:gencredTargetUser@sip.telnyx.com',
+      'tenant-a',
+    );
+
+    expect(extensionNumber).toBe('102');
+    expect(prisma.user.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tenantId: 'tenant-a',
+          telnyxSipUsername: expect.objectContaining({ equals: 'gencredTargetUser' }),
+        }),
+      }),
+    );
   });
 
   it('DESK_CALL_ROUTER_V2 is enabled by default', () => {

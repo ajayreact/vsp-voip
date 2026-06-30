@@ -163,15 +163,16 @@ describe('telephony / desk Mobile V2 router', () => {
       callerExtension: { id: 'ext-a', extensionNumber: '101' },
     };
     const resolveCaller = vi.fn();
-    const resolveDestination = vi.fn().mockReturnValue({
+    const resolveDestination = vi.fn().mockResolvedValue({
       kind: 'EXTENSION',
       extensionNumber: '102',
       tenantId: 'tenant-a-id',
     });
     const handleMobileOutbound = vi.fn().mockResolvedValue(true);
 
+    const prisma = makePrisma();
     const result = await routeDeskMobileOutboundV2(
-      makePrisma(),
+      prisma,
       deskMobilePayload,
       platform,
       { caller, callerProvided: true },
@@ -187,7 +188,7 @@ describe('telephony / desk Mobile V2 router', () => {
     expect(result).toBe(true);
     expect(resolveCaller).not.toHaveBeenCalled();
     expect(resolveDestination).toHaveBeenCalledTimes(1);
-    expect(resolveDestination).toHaveBeenCalledWith(deskMobilePayload, caller);
+    expect(resolveDestination).toHaveBeenCalledWith(prisma, deskMobilePayload, caller);
     expect(handleMobileOutbound).toHaveBeenCalledTimes(1);
     expect(handleMobileOutbound).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -113,7 +113,7 @@ describe('telephony / desk PSTN V2 router', () => {
       callerExtension: { id: 'ext-a', extensionNumber: '101' },
     };
     const resolveCaller = vi.fn().mockResolvedValue(caller);
-    const resolveDestination = vi.fn().mockReturnValue({
+    const resolveDestination = vi.fn().mockResolvedValue({
       kind: 'PSTN',
       pstnNumber: '+13135551212',
       tenantId: 'tenant-a-id',
@@ -121,8 +121,9 @@ describe('telephony / desk PSTN V2 router', () => {
     const handlePstnOutbound = vi.fn().mockResolvedValue(true);
     const dialAndBridge = vi.fn().mockResolvedValue({ call_control_id: 'v3:outbound-leg' });
 
+    const prisma = makePrisma();
     const result = await routeDeskPstnOutboundV2(
-      makePrisma(),
+      prisma,
       deskPstnPayload,
       platform,
       { caller, callerProvided: true, bridge: { dialAndBridge } },
@@ -132,7 +133,7 @@ describe('telephony / desk PSTN V2 router', () => {
     expect(result).toBe(true);
     expect(resolveCaller).not.toHaveBeenCalled();
     expect(resolveDestination).toHaveBeenCalledTimes(1);
-    expect(resolveDestination).toHaveBeenCalledWith(deskPstnPayload, caller);
+    expect(resolveDestination).toHaveBeenCalledWith(prisma, deskPstnPayload, caller);
     expect(handlePstnOutbound).toHaveBeenCalledTimes(1);
     expect(handlePstnOutbound).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -246,7 +247,7 @@ describe('telephony / desk PSTN V2 router', () => {
     const { resolveOutboundDestination } = await import('../../lib/telephony/DestinationResolver.js');
     const caller = { tenantId: 'tenant-a-id' };
 
-    expect(resolveOutboundDestination(deskPstnPayload, caller)).toEqual({
+    await expect(resolveOutboundDestination(null, deskPstnPayload, caller)).resolves.toEqual({
       kind: 'PSTN',
       pstnNumber: '+13135551212',
       tenantId: 'tenant-a-id',
