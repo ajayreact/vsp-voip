@@ -85,6 +85,33 @@ describe('telephony / module extraction parity', () => {
     );
   });
 
+  it('resolveExtensionNumberFromTo falls back to global gencred lookup without tenant', async () => {
+    const prisma = {
+      user: {
+        findFirst: vi.fn().mockResolvedValue({
+          tenantId: 'tenant-a',
+          extensions: [{ extensionNumber: '103', status: 'ACTIVE' }],
+        }),
+      },
+      extension: { findFirst: vi.fn() },
+    };
+
+    const extensionNumber = await resolveExtensionNumberFromTo(
+      prisma,
+      'sip:gencredTargetUser@sip.telnyx.com',
+      null,
+    );
+
+    expect(extensionNumber).toBe('103');
+    expect(prisma.user.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          telnyxSipUsername: expect.objectContaining({ equals: 'gencredTargetUser' }),
+        }),
+      }),
+    );
+  });
+
   it('DESK_CALL_ROUTER_V2 is enabled by default', () => {
     expect(isDeskCallRouterV2Enabled()).toBe(true);
   });
