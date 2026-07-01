@@ -11,7 +11,7 @@ Production runs on a single EC2 instance at **`/opt/vsp-voip`**. Nginx terminate
 | `admin.vspphone.com` | Super admin | 443 → 3001 | PM2 `vsp-web` |
 | `api.vspphone.com` | Express API | 443 → 3000 | Docker `api` |
 
-Data: PostgreSQL and Redis run in Docker Compose alongside the API.
+Data: PostgreSQL and Redis run in Docker Compose alongside the API and **telephony-v3-worker** (V3 ingress/outbox).
 
 See also: [deploy/PRODUCTION-CHECKLIST.md](../../../deploy/PRODUCTION-CHECKLIST.md)
 
@@ -24,8 +24,9 @@ Always deploy in this order unless you are doing a **frontend-only** hotfix:
 1. **Git** — confirm branch and commit on the server
 2. **Database** — apply Prisma migrations if the release includes schema changes
 3. **API** — rebuild and restart Docker `api`
-4. **Frontend** — build and PM2 restart `vsp-web`
-5. **Verification** — `/ready`, routes, telephony smoke test
+4. **V3 worker** — rebuild and restart `telephony-v3-worker` when V3 is enabled ([16-telephony-v3-worker.md](./16-telephony-v3-worker.md))
+5. **Frontend** — build and PM2 restart `vsp-web`
+6. **Verification** — `/ready`, `/ready/v3`, routes, telephony smoke test
 
 Nginx and SSL rarely change; reload only when [deploy/nginx/vspphone.conf](../../../deploy/nginx/vspphone.conf) was updated.
 
@@ -104,8 +105,10 @@ cd /opt/vsp-voip
 git pull origin main
 export GIT_COMMIT="$(git rev-parse HEAD)"
 docker compose up -d --build api
+bash deploy/deploy-v3-worker.sh
 docker compose logs api --tail=80
 curl -s http://127.0.0.1:3000/ready | jq .
+curl -s http://127.0.0.1:3000/ready/v3 | jq .
 ```
 
 Verify API publicly:

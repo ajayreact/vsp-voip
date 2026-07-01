@@ -171,6 +171,70 @@ app.post('/webhook/sms', ...smsWebhookMiddleware, (req, res) => {
 const voiceWebhookMiddleware = [parseTelnyxJsonBody, verifyTelnyxWebhookMiddleware];
 const recordingWebhookMiddleware = [parseTelnyxWebhookBody, verifyTelnyxWebhookMiddleware];
 
+const { handleV3WebhookIngress, getV3ReadinessStatus, metrics: v3Metrics } = require('./lib/telephony-v3');
+
+app.get('/ready/v3', async (req, res) => {
+    try {
+        const status = await getV3ReadinessStatus();
+        res.status(status.ready ? 200 : 503).json(status);
+    } catch (error) {
+        res.status(503).json({ ready: false, error: error.message });
+    }
+});
+
+app.get('/metrics/v3', async (req, res) => {
+    try {
+        res.set('Content-Type', 'text/plain; version=0.0.4');
+        res.send(await v3Metrics.renderPrometheus());
+    } catch (error) {
+        res.status(500).send(`# metrics error: ${error.message}\n`);
+    }
+});
+
+async function handleV3CallControlWebhook(req, res) {
+    try {
+        const result = await handleV3WebhookIngress(req.body, { source: 'v3-call-control' });
+        if (!result.accepted && result.reason === 'ingress_disabled') {
+            res.status(503).json({ received: false, reason: result.reason });
+            return;
+        }
+        if (!result.accepted) {
+            res.status(422).json({
+                received: false,
+                reason: result.reason || 'rejected',
+                traceId: result.traceId || null,
+            });
+            return;
+        }
+        res.status(200).json({
+            received: true,
+            duplicate: result.duplicate || false,
+            ingressId: result.ingressId || null,
+            correlationId: result.correlationId || null,
+            traceId: result.traceId || null,
+        });
+    } catch (error) {
+        logger.error('v3_webhook_gateway_error', { error: error.message });
+        res.status(500).json({ error: 'V3 webhook gateway failed' });
+    }
+}
+
+app.post('/webhook/v3/call-control', ...voiceWebhookMiddleware, (req, res) => {
+    handleV3CallControlWebhook(req, res).catch((error) => {
+        logger.error('v3_call_control_webhook_error', { error: error.message });
+        res.status(500).json({ error: 'V3 call control webhook failed' });
+    });
+});
+
+app.get('/webhook/v3/call-control', (req, res) => {
+    res.status(200).json({
+        ok: true,
+        endpoint: '/webhook/v3/call-control',
+        method: 'POST',
+        message: 'V3 telephony ingress gateway (enqueue only). Enable with TELEPHONY_V3_INGRESS_ENABLED=true.',
+    });
+});
+
 app.post('/webhook/call-control', ...voiceWebhookMiddleware, (req, res) => {
     handleTelnyxCallControlWebhook(req, res).catch((error) => {
         console.error('❌ Call Control webhook error:', error.message);

@@ -24,11 +24,14 @@ const REQUIRED_DOCS = [
   '12-disaster-recovery.md',
   '13-monitoring.md',
   '14-telephony-validation.md',
+  '16-telephony-v3-worker.md',
+  '17-v3-integration-validation.md',
   'VALIDATION.md',
 ];
 
 const REQUIRED_SCRIPTS = [
   'deploy/deploy-api.sh',
+  'deploy/deploy-v3-worker.sh',
   'deploy/deploy-web.sh',
   'deploy/pm2.ecosystem.config.js',
   'deploy/nginx/vspphone.conf',

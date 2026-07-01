@@ -53,19 +53,76 @@ cd /opt/vsp-voip
 cp .env .env.backup-$(date +%Y%m%d)
 git checkout <good-commit>
 bash deploy/deploy-api.sh
+bash deploy/deploy-v3-worker.sh   # when V3 telephony is enabled
 # Or manual:
 export GIT_COMMIT="$(git rev-parse HEAD)"
-docker compose up -d --build api
+docker compose up -d --build api telephony-v3-worker
 docker compose logs api --tail=50
+docker compose logs telephony-v3-worker --tail=50
 curl -s http://127.0.0.1:3000/ready | jq .
+curl -s http://127.0.0.1:3000/ready/v3 | jq .
 ```
 
 Verification:
 
 - `/ready` → `ready: true`
+- `/ready/v3` → `workers.activeCount >= 1` when V3 env flags are enabled (see [16-telephony-v3-worker.md](./16-telephony-v3-worker.md))
 - `build.gitCommit` matches checked-out commit
 - `POST /api/softphone/call-accepted` → 401 (not 404)
 - Test inbound call + webhook in Telnyx debugger
+
+---
+
+## V3 worker rollback
+
+When: bad worker image, runaway outbox, or ingress processing errors — API and legacy Call Control may still be fine.
+
+**Quick stop (no redeploy):**
+
+```bash
+cd /opt/vsp-voip
+# Pause command execution
+grep TELEPHONY_V3_OUTBOX_PAUSED .env   # set true, then restart worker
+docker compose stop telephony-v3-worker
+# Or disable ingress at API (webhooks get 503 on V3 route):
+# TELEPHONY_V3_INGRESS_ENABLED=false — restart api
+```
+
+**Redeploy previous worker:**
+
+```bash
+cd /opt/vsp-voip
+cp .env .env.backup-$(date +%Y%m%d)
+git checkout <good-commit>
+bash deploy/deploy-v3-worker.sh
+curl -s http://127.0.0.1:3000/ready/v3 | jq '.workers, .checks'
+docker compose logs telephony-v3-worker --tail=80
+```
+
+**Feature-flag rollback (tenant-level, no git):**
+
+```sql
+-- Disable V3 for a tenant (example)
+UPDATE "V3FeatureFlag" SET "engineEnabled" = false WHERE "tenantId" = '<tenant-id>';
+```
+
+Or set global env in `.env` and restart:
+
+```env
+TELEPHONY_V3_GLOBAL=false
+TELEPHONY_V3_INGRESS_ENABLED=false
+TELEPHONY_V3_OUTBOX_PAUSED=true
+```
+
+Then `docker compose up -d api telephony-v3-worker`.
+
+Verification:
+
+- `/ready/v3` reflects disabled flags under `featureFlags`
+- Legacy `/webhook/call-control` still handles non-canary DIDs
+- No new V3 sessions created for disabled tenants
+
+See [16-telephony-v3-worker.md](./16-telephony-v3-worker.md) rollback table.
 
 ---
 
@@ -158,6 +215,7 @@ If webhook URL or Nginx config changed:
 
 - [ ] `git rev-parse HEAD` documented
 - [ ] `/ready` healthy, `gitCommit` matches
+- [ ] `/ready/v3` healthy when V3 enabled (`workers.activeCount >= 1`, `checks.workers: true` in production)
 - [ ] Frontend loads (incognito)
 - [ ] Login + JWT API calls work
 - [ ] Inbound test call
@@ -175,3 +233,4 @@ Full telephony checklist: [14-telephony-validation.md](./14-telephony-validation
 - [02-ec2-deployment.md](./02-ec2-deployment.md)
 - [10-production-checklist.md](./10-production-checklist.md)
 - [12-disaster-recovery.md](./12-disaster-recovery.md)
+- [16-telephony-v3-worker.md](./16-telephony-v3-worker.md)

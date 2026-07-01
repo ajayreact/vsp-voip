@@ -1042,3 +1042,257 @@ model AiTranscript {
   @@index([tenantId, entityType, status])
   @@index([entityType, entityId])
 }
+
+// ---------------------------------------------------------------------------
+// VSP Phone V3 telephony infrastructure (Phase 1)
+// ---------------------------------------------------------------------------
+
+enum V3SessionState {
+  NEW
+  ORIGIN_PARKED
+  ROUTING
+  RINGING
+  BRIDGING
+  ACTIVE
+  HELD
+  TRANSFER_PENDING
+  ENDING
+  ENDED
+  FAILED
+}
+
+enum V3LegState {
+  NEW
+  DIALING
+  RINGING
+  ANSWERED
+  BRIDGED
+  HELD
+  ENDED
+  FAILED
+}
+
+enum V3LegRole {
+  ORIGIN
+  TARGET
+  CONSULT
+  PSTN
+  RING_TARGET
+}
+
+enum V3SessionOrigin {
+  DESK
+  MOBILE
+  PSTN_INBOUND
+  PSTN_OUTBOUND
+  API
+  SYSTEM
+}
+
+enum V3SessionDirection {
+  INBOUND
+  OUTBOUND
+  INTERNAL
+}
+
+enum V3OutboxStatus {
+  PENDING
+  PROCESSING
+  SENT
+  ACKED
+  FAILED
+  DEAD
+}
+
+enum V3CommandType {
+  DIAL
+  ANSWER
+  BRIDGE
+  HANGUP
+  SPEAK
+  PLAY
+  RECORD_START
+  RECORD_STOP
+  HOLD
+  UNHOLD
+  TRANSFER
+  GATHER
+  ENQUEUE
+  DEQUEUE
+  CREATE_CONFERENCE
+  ADD_PARTICIPANT
+  REMOVE_PARTICIPANT
+  MUTE_PARTICIPANT
+  UNMUTE_PARTICIPANT
+  DESTROY_CONFERENCE
+  PLAY_GREETING
+  START_VOICEMAIL
+  STOP_VOICEMAIL
+  START_RECORDING
+  STOP_RECORDING
+  REJECT
+  FORWARD
+}
+
+model ProcessedTelnyxEvent {
+  id              String   @id
+  eventType       String
+  callControlId   String?
+  callSessionId   String?
+  tenantId        String?
+  source          String?
+  workerId        String?
+  processedAt     DateTime @default(now())
+
+  @@index([processedAt])
+  @@index([callControlId])
+  @@index([tenantId, processedAt])
+}
+
+model V3CallSession {
+  id                   String             @id @default(uuid())
+  tenantId             String?
+  state                V3SessionState     @default(NEW)
+  origin               V3SessionOrigin?
+  direction            V3SessionDirection?
+  telnyxCallSessionId  String?
+  /// Partial unique enforced at DB: V3CallSession_telnyxCallSessionId_unique_idx (WHERE NOT NULL)
+  primaryCallControlId String?
+  callerExtensionId    String?
+  callerUserId         String?
+  calleeExtensionId    String?
+  didPhoneNumberId     String?
+  ringGroupId          String?
+  routeSnapshot        Json?
+  failureCode          String?
+  correlationId        String?
+  engineVersion        Int                @default(1)
+  version              Int                @default(0)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  answeredAt           DateTime?
+  endedAt              DateTime?
+
+  legs                 V3CallLeg[]
+  transitions          V3SessionTransition[]
+  legTransitions       V3LegTransition[]
+  outboxCommands       V3CommandOutbox[]
+
+  @@index([tenantId, state])
+  @@index([tenantId, createdAt])
+  @@index([telnyxCallSessionId])
+  @@index([primaryCallControlId])
+  @@index([correlationId])
+}
+
+model V3CallLeg {
+  id                String      @id @default(uuid())
+  sessionId         String
+  session           V3CallSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  callControlId     String      @unique
+  role              V3LegRole
+  state             V3LegState  @default(NEW)
+  connectionId      String?
+  direction         String?
+  fromAddress       String?
+  toAddress         String?
+  targetExtensionId String?
+  targetUserId      String?
+  answeredAt        DateTime?
+  endedAt           DateTime?
+  hangupCause       String?
+  version           Int         @default(0)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  transitions       V3LegTransition[]
+  outboxCommands    V3CommandOutbox[]
+
+  @@index([sessionId])
+  @@index([sessionId, role])
+  @@index([targetExtensionId, state])
+}
+
+model V3SessionTransition {
+  id           String        @id @default(uuid())
+  sessionId    String
+  session      V3CallSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  fromState    V3SessionState
+  toState      V3SessionState
+  triggerEvent String
+  eventId      String
+  actorType    String?
+  actorId      String?
+  metadata     Json?
+  occurredAt   DateTime      @default(now())
+
+  @@unique([eventId, sessionId])
+  @@index([sessionId, occurredAt])
+  @@index([occurredAt])
+}
+
+model V3LegTransition {
+  id           String        @id @default(uuid())
+  sessionId    String
+  legId        String
+  leg          V3CallLeg     @relation(fields: [legId], references: [id], onDelete: Cascade)
+  session      V3CallSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  fromState    V3LegState
+  toState      V3LegState
+  triggerEvent String
+  eventId      String
+  metadata     Json?
+  occurredAt   DateTime      @default(now())
+
+  @@unique([eventId, legId])
+  @@index([legId, occurredAt])
+  @@index([sessionId, occurredAt])
+}
+
+model V3CommandOutbox {
+  id              String          @id @default(uuid())
+  sessionId       String
+  session         V3CallSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  legId           String?
+  leg             V3CallLeg?      @relation(fields: [legId], references: [id], onDelete: SetNull)
+  commandType     V3CommandType
+  idempotencyKey  String          @unique
+  payload         Json
+  status          V3OutboxStatus  @default(PENDING)
+  attempts        Int             @default(0)
+  maxAttempts     Int             @default(5)
+  nextAttemptAt   DateTime        @default(now())
+  claimOwner      String?
+  claimedUntil    DateTime?
+  lastError       String?
+  telnyxRequestId String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  sentAt          DateTime?
+  ackedAt         DateTime?
+
+  @@index([status, nextAttemptAt])
+  @@index([status, claimedUntil])
+  @@index([claimOwner])
+  @@index([sessionId])
+}
+
+model V3FeatureFlag {
+  tenantId          String   @id
+  engineEnabled     Boolean  @default(false)
+  deskEnabled       Boolean  @default(false)
+  mobileEnabled     Boolean  @default(false)
+  pstnEnabled       Boolean  @default(false)
+  transferEnabled   Boolean  @default(false)
+  holdEnabled       Boolean  @default(false)
+  recordingEnabled  Boolean  @default(false)
+  voicemailEnabled  Boolean  @default(false)
+  conferenceEnabled Boolean  @default(false)
+  queueEnabled      Boolean  @default(false)
+  ivrEnabled        Boolean  @default(false)
+  observeOnly       Boolean  @default(false)
+  updatedAt         DateTime @updatedAt
+  updatedByUserId   String?
+
+  @@index([engineEnabled])
+}

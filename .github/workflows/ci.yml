@@ -39,6 +39,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm run validate:migrations
       - run: npx prisma migrate deploy
       - run: node -e "require('./lib/env').validateEnv(); console.log('env ok')"
       - run: node -e "require('./server.js')" &
@@ -50,6 +51,49 @@ jobs:
           curl -sf http://localhost:3000/ready || true
       - name: Deploy smoke
         run: node scripts/smoke-deploy.js
+
+  v3-integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: vsp
+          POSTGRES_PASSWORD: vsp
+          POSTGRES_DB: vsp_voip_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U vsp -d vsp_voip_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+    env:
+      V3_INTEGRATION: '1'
+      DATABASE_URL: postgresql://vsp:vsp@localhost:5432/vsp_voip_test
+      REDIS_URL: redis://localhost:6379
+      TELEPHONY_V3_GLOBAL: 'true'
+      TELEPHONY_V3_INGRESS_ENABLED: 'true'
+      TELEPHONY_V3_CALLMANAGER_ENABLED: 'true'
+      TELEPHONY_V3_EXECUTOR_ENABLED: 'true'
+      TELEPHONY_V3_REDIS_REQUIRED: 'true'
+      V3_METRICS_REDIS_MIRROR: 'false'
+      JWT_SECRET: ci-integration-secret
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run validate:migrations
+      - run: npx prisma migrate deploy
+      - run: npm run test:v3:integration:vitest
 
   web:
     runs-on: ubuntu-latest

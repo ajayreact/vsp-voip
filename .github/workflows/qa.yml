@@ -41,6 +41,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm run validate:migrations
       - run: npx prisma migrate deploy
       - run: node scripts/validate-tests-framework.js
       - name: Start API

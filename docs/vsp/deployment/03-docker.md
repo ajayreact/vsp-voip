@@ -13,8 +13,9 @@ Entrypoint: [scripts/docker-entrypoint.sh](../../../scripts/docker-entrypoint.sh
 | Service | Image | Host port | Purpose |
 |---------|-------|-----------|---------|
 | `api` | Built from repo | 3000 | Express API (`tsx server.js`) |
+| `telephony-v3-worker` | Same image as API | — | V3 ingress consumer + outbox tick ([16-telephony-v3-worker.md](./16-telephony-v3-worker.md)) |
 | `postgres` | `postgres:16-alpine` | 5432 | Primary database |
-| `redis` | `redis:7-alpine` | 6379 | Cache, Call Control sessions |
+| `redis` | `redis:7-alpine` | 6379 | Cache, Call Control sessions, V3 streams |
 
 Volumes: `pgdata`, `redisdata` (persist across restarts).
 
@@ -26,6 +27,16 @@ Volumes: `pgdata`, `redisdata` (persist across restarts).
 2. **Entrypoint** — runs `npx prisma migrate deploy` when `DATABASE_URL` is set
 3. **Start** — `npx tsx server.js`
 4. **Healthcheck** — `GET /health` every 30s
+
+## V3 worker container lifecycle
+
+1. **Build** — same image as `api`
+2. **Entrypoint** — bypassed (no migrations on worker)
+3. **Start** — `node scripts/telephony-v3-worker.js`
+4. **Healthcheck** — Redis heartbeat via `scripts/v3-worker-healthcheck.js`
+5. **Restart** — `unless-stopped`
+
+Deploy API before the worker so migrations apply first. See [16-telephony-v3-worker.md](./16-telephony-v3-worker.md).
 
 Build arg `GIT_COMMIT` is baked into the image for `/ready`:
 
@@ -47,8 +58,15 @@ docker compose up -d
 # Rebuild API only (production deploy)
 docker compose up -d --build api
 
+# Rebuild V3 worker only
+docker compose up -d --build telephony-v3-worker
+
+# API + V3 worker
+docker compose up -d --build api telephony-v3-worker
+
 # Logs
 docker compose logs api -f
+docker compose logs telephony-v3-worker -f
 docker compose logs api --tail=100
 
 # Status

@@ -13,6 +13,23 @@ docker compose logs api --tail=200
 docker compose logs api --since 30m
 ```
 
+## Docker logs (V3 worker)
+
+```bash
+docker compose logs telephony-v3-worker -f
+docker compose logs telephony-v3-worker --tail=200
+curl -s http://127.0.0.1:3000/ready/v3 | jq '.workers'
+```
+
+Look for:
+
+- `telephony_v3_worker.boot` / `telephony_v3_worker.exit`
+- `worker.started` / heartbeat metadata
+- Redis reconnect after `docker compose restart redis`
+- Outbox tick errors
+
+See [16-telephony-v3-worker.md](./16-telephony-v3-worker.md).
+
 Look for:
 
 - Startup webhook URL lines (Telnyx)
@@ -63,9 +80,17 @@ sudo grep 'api.vspphone.com/webhook' /var/log/nginx/access.log | tail -20
 ```bash
 curl -s https://api.vspphone.com/health | jq .
 curl -s https://api.vspphone.com/ready | jq .
+curl -s https://api.vspphone.com/ready/v3 | jq .
+curl -s https://api.vspphone.com/metrics/v3 | head -40
 ```
 
-`/ready` fields ([lib/health.js](../../../lib/health.js)):
+### `/health` — liveness
+
+Minimal uptime probe. Docker `Dockerfile` HEALTHCHECK uses this endpoint.
+
+### `/ready` — platform readiness
+
+[`lib/health.js`](../../../lib/health.js)
 
 | Field | Meaning |
 |-------|---------|
@@ -76,6 +101,63 @@ curl -s https://api.vspphone.com/ready | jq .
 | `stripe` | Billing config |
 | `smtp` | Email config |
 | `build.gitCommit` | Deployed API commit |
+
+**Note:** `/ready` does **not** verify V3 workers. Use `/ready/v3` when telephony V3 is enabled.
+
+### `/ready/v3` — V3 telephony readiness
+
+[`lib/telephony-v3/Health/healthService.js`](../../../lib/telephony-v3/Health/healthService.js)
+
+```bash
+curl -s http://127.0.0.1:3000/ready/v3 | jq '{ ready, checks, workers, queue, dlq, outbox, featureFlags }'
+```
+
+| Field | Meaning | Alert if |
+|-------|---------|----------|
+| `ready` | All V3 checks pass | `false` |
+| `checks.database` | Postgres | `false` |
+| `checks.redis` | Redis (when `TELEPHONY_V3_REDIS_REQUIRED`) | `false` |
+| `checks.workers` | Active heartbeat (required in production) | `false` |
+| `checks.queueLag` | Ingress stream lag | `false` (> `V3_QUEUE_LAG_MAX_MS`) |
+| `checks.queueDepth` | Ingress stream depth | `false` |
+| `checks.dlq` | DLQ depth | `false` (> `V3_DLQ_DEPTH_MAX`) |
+| `checks.outboxDead` | Dead outbox rows | `false` (> `V3_OUTBOX_DEAD_MAX`) |
+| `workers.activeCount` | Live worker heartbeats | `0` in production |
+| `workers.workers[]` | `workerId`, `at`, `role` | stale entries |
+| `queue.depth` / `queue.lagMs` | Ingress backlog | sustained high |
+| `outbox.pending` / `outbox.dead` | Command pipeline | growing dead count |
+| `featureFlags` | Global env gates | unexpected flip |
+
+`featureFlags` snapshot:
+
+| Flag | Env variable |
+|------|----------------|
+| `globalEnabled` | `TELEPHONY_V3_GLOBAL` |
+| `ingressEnabled` | `TELEPHONY_V3_INGRESS_ENABLED` |
+| `callManagerEnabled` | `TELEPHONY_V3_CALLMANAGER_ENABLED` |
+| `executorEnabled` | `TELEPHONY_V3_EXECUTOR_ENABLED` |
+| `outboxPaused` | `TELEPHONY_V3_OUTBOX_PAUSED` |
+
+Deploy scripts (`deploy-api.sh`, `deploy-v3-worker.sh`) verify `/ready` then `/ready/v3`. If V3 flags are enabled but `workers.activeCount` is 0, deploy fails.
+
+### `/metrics/v3` — Prometheus metrics
+
+Text format (`Content-Type: text/plain`). Scrape from internal network only (restrict at Nginx/firewall).
+
+Key series (prefix `vsp_telephony_v3_`):
+
+| Area | Examples |
+|------|----------|
+| Ingress / Redis | `ingress_received_total`, `ingress_duplicate_total`, `ingress_queue_depth`, `ingress_dlq_depth`, `redis_unavailable_total` |
+| Workers | `worker_processed_total`, `worker_failed_total`, `worker_process_duration_seconds` |
+| Outbox / Executor | `outbox_pending`, `outbox_processing`, `commands_completed_total`, `commands_failed_total`, `command_retry_total` |
+| Routing | `desk_route_total`, `mobile_route_total`, `pstn_route_total` |
+| Sidecars | `hold_total`, `transfer_total`, `recording_total`, `voicemail_total`, `conference_total`, `queue_total`, `ivr_total` |
+| Timers | `timer_execution_total` |
+
+Worker metrics mirror to Redis when `V3_METRICS_REDIS_MIRROR=true` (default); API `/metrics/v3` merges in-process and mirrored counters.
+
+See [16-telephony-v3-worker.md](./16-telephony-v3-worker.md) health checks.
 
 Remote report:
 
@@ -179,8 +261,10 @@ API_URL=https://api.vspphone.com EMAIL=... PASSWORD=... node scripts/diagnose-di
 No centralized APM in repo. Manual checks:
 
 - Cron or UptimeRobot on `GET https://api.vspphone.com/ready`
+- When V3 enabled: also probe `GET https://api.vspphone.com/ready/v3` (alert on `ready: false` or `workers.activeCount: 0`)
+- Scrape `GET https://api.vspphone.com/metrics/v3` from internal Prometheus (do not expose publicly)
 - PM2 `pm2 startup` for process resurrection
-- Docker healthcheck on `api` service
+- Docker healthcheck on `api` and `telephony-v3-worker` services
 
 ---
 
@@ -188,4 +272,4 @@ No centralized APM in repo. Manual checks:
 
 - [11-known-issues.md](./11-known-issues.md)
 - [14-telephony-validation.md](./14-telephony-validation.md)
-- [02-ec2-deployment.md](./02-ec2-deployment.md)
+- [16-telephony-v3-worker.md](./16-telephony-v3-worker.md)

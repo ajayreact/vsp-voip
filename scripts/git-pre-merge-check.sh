@@ -47,6 +47,10 @@ if [[ "${TELEPHONY}" == true ]]; then
 fi
 
 echo ""
+echo "==> Migration ordering"
+npm run validate:migrations
+
+echo ""
 echo "==> Docs validators"
 npm run validate:git-docs
 npm run validate:pbx-docs

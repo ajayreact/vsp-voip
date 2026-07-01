@@ -53,6 +53,41 @@ for i in $(seq 1 30); do
 done
 
 echo ""
+echo "==> Checking /ready/v3"
+HTTP_V3="$(curl -s -o /tmp/vsp-ready-v3.json -w '%{http_code}' http://127.0.0.1:3000/ready/v3)"
+echo "GET /ready/v3 -> HTTP ${HTTP_V3}"
+cat /tmp/vsp-ready-v3.json
+echo ""
+
+V3_ENABLED="$(node -e "
+  const fs = require('fs');
+  const body = JSON.parse(fs.readFileSync('/tmp/vsp-ready-v3.json', 'utf8'));
+  const f = body.featureFlags || {};
+  const enabled = Boolean(
+    f.globalEnabled || f.ingressEnabled || f.callManagerEnabled || f.executorEnabled
+  );
+  process.stdout.write(enabled ? 'true' : 'false');
+")"
+
+ACTIVE_WORKERS="$(node -e "
+  const fs = require('fs');
+  const body = JSON.parse(fs.readFileSync('/tmp/vsp-ready-v3.json', 'utf8'));
+  process.stdout.write(String(body.workers?.activeCount ?? 0));
+")"
+
+if [[ "${V3_ENABLED}" == "true" ]]; then
+  if [[ "${ACTIVE_WORKERS}" -eq 0 ]]; then
+    echo "ERROR: V3 is enabled but no worker heartbeat detected (activeCount=0)"
+    echo "       Run: bash deploy/deploy-v3-worker.sh"
+    docker compose logs telephony-v3-worker --tail=40 2>/dev/null || true
+    exit 1
+  fi
+  echo "==> V3 worker heartbeat OK (activeCount=${ACTIVE_WORKERS})"
+elif [[ "${HTTP_V3}" != "200" && "${HTTP_V3}" != "503" ]]; then
+  echo "WARN: /ready/v3 returned unexpected HTTP ${HTTP_V3}"
+fi
+
+echo ""
 echo "==> Verify call-accepted route (expect 401 without token)"
 HTTP_CODE="$(curl -s -o /dev/null -w '%{http_code}' -X POST \
   -H 'Content-Type: application/json' \
@@ -100,3 +135,8 @@ fi
 
 echo ""
 echo "==> Deploy complete. See docs/vsp/phase3/10-production-deploy-increments.md"
+if [[ "${V3_ENABLED}" == "true" ]]; then
+  echo "==> V3 enabled — worker verified via /ready/v3"
+else
+  echo "==> When V3 is enabled, set TELEPHONY_V3_* in .env and run: bash deploy/deploy-v3-worker.sh"
+fi
