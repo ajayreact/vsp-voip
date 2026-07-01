@@ -59,6 +59,9 @@ export type V3CreateSessionInput = {
   telnyxCallSessionId?: string | null;
   primaryCallControlId?: string | null;
   correlationId?: string | null;
+  callerExtensionId?: string | null;
+  callerUserId?: string | null;
+  routeSnapshot?: Record<string, unknown> | null;
 };
 
 export type V3CreateLegInput = {

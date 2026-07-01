@@ -134,10 +134,17 @@ describe('Phase 3.9.5 hardening', () => {
 
   describe('P0-3b desk parked outbound tenant bootstrap', () => {
     beforeEach(() => {
+      const platformSettings = require('../../lib/platformSettings');
+      platformSettings.invalidatePlatformSettingsCache();
       prisma.__setGetPrismaForTests(async () => ({
+        platformSettings: {
+          findUnique: vi.fn(async () => ({ id: 'default' })),
+        },
         user: {
           findFirst: vi.fn(async () => ({
+            id: 'user-desk',
             tenantId: 'tenant-desk',
+            telnyxSipUsername: 'deskuser',
             extensions: [{ id: 'ext-1', extensionNumber: '101', status: 'ACTIVE' }],
           })),
         },
@@ -154,14 +161,69 @@ describe('Phase 3.9.5 hardening', () => {
         eventType: 'call.initiated',
       });
       expect(result.tenantId).toBe('tenant-desk');
-      expect(result.source).toBe('desk_sip_from');
+      expect(result.source).toBe('desk_outbound_payload');
+      expect(result.callKind).toBe('DESK_OUTBOUND');
+      expect(result.callerExtensionId).toBe('ext-1');
       expect(result.rejected).toBeUndefined();
+    });
+
+    it('resolves tenant from sip_username when from is outbound caller-id E164', async () => {
+      const result = await tenantBootstrap.resolveTenantForWebhook({
+        direction: 'outgoing',
+        state: 'parked',
+        from: '+19724301252',
+        callControlId: 'cc-desk-4',
+        eventType: 'call.initiated',
+        raw: {
+          body: {
+            data: {
+              payload: {
+                from: '+19724301252',
+                direction: 'outgoing',
+                state: 'parked',
+                sip_username: 'deskuser',
+              },
+            },
+          },
+        },
+      });
+      expect(result.tenantId).toBe('tenant-desk');
+      expect(result.callKind).toBe('DESK_OUTBOUND');
+      expect(result.extensionNumber).toBe('101');
+    });
+
+    it('does not resolve desk outbound tenant from inbound DID on to', async () => {
+      prisma.__setGetPrismaForTests(async () => ({
+        platformSettings: {
+          findUnique: vi.fn(async () => ({ id: 'default' })),
+        },
+        user: { findFirst: vi.fn(async () => null) },
+        extension: { findFirst: vi.fn(async () => null) },
+        phoneNumber: {
+          findFirst: vi.fn(async () => ({ tenantId: 'wrong-tenant', id: 'pn-1', number: '+15551234567' })),
+          findUnique: vi.fn(async () => null),
+        },
+      }));
+      const result = await tenantBootstrap.resolveTenantForWebhook({
+        direction: 'outgoing',
+        state: 'parked',
+        from: 'sip:unknown@sip.telnyx.com',
+        to: '+15551234567',
+        callControlId: 'cc-desk-3',
+        eventType: 'call.initiated',
+      });
+      expect(result.rejected).toBe(true);
+      expect(result.reason).toBe('desk_caller_unresolved');
     });
 
     it('rejects desk parked outbound when caller cannot be resolved', async () => {
       prisma.__setGetPrismaForTests(async () => ({
+        platformSettings: {
+          findUnique: vi.fn(async () => ({ id: 'default' })),
+        },
         user: { findFirst: vi.fn(async () => null) },
         extension: { findFirst: vi.fn(async () => null) },
+        phoneNumber: { findUnique: vi.fn(async () => null) },
       }));
       const result = await tenantBootstrap.resolveTenantForWebhook({
         direction: 'outgoing',
