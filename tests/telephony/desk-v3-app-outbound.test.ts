@@ -33,6 +33,26 @@ describe('telephony / V3 Call Control Application outbound detection', () => {
     expect(isCallControlApplicationOutbound(payload, {})).toBe(false);
   });
 
+  it('detects V3 outbound by Telnyx v3: call_control_id even with legacy connection_id', async () => {
+    process.env.TELNYX_CALL_CONTROL_APP_ID = 'legacy-app-id';
+    process.env.TELNYX_V3_CALL_CONTROL_APP_ID = 'v3-desk-app-id';
+
+    const {
+      isV3CallControlApplicationOutbound,
+      isCallControlApplicationOutbound,
+    } = await import('../../lib/telephony/PayloadNormalizer.js');
+
+    const payload = {
+      direction: 'outgoing',
+      state: 'parked',
+      connection_id: 'legacy-app-id',
+      call_control_id: 'v3:90gwIqA4pvhAOMAaLooEYLt',
+    };
+
+    expect(isV3CallControlApplicationOutbound(payload)).toBe(true);
+    expect(isCallControlApplicationOutbound(payload, {})).toBe(true);
+  });
+
   it('legacy app outbound still matches legacy detector only', async () => {
     process.env.TELNYX_CALL_CONTROL_APP_ID = 'legacy-app-id';
     process.env.TELNYX_V3_CALL_CONTROL_APP_ID = 'v3-desk-app-id';
