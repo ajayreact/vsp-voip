@@ -290,7 +290,7 @@ describe('V3 mobileRouter', () => {
 
     mockFindUnique
       .mockResolvedValueOnce({ routeSnapshot: null })
-      .mockResolvedValueOnce({ routeSnapshot: { routingModule: 'mobile' } });
+      .mockResolvedValueOnce({ routeSnapshot: { routingModule: 'mobile', routedAt: '2026-01-01T00:00:00.000Z' } });
 
     const [first, second] = await Promise.all([
       mobileRouter.routeMobileSession(eventA),
@@ -310,7 +310,7 @@ describe('V3 mobileRouter', () => {
     const first = await mobileRouter.routeMobileSession(event);
     expect(first.ok).toBe(true);
 
-    mockFindUnique.mockResolvedValue({ routeSnapshot: { routingModule: 'mobile' } });
+    mockFindUnique.mockResolvedValue({ routeSnapshot: { routingModule: 'mobile', routedAt: '2026-01-01T00:00:00.000Z' } });
     const replay = await mobileRouter.routeMobileSession({ ...event, eventId: 'evt-replay' });
 
     expect(replay.skipped).toBe(true);

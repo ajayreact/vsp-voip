@@ -238,7 +238,7 @@ describe('V3 pstnRouter', () => {
 
   it('skips already routed sessions', async () => {
     mockInboundContext();
-    mockFindUnique.mockResolvedValue({ routeSnapshot: { routingModule: 'pstn' } });
+    mockFindUnique.mockResolvedValue({ routeSnapshot: { routingModule: 'pstn', routedAt: '2026-01-01T00:00:00.000Z' } });
 
     const result = await pstnRouter.routePstnSession(baseEvent());
     expect(result.skipped).toBe(true);
@@ -306,7 +306,7 @@ describe('V3 pstnRouter', () => {
 
     mockFindUnique
       .mockResolvedValueOnce({ routeSnapshot: null })
-      .mockResolvedValueOnce({ routeSnapshot: { routingModule: 'pstn' } });
+      .mockResolvedValueOnce({ routeSnapshot: { routingModule: 'pstn', routedAt: '2026-01-01T00:00:00.000Z' } });
 
     const [first, second] = await Promise.all([
       pstnRouter.routePstnSession(eventA),
@@ -324,7 +324,7 @@ describe('V3 pstnRouter', () => {
     const first = await pstnRouter.routePstnSession(event);
     expect(first.ok).toBe(true);
 
-    mockFindUnique.mockResolvedValue({ routeSnapshot: { routingModule: 'pstn' } });
+    mockFindUnique.mockResolvedValue({ routeSnapshot: { routingModule: 'pstn', routedAt: '2026-01-01T00:00:00.000Z' } });
     const replay = await pstnRouter.routePstnSession({ ...event, eventId: 'evt-replay' });
 
     expect(replay.skipped).toBe(true);
