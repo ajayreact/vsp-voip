@@ -132,6 +132,49 @@ describe('Phase 3.9.5 hardening', () => {
     });
   });
 
+  describe('P0-3b desk parked outbound tenant bootstrap', () => {
+    beforeEach(() => {
+      prisma.__setGetPrismaForTests(async () => ({
+        user: {
+          findFirst: vi.fn(async () => ({
+            tenantId: 'tenant-desk',
+            extensions: [{ id: 'ext-1', extensionNumber: '101', status: 'ACTIVE' }],
+          })),
+        },
+        extension: { findFirst: vi.fn(async () => null) },
+      }));
+    });
+
+    it('resolves tenant from desk parked outbound SIP from', async () => {
+      const result = await tenantBootstrap.resolveTenantForWebhook({
+        direction: 'outgoing',
+        state: 'parked',
+        from: 'sip:deskuser@sip.telnyx.com',
+        callControlId: 'cc-desk-1',
+        eventType: 'call.initiated',
+      });
+      expect(result.tenantId).toBe('tenant-desk');
+      expect(result.source).toBe('desk_sip_from');
+      expect(result.rejected).toBeUndefined();
+    });
+
+    it('rejects desk parked outbound when caller cannot be resolved', async () => {
+      prisma.__setGetPrismaForTests(async () => ({
+        user: { findFirst: vi.fn(async () => null) },
+        extension: { findFirst: vi.fn(async () => null) },
+      }));
+      const result = await tenantBootstrap.resolveTenantForWebhook({
+        direction: 'outgoing',
+        state: 'parked',
+        from: 'sip:unknown@sip.telnyx.com',
+        callControlId: 'cc-desk-2',
+        eventType: 'call.initiated',
+      });
+      expect(result.rejected).toBe(true);
+      expect(result.reason).toBe('desk_caller_unresolved');
+    });
+  });
+
   describe('P0-5 durable webhook dedup helpers', () => {
     it('detects durable duplicates from processedTelnyxEvent', async () => {
       prisma.__setGetPrismaForTests(async () => ({
