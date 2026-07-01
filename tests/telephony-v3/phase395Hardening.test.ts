@@ -167,6 +167,29 @@ describe('Phase 3.9.5 hardening', () => {
       expect(result.rejected).toBeUndefined();
     });
 
+    it('resolves tenant on call.initiated with Telnyx v3: call_control_id without state=parked', async () => {
+      const result = await tenantBootstrap.resolveTenantForWebhook({
+        direction: 'outgoing',
+        state: null,
+        from: '+13136505770',
+        callControlId: 'v3:90gwIqA4pvhAOMAaLooEYLt',
+        eventType: 'call.initiated',
+        raw: {
+          body: {
+            data: {
+              payload: {
+                from: '+13136505770',
+                direction: 'outgoing',
+                sip_username: 'deskuser',
+              },
+            },
+          },
+        },
+      });
+      expect(result.tenantId).toBe('tenant-desk');
+      expect(result.callKind).toBe('DESK_OUTBOUND');
+    });
+
     it('resolves tenant from sip_username when from is outbound caller-id E164', async () => {
       const result = await tenantBootstrap.resolveTenantForWebhook({
         direction: 'outgoing',

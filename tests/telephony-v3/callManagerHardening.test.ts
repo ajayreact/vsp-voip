@@ -28,7 +28,7 @@ describe('V3 CallManager hardening (Phase 2.6)', () => {
     let legLookups = 0;
     vi.spyOn(legManager, 'findLegByCallControlId').mockImplementation(async () => {
       legLookups += 1;
-      if (legLookups <= 2) return null;
+      if (legLookups <= 3) return null;
       return {
         id: 'leg-1',
         sessionId: 'sess-1',
@@ -111,7 +111,7 @@ describe('V3 CallManager hardening (Phase 2.6)', () => {
     let legLookups = 0;
     vi.spyOn(legManager, 'findLegByCallControlId').mockImplementation(async () => {
       legLookups += 1;
-      if (legLookups <= 2) return null;
+      if (legLookups <= 3) return null;
       return {
         id: 'leg-existing',
         sessionId: 'sess-existing',
