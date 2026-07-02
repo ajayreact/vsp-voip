@@ -5,6 +5,25 @@ import { resolveExtensionRingTargets } from '../../lib/inboundRouting.js';
 import { ensureExtensionTelnyxCredential } from '../../lib/extensionSip.js';
 
 describe('Phase 2.4a / employee SIP identity', () => {
+  it('resolveExtensionRingTargets returns legacy sip target when extension has no assigned user', async () => {
+    const extension = {
+      id: 'ext-102',
+      extensionNumber: '102',
+      displayName: 'Ajay',
+      userId: null,
+      user: null,
+      telnyxSipUsername: 'gencred-desk-102',
+      sipEnabled: true,
+    };
+
+    const resolution = await resolveExtensionRingTargets({}, extension, 'conn-1');
+    expect(resolution?.targets).toHaveLength(1);
+    expect(resolution?.targets[0].type).toBe('sip');
+    expect(resolution?.targets[0].sipUsername).toBe('gencred-desk-102');
+    expect(resolution?.appTargets).toEqual([]);
+    expect(resolution?.sipTargets).toHaveLength(1);
+  });
+
   it('resolveExtensionRingTargets returns one app target (no duplicate desk sip target)', async () => {
     const prisma = {
       user: {
