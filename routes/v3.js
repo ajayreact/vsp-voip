@@ -25,6 +25,12 @@ const callFlowService = require('../lib/v3/callFlowService');
 const callFlowNodeService = require('../lib/v3/callFlowNodeService');
 const callFlowValidationService = require('../lib/v3/callFlowValidationService');
 const callFlowSimulationService = require('../lib/v3/callFlowSimulationService');
+const ringGroupService = require('../lib/v3/ringGroupService');
+const queueService = require('../lib/v3/queueService');
+const businessHoursService = require('../lib/v3/businessHoursService');
+const holidayService = require('../lib/v3/holidayService');
+const voicemailService = require('../lib/v3/voicemailService');
+const pbxHealthService = require('../lib/v3/pbxHealthService');
 
 const router = express.Router();
 
@@ -65,11 +71,12 @@ router.get('/health', adminOnly, async (req, res) => {
   try {
     if (!requireTenant(req, res)) return;
     const prisma = await getPrisma();
-    const [health, summary] = await Promise.all([
+    const [health, summary, pbx] = await Promise.all([
       healthCheckService.employeeHealth(prisma, req.user.tenantId),
       healthCheckService.tenantHealthSummary(prisma, req.user.tenantId),
+      pbxHealthService.pbxObjectsHealth(prisma, req.user.tenantId),
     ]);
-    res.json({ success: true, summary, employees: health.employees, readiness: health.readiness });
+    res.json({ success: true, summary, employees: health.employees, readiness: health.readiness, pbx });
   } catch (error) {
     sendError(res, error, 'Failed to load health');
   }
@@ -502,6 +509,159 @@ router.delete('/devices/:id', adminOnly, async (req, res) => {
     sendError(res, error, 'Failed to remove device');
   }
 });
+
+// --- Phase 5: PBX Objects (configuration only — no live routing) ---
+
+router.get('/pbx/references', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const tenantId = req.user.tenantId;
+    const [ringGroups, queues, schedules, holidays, voicemails] = await Promise.all([
+      ringGroupService.listRingGroups(prisma, tenantId),
+      queueService.listQueues(prisma, tenantId),
+      businessHoursService.listSchedules(prisma, tenantId),
+      holidayService.listHolidays(prisma, tenantId),
+      voicemailService.listVoicemailBoxes(prisma, tenantId),
+    ]);
+    res.json({
+      success: true,
+      ringGroups: ringGroups.items.map((r) => ({ id: r.id, name: r.name, extensionNumber: r.extensionNumber })),
+      queues: queues.items.map((q) => ({ id: q.id, name: q.name, queueNumber: q.queueNumber })),
+      businessHours: schedules.items.map((s) => ({ id: s.id, name: s.name, timezone: s.timezone })),
+      holidays: holidays.items.map((h) => ({ id: h.id, name: h.name, date: h.date })),
+      voicemails: voicemails.items.map((v) => ({ id: v.id, mailboxNumber: v.mailboxNumber })),
+    });
+  } catch (error) {
+    sendError(res, error, 'Failed to load PBX references');
+  }
+});
+
+function mountPbxCrud(basePath, service, entityKey, auditValidateAction) {
+  router.get(basePath, adminOnly, async (req, res) => {
+    try {
+      if (!requireTenant(req, res)) return;
+      const prisma = await getPrisma();
+      const result = await service.list(prisma, req.user.tenantId, {
+        search: req.query.search ? String(req.query.search) : undefined,
+        limit: req.query.limit ? Number(req.query.limit) : 100,
+        offset: req.query.offset ? Number(req.query.offset) : 0,
+      });
+      res.json({ success: true, ...result });
+    } catch (error) {
+      sendError(res, error, `Failed to load ${entityKey}`);
+    }
+  });
+
+  router.post(`${basePath}/validate`, adminOnly, async (req, res) => {
+    try {
+      if (!requireTenant(req, res)) return;
+      const prisma = await getPrisma();
+      const report = await service.validate(prisma, req.user.tenantId, req.body || {}, {
+        excludeId: req.body?.id,
+      });
+      await auditService.log(prisma, req, {
+        action: auditValidateAction,
+        entityType: entityKey,
+        entityId: req.body?.id || null,
+        newValue: { valid: report.valid, errors: report.errors.length },
+      });
+      res.json({ success: true, ...report });
+    } catch (error) {
+      sendError(res, error, 'Validation failed');
+    }
+  });
+
+  router.post(basePath, adminOnly, async (req, res) => {
+    try {
+      if (!requireTenant(req, res)) return;
+      const prisma = await getPrisma();
+      const item = await service.create(prisma, req.user.tenantId, req.body || {}, { req, actor: req.user });
+      res.status(201).json({ success: true, item });
+    } catch (error) {
+      sendError(res, error, `Failed to create ${entityKey}`);
+    }
+  });
+
+  router.get(`${basePath}/:id`, adminOnly, async (req, res) => {
+    try {
+      if (!requireTenant(req, res)) return;
+      const prisma = await getPrisma();
+      const item = await service.get(prisma, req.user.tenantId, req.params.id);
+      if (!item) return res.status(404).json({ error: `${entityKey} not found` });
+      res.json({ success: true, item });
+    } catch (error) {
+      sendError(res, error, `Failed to load ${entityKey}`);
+    }
+  });
+
+  router.put(`${basePath}/:id`, adminOnly, async (req, res) => {
+    try {
+      if (!requireTenant(req, res)) return;
+      const prisma = await getPrisma();
+      const item = await service.update(prisma, req.user.tenantId, req.params.id, req.body || {}, { req, actor: req.user });
+      res.json({ success: true, item });
+    } catch (error) {
+      sendError(res, error, `Failed to update ${entityKey}`);
+    }
+  });
+
+  router.delete(`${basePath}/:id`, adminOnly, async (req, res) => {
+    try {
+      if (!requireTenant(req, res)) return;
+      const prisma = await getPrisma();
+      const item = await service.remove(prisma, req.user.tenantId, req.params.id, { req, actor: req.user });
+      res.json({ success: true, item });
+    } catch (error) {
+      sendError(res, error, `Failed to delete ${entityKey}`);
+    }
+  });
+}
+
+mountPbxCrud('/ringgroups', {
+  list: ringGroupService.listRingGroups,
+  get: ringGroupService.getRingGroup,
+  create: ringGroupService.createRingGroup,
+  update: ringGroupService.updateRingGroup,
+  remove: ringGroupService.removeRingGroup,
+  validate: ringGroupService.validateRingGroup,
+}, 'V3RingGroup', 'v3.ringgroup.validated');
+
+mountPbxCrud('/queues', {
+  list: queueService.listQueues,
+  get: queueService.getQueue,
+  create: queueService.createQueue,
+  update: queueService.updateQueue,
+  remove: queueService.removeQueue,
+  validate: queueService.validateQueue,
+}, 'V3Queue', 'v3.queue.validated');
+
+mountPbxCrud('/business-hours', {
+  list: businessHoursService.listSchedules,
+  get: businessHoursService.getSchedule,
+  create: businessHoursService.createSchedule,
+  update: businessHoursService.updateSchedule,
+  remove: businessHoursService.removeSchedule,
+  validate: businessHoursService.validateBusinessHours,
+}, 'V3BusinessHoursSchedule', 'v3.business_hours.validated');
+
+mountPbxCrud('/holidays', {
+  list: holidayService.listHolidays,
+  get: holidayService.getHoliday,
+  create: holidayService.createHoliday,
+  update: holidayService.updateHoliday,
+  remove: holidayService.removeHoliday,
+  validate: holidayService.validateHoliday,
+}, 'V3Holiday', 'v3.holiday.validated');
+
+mountPbxCrud('/voicemails', {
+  list: voicemailService.listVoicemailBoxes,
+  get: voicemailService.getVoicemailBox,
+  create: voicemailService.createVoicemailBox,
+  update: voicemailService.updateVoicemailBox,
+  remove: voicemailService.removeVoicemailBox,
+  validate: voicemailService.validateVoicemailBox,
+}, 'V3VoicemailBox', 'v3.voicemail.validated');
 
 // --- Phase 4: Call Flow Builder (engine only — no live routing) ---
 

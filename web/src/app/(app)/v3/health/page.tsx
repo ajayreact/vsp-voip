@@ -11,6 +11,8 @@ import {
   type EmployeeHealth,
   type HealthLevel,
   type HealthSummary,
+  type PbxHealthResponse,
+  type PbxObjectHealth,
 } from '@/lib/v3-api';
 
 const LEVEL_CLASS: Record<HealthLevel, string> = {
@@ -56,11 +58,13 @@ export default function V3HealthCenterPage() {
   const [error, setError] = useState('');
   const [summary, setSummary] = useState<HealthSummary | null>(null);
   const [employees, setEmployees] = useState<EmployeeHealth[]>([]);
+  const [pbx, setPbx] = useState<PbxHealthResponse | null>(null);
 
   async function load() {
     const res = await getV3Health();
     setSummary(res.summary);
     setEmployees(res.employees || []);
+    setPbx(res.pbx || null);
   }
 
   useEffect(() => {
@@ -182,6 +186,23 @@ export default function V3HealthCenterPage() {
         </div>
       </div>
 
+      {pbx ? (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold text-slate-900">PBX Objects</h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <SummaryCard label="PBX Total" value={pbx.summary.total} />
+            <SummaryCard label="Ready" value={pbx.summary.ready} accent="text-emerald-600" />
+            <SummaryCard label="Warnings" value={pbx.summary.warnings} accent="text-amber-600" />
+            <SummaryCard label="Errors" value={pbx.summary.errors} accent="text-rose-600" />
+          </div>
+          <PbxHealthTable title="Ring Groups" items={pbx.ringGroups} />
+          <PbxHealthTable title="Queues" items={pbx.queues} />
+          <PbxHealthTable title="Business Hours" items={pbx.businessHours} />
+          <PbxHealthTable title="Holidays" items={pbx.holidays} />
+          <PbxHealthTable title="Voicemail" items={pbx.voicemails} />
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
         <span className="inline-flex items-center gap-1.5"><Dot level="green" /> Ready</span>
         <span className="inline-flex items-center gap-1.5"><Dot level="yellow" /> Needs attention</span>
@@ -190,6 +211,26 @@ export default function V3HealthCenterPage() {
           <ShieldCheck className="h-3.5 w-3.5" /> Read-only view — no changes are made here.
         </span>
       </div>
+    </div>
+  );
+}
+
+function PbxHealthTable({ title, items }: { title: string; items: PbxObjectHealth[] }) {
+  if (!items.length) return null;
+  return (
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="border-b border-slate-100 px-4 py-2 text-sm font-medium text-slate-700">{title}</div>
+      <table className="min-w-full divide-y divide-slate-100 text-sm">
+        <tbody>
+          {items.map((item) => (
+            <tr key={item.id}>
+              <td className="w-8 px-4 py-2"><Dot level={item.overall} /></td>
+              <td className="px-4 py-2 font-medium">{item.name}</td>
+              <td className="px-4 py-2 text-xs text-slate-500">{item.reasons.join('; ') || 'OK'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

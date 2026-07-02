@@ -185,6 +185,11 @@ model Tenant {
   didAssignmentHistory      DidAssignmentHistory[]
   v3DeskDevices             V3DeskDevice[]
   v3CallFlows               V3CallFlow[]
+  v3RingGroups              V3RingGroup[]
+  v3Queues                  V3Queue[]
+  v3BusinessHoursSchedules  V3BusinessHoursSchedule[]
+  v3Holidays                V3Holiday[]
+  v3VoicemailBoxes          V3VoicemailBox[]
   aiSettings                TenantAiSettings?
   aiUsageLogs               AiUsageLog[]
   aiSummaries               AiSummary[]
@@ -1339,6 +1344,106 @@ enum V3CallFlowStatus {
   DRAFT
   PUBLISHED
   ARCHIVED
+}
+
+model V3RingGroup {
+  id                  String    @id @default(uuid())
+  tenantId            String
+  tenant              Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name                String
+  extensionNumber     String?
+  strategy            String    @default("SIMULTANEOUS")
+  memberExtensionIds  Json      @default("[]")
+  ringTimeoutSeconds  Int       @default(25)
+  overflowDestination Json?
+  musicOnHold         Json?
+  failoverDestination Json?
+  isActive            Boolean   @default(true)
+  removedAt           DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@unique([tenantId, name])
+  @@index([tenantId, removedAt])
+}
+
+model V3Queue {
+  id                  String    @id @default(uuid())
+  tenantId            String
+  tenant              Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name                String
+  queueNumber         String?
+  strategy            String    @default("ROUND_ROBIN")
+  agentExtensionIds   Json      @default("[]")
+  wrapUpTimeSeconds   Int       @default(0)
+  maxWaiting          Int       @default(50)
+  queueTimeoutSeconds Int       @default(120)
+  overflowDestination Json?
+  musicOnHold         Json?
+  stats               Json      @default("{\"callsOffered\":0,\"callsAnswered\":0,\"callsAbandoned\":0,\"avgWaitSeconds\":0}")
+  isActive            Boolean   @default(true)
+  removedAt           DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@unique([tenantId, name])
+  @@index([tenantId, removedAt])
+}
+
+model V3BusinessHoursSchedule {
+  id          String    @id @default(uuid())
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  timezone    String    @default("America/New_York")
+  weekdays    Json      @default("{}")
+  weekends    Json      @default("{}")
+  lunchBreak  Json?
+  closedHours Json?
+  isDefault   Boolean   @default(false)
+  removedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([tenantId, name])
+  @@index([tenantId, removedAt])
+}
+
+model V3Holiday {
+  id                  String    @id @default(uuid())
+  tenantId            String
+  tenant              Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name                String
+  date                String
+  recurring           Boolean   @default(false)
+  oneTime             Boolean   @default(true)
+  overrideDestination Json?
+  removedAt           DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([tenantId, removedAt])
+  @@index([tenantId, date])
+}
+
+model V3VoicemailBox {
+  id             String    @id @default(uuid())
+  tenantId       String
+  tenant         Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  mailboxNumber  String
+  extensionId    String?
+  greeting       Json?
+  emailDelivery  Json?
+  pin            String?
+  storageLimitMb Int       @default(100)
+  notification   Json?
+  isActive       Boolean   @default(true)
+  removedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([tenantId, mailboxNumber])
+  @@index([tenantId, removedAt])
 }
 
 model V3FeatureFlag {

@@ -25,6 +25,8 @@ import {
   GitBranch,
   Wrench,
   Play,
+  Clock,
+  Calendar,
 } from 'lucide-react';
 
 /** Tenant Portal V3 preview — inlined at build time from NEXT_PUBLIC_V3_PORTAL. */
@@ -134,6 +136,11 @@ export function buildPortalNavSections(): PortalNavSection[] {
         { href: '/v3/callflows', label: 'Call Flows', icon: GitBranch, matchPrefix: '/v3/callflows', adminOnly: true },
         { href: '/v3/callflows/builder', label: 'Flow Builder', icon: Wrench, matchPrefix: '/v3/callflows/builder', adminOnly: true },
         { href: '/v3/callflows/simulator', label: 'Flow Simulator', icon: Play, matchPrefix: '/v3/callflows/simulator', adminOnly: true },
+        { href: '/v3/ring-groups', label: 'Ring Groups', icon: UsersRound, matchPrefix: '/v3/ring-groups', adminOnly: true },
+        { href: '/v3/queues', label: 'Queues', icon: Hash, matchPrefix: '/v3/queues', adminOnly: true },
+        { href: '/v3/business-hours', label: 'Business Hours', icon: Clock, matchPrefix: '/v3/business-hours', adminOnly: true },
+        { href: '/v3/holidays', label: 'Holidays', icon: Calendar, matchPrefix: '/v3/holidays', adminOnly: true },
+        { href: '/v3/voicemail', label: 'Voicemail', icon: Voicemail, matchPrefix: '/v3/voicemail', adminOnly: true },
       ],
     });
   }

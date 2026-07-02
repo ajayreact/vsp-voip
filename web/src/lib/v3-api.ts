@@ -56,6 +56,7 @@ export async function getV3Health() {
     summary: HealthSummary;
     employees: EmployeeHealth[];
     readiness: TelephonyReadiness;
+    pbx?: PbxHealthResponse;
   }>('/api/v3/health');
 }
 
@@ -502,3 +503,89 @@ export async function getV3CallFlowNodeTypes() {
     '/api/v3/callflows/node-types',
   );
 }
+
+// --- Phase 5: PBX Objects ---
+
+export type PbxValidationIssue = { severity: string; code: string; message: string };
+
+async function pbxList(path: string, search?: string) {
+  const q = search ? `?search=${encodeURIComponent(search)}` : '';
+  return apiFetch<{ success: boolean; items: Record<string, unknown>[]; total: number }>(`/api/v3/${path}${q}`);
+}
+
+async function pbxCreate(path: string, data: Record<string, unknown>) {
+  return apiFetch<{ success: boolean; item: Record<string, unknown> }>(`/api/v3/${path}`, { method: 'POST', body: JSON.stringify(data) });
+}
+
+async function pbxUpdate(path: string, id: string, data: Record<string, unknown>) {
+  return apiFetch<{ success: boolean; item: Record<string, unknown> }>(`/api/v3/${path}/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+}
+
+async function pbxDelete(path: string, id: string) {
+  return apiFetch<{ success: boolean }>(`/api/v3/${path}/${id}`, { method: 'DELETE' });
+}
+
+async function pbxValidate(path: string, data: Record<string, unknown>) {
+  return apiFetch<{ success: boolean; valid: boolean; errors: PbxValidationIssue[]; warnings: PbxValidationIssue[] }>(
+    `/api/v3/${path}/validate`,
+    { method: 'POST', body: JSON.stringify(data) },
+  );
+}
+
+export const v3RingGroupsApi = {
+  list: (search?: string) => pbxList('ringgroups', search),
+  create: (data: Record<string, unknown>) => pbxCreate('ringgroups', data),
+  update: (id: string, data: Record<string, unknown>) => pbxUpdate('ringgroups', id, data),
+  delete: (id: string) => pbxDelete('ringgroups', id),
+  validate: (data: Record<string, unknown>) => pbxValidate('ringgroups', data),
+};
+
+export const v3QueuesApi = {
+  list: (search?: string) => pbxList('queues', search),
+  create: (data: Record<string, unknown>) => pbxCreate('queues', data),
+  update: (id: string, data: Record<string, unknown>) => pbxUpdate('queues', id, data),
+  delete: (id: string) => pbxDelete('queues', id),
+  validate: (data: Record<string, unknown>) => pbxValidate('queues', data),
+};
+
+export const v3BusinessHoursApi = {
+  list: (search?: string) => pbxList('business-hours', search),
+  create: (data: Record<string, unknown>) => pbxCreate('business-hours', data),
+  update: (id: string, data: Record<string, unknown>) => pbxUpdate('business-hours', id, data),
+  delete: (id: string) => pbxDelete('business-hours', id),
+  validate: (data: Record<string, unknown>) => pbxValidate('business-hours', data),
+};
+
+export const v3HolidaysApi = {
+  list: (search?: string) => pbxList('holidays', search),
+  create: (data: Record<string, unknown>) => pbxCreate('holidays', data),
+  update: (id: string, data: Record<string, unknown>) => pbxUpdate('holidays', id, data),
+  delete: (id: string) => pbxDelete('holidays', id),
+  validate: (data: Record<string, unknown>) => pbxValidate('holidays', data),
+};
+
+export const v3VoicemailsApi = {
+  list: (search?: string) => pbxList('voicemails', search),
+  create: (data: Record<string, unknown>) => pbxCreate('voicemails', data),
+  update: (id: string, data: Record<string, unknown>) => pbxUpdate('voicemails', id, data),
+  delete: (id: string) => pbxDelete('voicemails', id),
+  validate: (data: Record<string, unknown>) => pbxValidate('voicemails', data),
+};
+
+export type PbxObjectHealth = {
+  id: string;
+  type: string;
+  name: string;
+  overall: HealthLevel;
+  checks: Record<string, HealthLevel>;
+  reasons: string[];
+};
+
+export type PbxHealthResponse = {
+  ringGroups: PbxObjectHealth[];
+  queues: PbxObjectHealth[];
+  businessHours: PbxObjectHealth[];
+  holidays: PbxObjectHealth[];
+  voicemails: PbxObjectHealth[];
+  summary: { total: number; ready: number; warnings: number; errors: number };
+};
