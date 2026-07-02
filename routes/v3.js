@@ -1,9 +1,5 @@
 /**
  * Tenant Portal V3 API — mounted at /api/v3, gated by V3_PORTAL_ENABLED.
- *
- * Additive surface only. Reuses existing auth (lib/auth.js) and tenant guards.
- * When the flag is off, `requireV3Enabled` makes every route 404. No existing
- * route, telephony path, or Call Control logic is touched.
  */
 
 const express = require('express');
@@ -15,6 +11,11 @@ const healthCheckService = require('../lib/v3/healthCheckService');
 const repairService = require('../lib/v3/repairService');
 const provisioningService = require('../lib/v3/provisioningService');
 const auditService = require('../lib/v3/auditService');
+const numberInventoryService = require('../lib/v3/numberInventoryService');
+const marketplaceService = require('../lib/v3/marketplaceService');
+const assignmentService = require('../lib/v3/assignmentService');
+const inventoryHealthService = require('../lib/v3/inventoryHealthService');
+const telnyxService = require('../lib/v3/telnyxService');
 
 const router = express.Router();
 
@@ -33,6 +34,9 @@ function sendError(res, error, fallback) {
 }
 
 const adminOnly = requireRole('SUPER_ADMIN', 'TENANT_ADMIN');
+const superAdminOnly = requireRole('SUPER_ADMIN');
+
+// --- Phase 1: Employees & PBX health ---
 
 router.post('/employees', adminOnly, async (req, res) => {
   try {
@@ -122,6 +126,222 @@ router.post('/employees/:id/provision-device', adminOnly, async (req, res) => {
     res.json({ success: true, ...result });
   } catch (error) {
     sendError(res, error, 'Provisioning failed');
+  }
+});
+
+// --- Phase 2: Number Inventory & Marketplace ---
+
+router.get('/numbers', adminOnly, async (req, res) => {
+  try {
+    const prisma = await getPrisma();
+    const readiness = await telnyxService.getTenantTelephonyReadiness(prisma);
+    const isSuperAdmin = req.user.role === 'SUPER_ADMIN';
+    const search = req.query.search ? String(req.query.search) : undefined;
+    const status = req.query.status ? String(req.query.status) : undefined;
+    const limit = req.query.limit ? Number(req.query.limit) : 100;
+    const offset = req.query.offset ? Number(req.query.offset) : 0;
+
+    if (isSuperAdmin && !req.query.tenantScoped) {
+      const inventory = await numberInventoryService.listInventory(prisma, {
+        search, status, limit, offset, readiness,
+      });
+      return res.json({ success: true, scope: 'global', ...inventory });
+    }
+
+    if (!requireTenant(req, res)) return;
+    const inventory = await numberInventoryService.listInventory(prisma, {
+      tenantId: req.user.tenantId,
+      search,
+      status,
+      limit,
+      offset,
+      readiness,
+    });
+    res.json({ success: true, scope: 'tenant', ...inventory });
+  } catch (error) {
+    sendError(res, error, 'Failed to load numbers');
+  }
+});
+
+router.post('/numbers/search', superAdminOnly, async (req, res) => {
+  try {
+    const result = await marketplaceService.searchMarketplace(req.body || {});
+    res.json({ success: true, ...result });
+  } catch (error) {
+    sendError(res, error, 'Number search failed');
+  }
+});
+
+router.post('/numbers/purchase', superAdminOnly, async (req, res) => {
+  try {
+    const prisma = await getPrisma();
+    const body = req.body || {};
+    if (body.reserveOnly) {
+      const reserved = await marketplaceService.reserveMarketplaceNumber(prisma, body, req.user);
+      await auditService.log(prisma, req, {
+        action: 'v3.number.reserved',
+        entityType: 'PhoneNumber',
+        entityId: reserved.id,
+        newValue: { number: reserved.number, status: reserved.inventoryStatus },
+      });
+      return res.status(201).json({ success: true, reserved });
+    }
+
+    const purchased = await marketplaceService.purchaseMarketplaceNumber(prisma, body, req.user);
+    await auditService.log(prisma, req, {
+      action: 'v3.number.purchased',
+      entityType: 'PhoneNumber',
+      entityId: purchased.id,
+      newValue: { number: purchased.number, status: purchased.inventoryStatus },
+    });
+    res.status(201).json({ success: true, number: purchased });
+  } catch (error) {
+    sendError(res, error, 'Purchase failed');
+  }
+});
+
+router.post('/numbers/assign', adminOnly, async (req, res) => {
+  try {
+    const prisma = await getPrisma();
+    const body = req.body || {};
+    const phoneNumberId = String(body.phoneNumberId || '');
+    if (!phoneNumberId) {
+      return res.status(400).json({ error: 'phoneNumberId is required' });
+    }
+
+    if (body.tenantId && req.user.role === 'SUPER_ADMIN') {
+      const saved = await assignmentService.assignNumberToTenant(prisma, {
+        phoneNumberId,
+        tenantId: String(body.tenantId),
+        assignedByUserId: req.user.sub,
+        notes: body.notes,
+      }, req);
+      return res.json({ success: true, assignment: 'tenant', number: saved });
+    }
+
+    if (!requireTenant(req, res)) return;
+    const result = await assignmentService.assignNumberToExtension(
+      prisma,
+      req.user.tenantId,
+      {
+        phoneNumberId,
+        extensionId: body.extensionId,
+        employeeId: body.employeeId,
+      },
+      { req, actor: req.user },
+    );
+    res.json({ success: true, assignment: 'extension', ...result });
+  } catch (error) {
+    sendError(res, error, 'Assignment failed');
+  }
+});
+
+router.post('/numbers/unassign', adminOnly, async (req, res) => {
+  try {
+    const prisma = await getPrisma();
+    const phoneNumberId = String(req.body?.phoneNumberId || '');
+    if (!phoneNumberId) {
+      return res.status(400).json({ error: 'phoneNumberId is required' });
+    }
+
+    if (req.body?.fromTenant && req.user.role === 'SUPER_ADMIN') {
+      const updated = await assignmentService.unassignNumberFromTenant(
+        prisma, phoneNumberId, req.user, req,
+      );
+      return res.json({ success: true, unassign: 'tenant', number: updated });
+    }
+
+    if (!requireTenant(req, res)) return;
+    const result = await assignmentService.unassignNumberFromExtension(
+      prisma,
+      req.user.tenantId,
+      phoneNumberId,
+      { req, actor: req.user },
+    );
+    res.json({ success: true, unassign: 'extension', ...result });
+  } catch (error) {
+    sendError(res, error, 'Unassign failed');
+  }
+});
+
+router.post('/numbers/release', superAdminOnly, async (req, res) => {
+  try {
+    const prisma = await getPrisma();
+    const phoneNumberId = String(req.body?.phoneNumberId || '');
+    if (!phoneNumberId) {
+      return res.status(400).json({ error: 'phoneNumberId is required' });
+    }
+    const result = await marketplaceService.releaseMarketplaceNumber(
+      prisma, phoneNumberId, req.user, { notes: req.body?.notes },
+    );
+    await auditService.log(prisma, req, {
+      action: 'v3.number.released',
+      entityType: 'PhoneNumber',
+      entityId: phoneNumberId,
+      newValue: { number: result.suspended?.number, status: result.suspended?.inventoryStatus },
+    });
+    res.json({ success: true, ...result });
+  } catch (error) {
+    sendError(res, error, 'Release failed');
+  }
+});
+
+router.post('/numbers/repair', adminOnly, async (req, res) => {
+  try {
+    const prisma = await getPrisma();
+    const apply = Boolean(req.body?.apply);
+    const tenantId = req.user.role === 'SUPER_ADMIN' && req.body?.global
+      ? null
+      : req.user.tenantId;
+
+    if (tenantId === undefined && req.user.role !== 'SUPER_ADMIN') {
+      if (!requireTenant(req, res)) return;
+    }
+    if (req.user.role !== 'SUPER_ADMIN' && !req.user.tenantId) {
+      return res.status(403).json({ error: 'No organization linked to this account' });
+    }
+
+    const scopedTenantId = req.user.role === 'SUPER_ADMIN' && req.body?.global
+      ? null
+      : req.user.tenantId;
+
+    const report = await repairService.repairNumbers(prisma, scopedTenantId, { apply });
+    if (apply) {
+      await auditService.log(prisma, req, {
+        action: 'v3.number.repair',
+        entityType: scopedTenantId ? 'Tenant' : 'Platform',
+        entityId: scopedTenantId || 'platform',
+        newValue: { applied: report.applied, scanned: report.scanned },
+      });
+    }
+    res.json({ success: true, ...report });
+  } catch (error) {
+    sendError(res, error, 'Number repair failed');
+  }
+});
+
+router.get('/numbers/health', adminOnly, async (req, res) => {
+  try {
+    const prisma = await getPrisma();
+    const tenantId = req.user.role === 'SUPER_ADMIN' && req.query.global === 'true'
+      ? null
+      : req.user.tenantId;
+
+    if (!tenantId && req.user.role !== 'SUPER_ADMIN') {
+      if (!requireTenant(req, res)) return;
+    }
+
+    const scopedTenantId = req.user.role === 'SUPER_ADMIN' && req.query.global === 'true'
+      ? null
+      : req.user.tenantId;
+
+    const result = await inventoryHealthService.listNumbersHealth(prisma, {
+      tenantId: scopedTenantId || undefined,
+      limit: req.query.limit ? Number(req.query.limit) : 100,
+    });
+    res.json({ success: true, ...result });
+  } catch (error) {
+    sendError(res, error, 'Failed to load number health');
   }
 });
 

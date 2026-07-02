@@ -118,3 +118,118 @@ export async function provisionV3Device(employeeId: string, target: 'sip_phone' 
     body: JSON.stringify({ target }),
   });
 }
+
+// --- Phase 2: Number Inventory & Marketplace ---
+
+export type InventoryStatus =
+  | 'AVAILABLE'
+  | 'RESERVED'
+  | 'ASSIGNED'
+  | 'PORTING'
+  | 'RELEASE_PENDING'
+  | 'SUSPENDED';
+
+export type InventoryNumber = {
+  id: string;
+  number: string;
+  inventoryStatus: InventoryStatus;
+  country: string | null;
+  region: string | null;
+  locality: string | null;
+  capabilities: string[];
+  monthlyCost: number | null;
+  tenantId: string | null;
+  tenantName: string | null;
+  employeeId: string | null;
+  employeeName: string | null;
+  extensionId: string | null;
+  extensionNumber: string | null;
+  routingType: string;
+  notes: string | null;
+};
+
+export type NumberHealthChecks = {
+  inventoryStatus: HealthLevel;
+  assigned: HealthLevel;
+  routingOk: HealthLevel;
+  employeeLinked: HealthLevel;
+  extensionLinked: HealthLevel;
+  credentialReady: HealthLevel;
+  registration: HealthLevel;
+  callControlReady: HealthLevel;
+  webhookReady: HealthLevel;
+};
+
+export type NumberHealth = {
+  phoneNumberId: string;
+  number: string;
+  inventoryStatus: InventoryStatus;
+  overall: HealthLevel;
+  checks: NumberHealthChecks;
+};
+
+export async function getV3Numbers(params?: { search?: string; status?: string; tenantScoped?: boolean }) {
+  const q = new URLSearchParams();
+  if (params?.search) q.set('search', params.search);
+  if (params?.status) q.set('status', params.status);
+  if (params?.tenantScoped) q.set('tenantScoped', 'true');
+  const suffix = q.toString() ? `?${q.toString()}` : '';
+  return apiFetch<{ success: boolean; scope: string; items: InventoryNumber[]; total: number; summary: Record<string, number> }>(
+    `/api/v3/numbers${suffix}`,
+  );
+}
+
+export async function searchV3Marketplace(filters: Record<string, unknown>) {
+  return apiFetch<{ success: boolean; availableNumbers: Array<{ phoneNumber: string; locality: string; state: string; monthlyCost: string | null }>; count: number }>(
+    '/api/v3/numbers/search',
+    { method: 'POST', body: JSON.stringify(filters) },
+  );
+}
+
+export async function purchaseV3Number(data: { phoneNumber: string; monthlyCost?: string; reserveOnly?: boolean; notes?: string }) {
+  return apiFetch<{ success: boolean; number?: InventoryNumber; reserved?: InventoryNumber }>(
+    '/api/v3/numbers/purchase',
+    { method: 'POST', body: JSON.stringify(data) },
+  );
+}
+
+export async function assignV3Number(data: {
+  phoneNumberId: string;
+  tenantId?: string;
+  extensionId?: string;
+  employeeId?: string;
+  notes?: string;
+}) {
+  return apiFetch<{ success: boolean; assignment: string }>(
+    '/api/v3/numbers/assign',
+    { method: 'POST', body: JSON.stringify(data) },
+  );
+}
+
+export async function unassignV3Number(data: { phoneNumberId: string; fromTenant?: boolean }) {
+  return apiFetch<{ success: boolean; unassign: string }>(
+    '/api/v3/numbers/unassign',
+    { method: 'POST', body: JSON.stringify(data) },
+  );
+}
+
+export async function releaseV3Number(phoneNumberId: string, notes?: string) {
+  return apiFetch<{ success: boolean }>(
+    '/api/v3/numbers/release',
+    { method: 'POST', body: JSON.stringify({ phoneNumberId, notes }) },
+  );
+}
+
+export async function repairV3Numbers(apply = false, global = false) {
+  return apiFetch<{ success: boolean; mode: string; changes: RepairChange[]; applied: RepairAppliedChange[]; observations: string[] }>(
+    '/api/v3/numbers/repair',
+    { method: 'POST', body: JSON.stringify({ apply, global }) },
+  );
+}
+
+export async function getV3NumbersHealth(global = false) {
+  const suffix = global ? '?global=true' : '';
+  return apiFetch<{ success: boolean; numbers: NumberHealth[]; summary: { total: number; ready: number; warnings: number; errors: number } }>(
+    `/api/v3/numbers/health${suffix}`,
+  );
+}

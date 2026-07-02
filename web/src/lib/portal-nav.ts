@@ -17,6 +17,8 @@ import {
   ShoppingCart,
   HeartPulse,
   UserPlus,
+  Store,
+  Link2,
 } from 'lucide-react';
 
 /** Tenant Portal V3 preview — inlined at build time from NEXT_PUBLIC_V3_PORTAL. */
@@ -117,6 +119,9 @@ export function buildPortalNavSections(): PortalNavSection[] {
       items: [
         { href: '/v3/health', label: 'Health Center', icon: HeartPulse, matchPrefix: '/v3/health', adminOnly: true },
         { href: '/v3/employees', label: 'Employees (V3)', icon: UserPlus, matchPrefix: '/v3/employees', adminOnly: true },
+        { href: '/v3/numbers', label: 'Number Inventory', icon: Hash, matchPrefix: '/v3/numbers', adminOnly: true },
+        { href: '/v3/marketplace', label: 'Marketplace', icon: Store, matchPrefix: '/v3/marketplace', adminOnly: true },
+        { href: '/v3/assignments', label: 'Assignments', icon: Link2, matchPrefix: '/v3/assignments', adminOnly: true },
       ],
     });
   }
