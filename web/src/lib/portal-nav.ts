@@ -31,6 +31,8 @@ import {
   SlidersHorizontal,
   BookUser,
   Radio,
+  Bell,
+  FileText,
 } from 'lucide-react';
 
 /** Tenant Portal V3 preview — inlined at build time from NEXT_PUBLIC_V3_PORTAL. */
@@ -130,6 +132,12 @@ export function buildPortalNavSections(): PortalNavSection[] {
       label: 'V3 Preview',
       items: [
         { href: '/v3/health', label: 'Health Center', icon: HeartPulse, matchPrefix: '/v3/health', adminOnly: true },
+        { href: '/v3/dashboard', label: 'Operations Dashboard', icon: LayoutDashboard, matchPrefix: '/v3/dashboard', adminOnly: true },
+        { href: '/v3/analytics', label: 'Analytics', icon: BarChart3, matchPrefix: '/v3/analytics', adminOnly: true },
+        { href: '/v3/reports', label: 'Reports (V3)', icon: FileText, matchPrefix: '/v3/reports', adminOnly: true },
+        { href: '/v3/activity', label: 'Activity', icon: History, matchPrefix: '/v3/activity', adminOnly: true },
+        { href: '/v3/notifications', label: 'Notifications', icon: Bell, matchPrefix: '/v3/notifications', adminOnly: true },
+        { href: '/v3/system-health', label: 'System Health', icon: Activity, matchPrefix: '/v3/system-health', adminOnly: true },
         { href: '/v3/employees', label: 'Employees (V3)', icon: UserPlus, matchPrefix: '/v3/employees', adminOnly: true },
         { href: '/v3/numbers', label: 'Number Inventory', icon: Hash, matchPrefix: '/v3/numbers', adminOnly: true },
         { href: '/v3/marketplace', label: 'Marketplace', icon: Store, matchPrefix: '/v3/marketplace', adminOnly: true },

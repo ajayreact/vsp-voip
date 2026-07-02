@@ -58,6 +58,7 @@ export async function getV3Health() {
     readiness: TelephonyReadiness;
     pbx?: PbxHealthResponse;
     softphone?: SoftphoneHealthResponse;
+    systemHealth?: SystemHealthResponse;
   }>('/api/v3/health');
 }
 
@@ -731,4 +732,136 @@ export async function updateV3Preferences(data: {
     method: 'PUT',
     body: JSON.stringify(data),
   });
+}
+
+// --- Phase 7: Operations Center ---
+
+export type ChartPoint = { label: string; value: number };
+export type GrowthPoint = { label: string; count: number; cumulative: number };
+
+export type DashboardCards = {
+  employees: number;
+  extensions: number;
+  activeDevices: number;
+  registeredDevices: number;
+  totalNumbers: number;
+  availableNumbers: number;
+  assignedNumbers: number;
+  deskPhones: number;
+  ringGroups: number;
+  queues: number;
+  businessHours: number;
+  holidays: number;
+  voicemailBoxes: number;
+  callFlows: number;
+  softphoneProfiles: number;
+};
+
+export type DashboardCharts = {
+  employeeGrowth: GrowthPoint[];
+  extensionGrowth: GrowthPoint[];
+  deviceTypes: ChartPoint[];
+  vendorDistribution: ChartPoint[];
+  phoneModelDistribution: ChartPoint[];
+  didUsage: ChartPoint[];
+  provisioningSuccess: ChartPoint[];
+  healthScore: Record<string, number>;
+  presenceDistribution: ChartPoint[];
+  departmentDistribution: ChartPoint[];
+};
+
+export type V3Notification = {
+  id: string;
+  severity: string;
+  category: string;
+  title: string;
+  message: string;
+  source: string;
+  actionable: boolean;
+  readOnly: boolean;
+};
+
+export type ActivityEvent = {
+  id: string;
+  action: string;
+  category: string;
+  label: string;
+  entityType: string | null;
+  entityId: string | null;
+  actorEmail: string | null;
+  actorName: string | null;
+  createdAt: string;
+};
+
+export type SystemHealthResponse = {
+  overallScore: number;
+  overallLevel: HealthLevel;
+  domains: Record<string, { level: HealthLevel; score: number }>;
+  departmentHealth: Array<{
+    department: string;
+    employeeCount: number;
+    ready: number;
+    warnings: number;
+    errors: number;
+    overall: HealthLevel;
+  }>;
+  historicalTrend: Array<{ label: string; healthScore: number; employeeCount: number }>;
+  repairSuggestions: Array<{ source: string; severity: string; type: string; detail: string; ref: string }>;
+};
+
+export async function getV3Dashboard() {
+  return apiFetch<{ success: boolean; dashboard: { cards: DashboardCards; healthIssues: { total: number }; repairRecommendations: { total: number }; charts: DashboardCharts } }>('/api/v3/dashboard');
+}
+
+export async function getV3Analytics() {
+  return apiFetch<{ success: boolean; analytics: { charts: DashboardCharts } }>('/api/v3/analytics');
+}
+
+export async function getV3Reports(type?: string) {
+  const q = type ? `?type=${encodeURIComponent(type)}` : '';
+  return apiFetch<{ success: boolean; reports?: Array<{ type: string; title: string; rowCount: number }>; report?: { title: string; columns: Array<{ key: string; label: string }>; rows: Record<string, string>[] } }>(`/api/v3/reports${q}`);
+}
+
+export async function getV3Activity(params?: { limit?: number; category?: string }) {
+  const qs = new URLSearchParams();
+  if (params?.limit) qs.set('limit', String(params.limit));
+  if (params?.category) qs.set('category', params.category);
+  const q = qs.toString() ? `?${qs.toString()}` : '';
+  return apiFetch<{ success: boolean; items: ActivityEvent[]; total: number }>(`/api/v3/activity${q}`);
+}
+
+export async function getV3Notifications() {
+  return apiFetch<{ success: boolean; notifications: V3Notification[]; summary: { total: number; errors: number; warnings: number } }>('/api/v3/notifications');
+}
+
+export async function getV3SystemHealth() {
+  return apiFetch<{ success: boolean; systemHealth: SystemHealthResponse }>('/api/v3/system-health');
+}
+
+export async function exportV3Report(type: string, format: 'csv' | 'excel' | 'pdf') {
+  const { getToken } = await import('./api');
+  const token = getToken();
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
+  const res = await fetch(`${API_URL}/api/v3/reports/export`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ type, format }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Export failed (${res.status})`);
+  }
+  const blob = await res.blob();
+  const disposition = res.headers.get('Content-Disposition') || '';
+  const match = disposition.match(/filename="([^"]+)"/);
+  const filename = match?.[1] || `${type}.${format === 'excel' ? 'xls' : format}`;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }

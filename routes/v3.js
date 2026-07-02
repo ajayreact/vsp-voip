@@ -37,6 +37,12 @@ const devicePreferenceService = require('../lib/v3/devicePreferenceService');
 const contactDirectoryService = require('../lib/v3/contactDirectoryService');
 const presenceService = require('../lib/v3/presenceService');
 const softphoneHealthService = require('../lib/v3/softphoneHealthService');
+const dashboardService = require('../lib/v3/dashboardService');
+const analyticsService = require('../lib/v3/analyticsService');
+const reportService = require('../lib/v3/reportService');
+const systemHealthService = require('../lib/v3/systemHealthService');
+const activityService = require('../lib/v3/activityService');
+const notificationCenterService = require('../lib/v3/notificationCenterService');
 
 const router = express.Router();
 
@@ -85,13 +91,22 @@ router.get('/health', adminOnly, async (req, res) => {
   try {
     if (!requireTenant(req, res)) return;
     const prisma = await getPrisma();
-    const [health, summary, pbx, softphone] = await Promise.all([
+    const [health, summary, pbx, softphone, systemHealth] = await Promise.all([
       healthCheckService.employeeHealth(prisma, req.user.tenantId),
       healthCheckService.tenantHealthSummary(prisma, req.user.tenantId),
       pbxHealthService.pbxObjectsHealth(prisma, req.user.tenantId),
       softphoneHealthService.softphoneUxHealth(prisma, req.user.tenantId),
+      systemHealthService.getSystemHealth(prisma, req.user.tenantId),
     ]);
-    res.json({ success: true, summary, employees: health.employees, readiness: health.readiness, pbx, softphone });
+    res.json({
+      success: true,
+      summary,
+      employees: health.employees,
+      readiness: health.readiness,
+      pbx,
+      softphone,
+      systemHealth,
+    });
   } catch (error) {
     sendError(res, error, 'Failed to load health');
   }
@@ -960,6 +975,133 @@ router.put('/preferences', async (req, res) => {
     res.json({ success: true, preferences, devices });
   } catch (error) {
     sendError(res, error, 'Failed to update preferences');
+  }
+});
+
+// --- Phase 7: Operations Center & Analytics (read-only) ---
+
+router.get('/dashboard', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const dashboard = await dashboardService.getDashboard(prisma, req.user.tenantId);
+    res.json({ success: true, dashboard });
+  } catch (error) {
+    sendError(res, error, 'Failed to load dashboard');
+  }
+});
+
+router.get('/dashboard/summary', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const summary = await dashboardService.getDashboardSummary(prisma, req.user.tenantId);
+    res.json({ success: true, summary });
+  } catch (error) {
+    sendError(res, error, 'Failed to load dashboard summary');
+  }
+});
+
+router.get('/dashboard/charts', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const charts = await dashboardService.getDashboardCharts(prisma, req.user.tenantId);
+    res.json({ success: true, charts });
+  } catch (error) {
+    sendError(res, error, 'Failed to load dashboard charts');
+  }
+});
+
+router.get('/analytics', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const analytics = await analyticsService.getAnalytics(prisma, req.user.tenantId);
+    res.json({ success: true, analytics });
+  } catch (error) {
+    sendError(res, error, 'Failed to load analytics');
+  }
+});
+
+router.get('/reports', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const type = req.query.type ? String(req.query.type) : null;
+    if (type) {
+      const report = await reportService.generateReport(prisma, req.user.tenantId, type);
+      return res.json({ success: true, report });
+    }
+    const reports = await reportService.listReports(prisma, req.user.tenantId);
+    res.json({ success: true, ...reports });
+  } catch (error) {
+    sendError(res, error, 'Failed to load reports');
+  }
+});
+
+router.post('/reports/export', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const body = req.body || {};
+    const type = String(body.type || req.query.type || '');
+    const format = String(body.format || req.query.format || 'csv');
+    if (!type) return res.status(400).json({ error: 'Report type is required' });
+
+    const exported = await reportService.exportReportForTenant(
+      prisma,
+      req.user.tenantId,
+      type,
+      format,
+      { req },
+    );
+
+    res.setHeader('Content-Type', exported.contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${exported.filename}"`);
+    if (exported.encoding === 'binary') {
+      return res.send(Buffer.from(exported.body, 'utf8'));
+    }
+    return res.send(exported.body);
+  } catch (error) {
+    sendError(res, error, 'Failed to export report');
+  }
+});
+
+router.get('/activity', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const timeline = await activityService.getActivityTimeline(prisma, req.user.tenantId, {
+      limit: req.query.limit ? Number(req.query.limit) : 50,
+      offset: req.query.offset ? Number(req.query.offset) : 0,
+      category: req.query.category ? String(req.query.category) : undefined,
+    });
+    res.json({ success: true, ...timeline });
+  } catch (error) {
+    sendError(res, error, 'Failed to load activity');
+  }
+});
+
+router.get('/notifications', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const center = await notificationCenterService.getNotifications(prisma, req.user.tenantId);
+    res.json({ success: true, ...center });
+  } catch (error) {
+    sendError(res, error, 'Failed to load notifications');
+  }
+});
+
+router.get('/system-health', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const systemHealth = await systemHealthService.getSystemHealth(prisma, req.user.tenantId);
+    res.json({ success: true, systemHealth });
+  } catch (error) {
+    sendError(res, error, 'Failed to load system health');
   }
 });
 

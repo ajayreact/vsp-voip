@@ -14,6 +14,7 @@ import {
   type PbxHealthResponse,
   type PbxObjectHealth,
   type SoftphoneHealthResponse,
+  type SystemHealthResponse,
 } from '@/lib/v3-api';
 
 const LEVEL_CLASS: Record<HealthLevel, string> = {
@@ -61,6 +62,7 @@ export default function V3HealthCenterPage() {
   const [employees, setEmployees] = useState<EmployeeHealth[]>([]);
   const [pbx, setPbx] = useState<PbxHealthResponse | null>(null);
   const [softphone, setSoftphone] = useState<SoftphoneHealthResponse | null>(null);
+  const [systemHealth, setSystemHealth] = useState<SystemHealthResponse | null>(null);
 
   async function load() {
     const res = await getV3Health();
@@ -68,6 +70,7 @@ export default function V3HealthCenterPage() {
     setEmployees(res.employees || []);
     setPbx(res.pbx || null);
     setSoftphone(res.softphone || null);
+    setSystemHealth(res.systemHealth || null);
   }
 
   useEffect(() => {
@@ -249,6 +252,42 @@ export default function V3HealthCenterPage() {
               </tbody>
             </table>
           </div>
+        </div>
+      ) : null}
+
+      {systemHealth ? (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold text-slate-900">System Overview</h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <SummaryCard label="Overall Score" value={systemHealth.overallScore} accent="text-emerald-600" />
+            <SummaryCard label="Departments" value={systemHealth.departmentHealth.length} />
+            <SummaryCard label="Repair Suggestions" value={systemHealth.repairSuggestions.length} accent={systemHealth.repairSuggestions.length ? 'text-amber-600' : undefined} />
+            <SummaryCard label="Trend Points" value={systemHealth.historicalTrend.length} />
+          </div>
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="border-b border-slate-100 px-4 py-2 text-sm font-medium text-slate-700">Department Health</div>
+            <table className="min-w-full divide-y divide-slate-100 text-sm">
+              <tbody>
+                {systemHealth.departmentHealth.map((dept) => (
+                  <tr key={dept.department}>
+                    <td className="w-8 px-4 py-2"><Dot level={dept.overall} /></td>
+                    <td className="px-4 py-2 font-medium">{dept.department}</td>
+                    <td className="px-4 py-2 text-xs text-slate-500">{dept.ready} ready · {dept.warnings} warn · {dept.errors} err</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {systemHealth.repairSuggestions.length > 0 ? (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+              <p className="font-medium">Repair suggestions</p>
+              <ul className="mt-2 list-disc space-y-1 pl-5">
+                {systemHealth.repairSuggestions.slice(0, 5).map((s, i) => (
+                  <li key={`${s.type}-${i}`}>{s.type}: {s.detail}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
