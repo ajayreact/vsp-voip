@@ -53,6 +53,14 @@ const exportImportService = require('../lib/v3/exportImportService');
 const runtimeSyncService = require('../lib/v3/runtime/runtimeSyncService');
 const runtimeHealthService = require('../lib/v3/runtime/runtimeHealthService');
 const { isV3RuntimeSyncEnabled } = require('../lib/v3/runtime/runtimeFeatureFlag');
+const deploymentService = require('../lib/v3/deploymentService');
+const migrationService = require('../lib/v3/migrationService');
+const runtimeValidationService = require('../lib/v3/runtimeValidationService');
+const rollbackService = require('../lib/v3/rollbackService');
+const monitoringService = require('../lib/v3/monitoringService');
+const metricsService = require('../lib/v3/metricsService');
+const diagnosticsService = require('../lib/v3/diagnosticsService');
+const productionHealthService = require('../lib/v3/productionHealthService');
 
 const router = express.Router();
 
@@ -1412,6 +1420,148 @@ router.post('/runtime/jobs/:jobId/retry', adminOnly, async (req, res) => {
     res.json({ success: true, job });
   } catch (error) {
     sendError(res, error, 'Runtime job retry failed');
+  }
+});
+
+// --- Phase 10: Production Readiness, Monitoring & Migration ---
+
+router.get('/monitoring', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = getPrisma();
+    const monitoring = await monitoringService.getMonitoringOverview(prisma, req.user.tenantId);
+    res.json({ success: true, monitoring });
+  } catch (error) {
+    sendError(res, error, 'Failed to load monitoring');
+  }
+});
+
+router.get('/metrics', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = getPrisma();
+    const metrics = await metricsService.getMetrics(prisma, req.user.tenantId, {
+      windowHours: Number(req.query.windowHours) || 24,
+    });
+    res.json({ success: true, metrics });
+  } catch (error) {
+    sendError(res, error, 'Failed to load metrics');
+  }
+});
+
+router.get('/diagnostics', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = getPrisma();
+    const diagnostics = await diagnosticsService.getDiagnostics(prisma, req.user.tenantId);
+    res.json({ success: true, diagnostics });
+  } catch (error) {
+    sendError(res, error, 'Failed to load diagnostics');
+  }
+});
+
+router.get('/runtime-validation', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = getPrisma();
+    const validation = await runtimeValidationService.getValidationReport(prisma, req.user.tenantId);
+    res.json({ success: true, validation });
+  } catch (error) {
+    sendError(res, error, 'Failed to load runtime validation');
+  }
+});
+
+router.post('/runtime-validation/run', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = getPrisma();
+    const validation = await runtimeValidationService.runValidation(prisma, req.user.tenantId, { req });
+    res.json({ success: true, validation });
+  } catch (error) {
+    sendError(res, error, 'Runtime validation failed');
+  }
+});
+
+router.post('/migration/preview', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = getPrisma();
+    const preview = await migrationService.migrationPreview(prisma, req.user.tenantId, req.body || {});
+    res.json({ success: true, preview });
+  } catch (error) {
+    sendError(res, error, 'Migration preview failed');
+  }
+});
+
+router.post('/migration/run', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = getPrisma();
+    const dryRun = req.body?.dryRun !== false && req.body?.apply !== true;
+    const result = await migrationService.migrationExecute(prisma, req.user.tenantId, {
+      ...req.body,
+      dryRun,
+      req,
+    });
+    res.json({ success: true, ...result });
+  } catch (error) {
+    sendError(res, error, 'Migration failed');
+  }
+});
+
+router.post('/migration/rollback', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = getPrisma();
+    const result = await migrationService.migrationRollback(prisma, req.user.tenantId, {
+      ...req.body,
+      req,
+    });
+    res.json({ success: true, result });
+  } catch (error) {
+    sendError(res, error, 'Migration rollback failed');
+  }
+});
+
+router.get('/migration/report', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = getPrisma();
+    const report = await migrationService.getMigrationReport(prisma, req.user.tenantId, {
+      migrationRunId: req.query.migrationRunId ? String(req.query.migrationRunId) : undefined,
+      limit: Number(req.query.limit) || 20,
+    });
+    res.json({ success: true, report });
+  } catch (error) {
+    sendError(res, error, 'Failed to load migration report');
+  }
+});
+
+router.get('/production-health', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = getPrisma();
+    const health = await productionHealthService.getProductionHealth(prisma, req.user.tenantId);
+    await auditService.log(prisma, req, {
+      action: 'v3.production.health.checked',
+      entityType: 'Tenant',
+      entityId: req.user.tenantId,
+      newValue: { overall: health.overall, critical: health.criticalIssues.length },
+    });
+    res.json({ success: true, health });
+  } catch (error) {
+    sendError(res, error, 'Failed to load production health');
+  }
+});
+
+router.get('/deployment', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = getPrisma();
+    const deployment = await deploymentService.getDeploymentStatus(prisma, req.user.tenantId);
+    res.json({ success: true, deployment });
+  } catch (error) {
+    sendError(res, error, 'Failed to load deployment status');
   }
 });
 

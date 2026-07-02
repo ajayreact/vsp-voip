@@ -37,6 +37,10 @@ import {
   RefreshCw,
   ShieldCheck,
   Server,
+  Gauge,
+  Stethoscope,
+  Shield,
+  ArrowRightLeft,
 } from 'lucide-react';
 
 /** Tenant Portal V3 preview — inlined at build time from NEXT_PUBLIC_V3_PORTAL. */
@@ -149,6 +153,12 @@ export function buildPortalNavSections(): PortalNavSection[] {
         { href: '/v3/import-export', label: 'Import / Export', icon: FileText, matchPrefix: '/v3/import-export', adminOnly: true },
         { href: '/v3/lifecycle', label: 'Lifecycle', icon: RefreshCw, matchPrefix: '/v3/lifecycle', adminOnly: true },
         { href: '/v3/runtime', label: 'Runtime Sync', icon: Server, matchPrefix: '/v3/runtime', adminOnly: true },
+        { href: '/v3/production-health', label: 'Production Health', icon: Shield, matchPrefix: '/v3/production-health', adminOnly: true },
+        { href: '/v3/monitoring', label: 'Monitoring', icon: Activity, matchPrefix: '/v3/monitoring', adminOnly: true },
+        { href: '/v3/metrics', label: 'Metrics', icon: Gauge, matchPrefix: '/v3/metrics', adminOnly: true },
+        { href: '/v3/diagnostics', label: 'Diagnostics', icon: Stethoscope, matchPrefix: '/v3/diagnostics', adminOnly: true },
+        { href: '/v3/runtime-validation', label: 'Runtime Validation', icon: ShieldCheck, matchPrefix: '/v3/runtime-validation', adminOnly: true },
+        { href: '/v3/migration', label: 'Migration', icon: ArrowRightLeft, matchPrefix: '/v3/migration', adminOnly: true },
         { href: '/v3/employees', label: 'Employees (V3)', icon: UserPlus, matchPrefix: '/v3/employees', adminOnly: true },
         { href: '/v3/numbers', label: 'Number Inventory', icon: Hash, matchPrefix: '/v3/numbers', adminOnly: true },
         { href: '/v3/marketplace', label: 'Marketplace', icon: Store, matchPrefix: '/v3/marketplace', adminOnly: true },

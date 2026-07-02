@@ -1123,3 +1123,96 @@ export async function repairV3Runtime(entityType?: string, entityId?: string) {
 export async function retryV3RuntimeJob(jobId: string) {
   return apiFetch<{ success: boolean; job: V3RuntimeSyncJob }>(`/api/v3/runtime/jobs/${jobId}/retry`, { method: 'POST' });
 }
+
+// --- Phase 10: Production Readiness ---
+
+export type V3ProductionHealth = {
+  overall: HealthLevel;
+  criticalIssues: Array<{ severity: string; code: string; message: string }>;
+  warnings: Array<{ severity: string; code: string; message: string }>;
+  healthyDomains: Record<string, HealthLevel | string>;
+  migrationStatus?: { status: string; id?: string };
+  backupFreshness?: { level: HealthLevel; count: number; latest?: string | null };
+  runtime?: { enabled: boolean; overall: HealthLevel; failedSyncs: number };
+  metrics?: { syncSuccessRate: number | null; provisioningSuccessRate: number | null };
+};
+
+export type V3MonitoringOverview = {
+  runtimeSyncQueue: { pending: number; running: number; items: unknown[] };
+  failedSyncs: { total: number; recent: unknown[] };
+  retryQueue: { total: number };
+  migrationQueue: unknown[];
+  runtimeHealth: { overall: HealthLevel; enabled: boolean; domains?: Record<string, HealthLevel> };
+  provisioningFailures: number;
+  registrationIssues: number;
+};
+
+export type V3MetricsOverview = {
+  sync: { total: number; success: number; failed: number; avgDurationMs: number | null; queueLength: number };
+  migration: { total: number; success: number; avgDurationMs: number | null };
+  provisioning: { successRate: number | null; failureEstimate: number };
+  registration: { rate: number };
+};
+
+export type V3DiagnosticsReport = {
+  issues: Array<{ severity: string; code: string; message: string }>;
+  repairRecommendations: Array<{ action: string; reason: string }>;
+  configurationVersion?: number;
+  backupFreshness?: { id: string; createdAt: string; label?: string | null } | null;
+};
+
+export type V3ValidationReport = {
+  overall: HealthLevel;
+  readOnly: boolean;
+  domains: Array<{ domain: string; level: HealthLevel; total: number; passed: number; warnings: number; errors: number }>;
+};
+
+export async function getV3Monitoring() {
+  return apiFetch<{ success: boolean; monitoring: V3MonitoringOverview }>('/api/v3/monitoring');
+}
+
+export async function getV3Metrics(windowHours = 24) {
+  return apiFetch<{ success: boolean; metrics: V3MetricsOverview }>(`/api/v3/metrics?windowHours=${windowHours}`);
+}
+
+export async function getV3Diagnostics() {
+  return apiFetch<{ success: boolean; diagnostics: V3DiagnosticsReport }>('/api/v3/diagnostics');
+}
+
+export async function getV3RuntimeValidation() {
+  return apiFetch<{ success: boolean; validation: V3ValidationReport }>('/api/v3/runtime-validation');
+}
+
+export async function runV3RuntimeValidation() {
+  return apiFetch<{ success: boolean; validation: V3ValidationReport }>('/api/v3/runtime-validation/run', { method: 'POST' });
+}
+
+export async function previewV3Migration(body: Record<string, unknown> = {}) {
+  return apiFetch<{ success: boolean; preview: Record<string, unknown> }>('/api/v3/migration/preview', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export async function runV3Migration(body: Record<string, unknown> = {}) {
+  return apiFetch<{ success: boolean; run: Record<string, unknown>; report: Record<string, unknown> }>('/api/v3/migration/run', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export async function rollbackV3Migration(body: Record<string, unknown> = {}) {
+  return apiFetch<{ success: boolean; result: Record<string, unknown> }>('/api/v3/migration/rollback', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export async function getV3MigrationReport(migrationRunId?: string) {
+  const qs = migrationRunId ? `?migrationRunId=${encodeURIComponent(migrationRunId)}` : '';
+  return apiFetch<{ success: boolean; report: Record<string, unknown> }>(`/api/v3/migration/report${qs}`);
+}
+
+export async function getV3ProductionHealth() {
+  return apiFetch<{ success: boolean; health: V3ProductionHealth }>('/api/v3/production-health');
+}

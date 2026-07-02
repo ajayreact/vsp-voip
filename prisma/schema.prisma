@@ -197,6 +197,7 @@ model Tenant {
   v3TenantBackups           V3TenantBackup[]
   v3RuntimeSyncJobs         V3RuntimeSyncJob[]
   v3RuntimeLinks            V3RuntimeLink[]
+  v3MigrationRuns           V3MigrationRun[]
   aiSettings                TenantAiSettings?
   aiUsageLogs               AiUsageLog[]
   aiSummaries               AiSummary[]
@@ -1595,6 +1596,39 @@ model V3RuntimeLink {
 
   @@unique([tenantId, v3EntityType, v3EntityId])
   @@index([tenantId, runtimeEntityType, runtimeEntityId])
+}
+
+enum V3MigrationRunStatus {
+  PREVIEW
+  VALIDATED
+  RUNNING
+  SUCCESS
+  FAILED
+  ROLLED_BACK
+}
+
+model V3MigrationRun {
+  id               String               @id @default(uuid())
+  tenantId         String
+  tenant           Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  runType          String               @default("migrate")
+  status           V3MigrationRunStatus @default(PREVIEW)
+  dryRun           Boolean              @default(true)
+  targetTenantIds  Json                 @default("[]")
+  preview          Json?
+  validation       Json?
+  result           Json?
+  report           Json?
+  backupId         String?
+  rollbackBackupId String?
+  startedAt        DateTime?
+  finishedAt       DateTime?
+  createdByUserId  String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  @@index([tenantId, status, createdAt])
+  @@index([tenantId, runType])
 }
 
 model V3FeatureFlag {
