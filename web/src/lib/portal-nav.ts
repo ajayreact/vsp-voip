@@ -19,6 +19,9 @@ import {
   UserPlus,
   Store,
   Link2,
+  MonitorSmartphone,
+  Activity,
+  Settings2,
 } from 'lucide-react';
 
 /** Tenant Portal V3 preview — inlined at build time from NEXT_PUBLIC_V3_PORTAL. */
@@ -122,6 +125,9 @@ export function buildPortalNavSections(): PortalNavSection[] {
         { href: '/v3/numbers', label: 'Number Inventory', icon: Hash, matchPrefix: '/v3/numbers', adminOnly: true },
         { href: '/v3/marketplace', label: 'Marketplace', icon: Store, matchPrefix: '/v3/marketplace', adminOnly: true },
         { href: '/v3/assignments', label: 'Assignments', icon: Link2, matchPrefix: '/v3/assignments', adminOnly: true },
+        { href: '/v3/devices', label: 'Desk Phones', icon: MonitorSmartphone, matchPrefix: '/v3/devices', adminOnly: true },
+        { href: '/v3/device-health', label: 'Device Health', icon: Activity, matchPrefix: '/v3/device-health', adminOnly: true },
+        { href: '/v3/device-provision', label: 'Device Provision', icon: Settings2, matchPrefix: '/v3/device-provision', adminOnly: true },
       ],
     });
   }

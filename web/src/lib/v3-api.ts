@@ -233,3 +233,140 @@ export async function getV3NumbersHealth(global = false) {
     `/api/v3/numbers/health${suffix}`,
   );
 }
+
+// --- Phase 3: Desk Phone Management ---
+
+export type DeskDeviceStatus = 'CREATED' | 'ASSIGNED' | 'PROVISIONED' | 'REGISTERED' | 'REMOVED';
+export type DeskRegistrationStatus = 'registered' | 'offline' | 'never';
+
+export type DeskDevice = {
+  id: string;
+  tenantId: string;
+  vendor: string;
+  model: string | null;
+  macAddress: string | null;
+  serialNumber: string | null;
+  firmwareVersion: string | null;
+  employeeId: string | null;
+  employeeName: string | null;
+  extensionId: string | null;
+  extensionNumber: string | null;
+  did: string | null;
+  sipUsername: string | null;
+  status: DeskDeviceStatus;
+  registrationStatus: DeskRegistrationStatus;
+  lastRegistrationAt: string | null;
+  lastSeenAt: string | null;
+  lastProvisionedAt: string | null;
+  provisionUrl: string | null;
+  configVersion: number;
+  provisionVersion: number;
+  notes: string | null;
+};
+
+export type DeviceHealthChecks = {
+  inventoryStatus: HealthLevel;
+  extensionLinked: HealthLevel;
+  employeeLinked: HealthLevel;
+  credentialReady: HealthLevel;
+  provisionReady: HealthLevel;
+  vendorTemplate: HealthLevel;
+  provisionUrl: HealthLevel;
+  registration: HealthLevel;
+  callControlReady: HealthLevel;
+  webhookReady: HealthLevel;
+};
+
+export type DeviceHealth = {
+  deviceId: string;
+  macAddress: string | null;
+  vendor: string;
+  model: string | null;
+  extensionNumber: string | null;
+  employeeName: string | null;
+  status: DeskDeviceStatus;
+  registrationStatus: DeskRegistrationStatus;
+  overall: HealthLevel;
+  checks: DeviceHealthChecks;
+  reasons: string[];
+  firmwareVersion: string | null;
+  lastRegistrationAt: string | null;
+  lastSeenAt: string | null;
+  lastProvisionedAt: string | null;
+  provisionVersion: number;
+  configVersion: number;
+};
+
+export async function getV3Devices(params?: { search?: string; status?: string }) {
+  const q = new URLSearchParams();
+  if (params?.search) q.set('search', params.search);
+  if (params?.status) q.set('status', params.status);
+  const suffix = q.toString() ? `?${q.toString()}` : '';
+  return apiFetch<{ success: boolean; items: DeskDevice[]; total: number }>(`/api/v3/devices${suffix}`);
+}
+
+export async function createV3Device(data: {
+  vendor: string;
+  model?: string;
+  macAddress?: string;
+  serialNumber?: string;
+  firmwareVersion?: string;
+  notes?: string;
+}) {
+  return apiFetch<{ success: boolean; device: DeskDevice }>('/api/v3/devices', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateV3Device(id: string, data: Partial<DeskDevice>) {
+  return apiFetch<{ success: boolean; device: DeskDevice }>(`/api/v3/devices/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function removeV3Device(id: string) {
+  return apiFetch<{ success: boolean; device: DeskDevice }>(`/api/v3/devices/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function provisionV3DeskDevice(deviceId: string, regenerate = false) {
+  return apiFetch<{
+    success: boolean;
+    device: DeskDevice;
+    config: { format: string; contentType: string; body: string; vendor: string };
+    provisionUrl: string;
+  }>('/api/v3/devices/provision', {
+    method: 'POST',
+    body: JSON.stringify({ deviceId, regenerate }),
+  });
+}
+
+export async function repairV3Devices(apply = false, regenerate = false) {
+  return apiFetch<{ success: boolean; mode: string; changes: RepairChange[]; applied: RepairAppliedChange[]; observations: string[] }>(
+    '/api/v3/devices/repair',
+    { method: 'POST', body: JSON.stringify({ apply, regenerate }) },
+  );
+}
+
+export async function getV3DevicesHealth() {
+  return apiFetch<{
+    success: boolean;
+    devices: DeviceHealth[];
+    summary: {
+      total: number;
+      registered: number;
+      offline: number;
+      neverRegistered: number;
+      ready: number;
+      warnings: number;
+      errors: number;
+    };
+  }>('/api/v3/devices/health');
+}
+
+export async function getV3DeviceVendors() {
+  return apiFetch<{ success: boolean; vendors: Array<{ id: string; label: string }> }>('/api/v3/devices/vendors');
+}

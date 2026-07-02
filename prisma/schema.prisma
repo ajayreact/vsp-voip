@@ -183,6 +183,7 @@ model Tenant {
   ringGroups              RingGroup[]
   extensionProvisioningTokens ExtensionProvisioningToken[]
   didAssignmentHistory      DidAssignmentHistory[]
+  v3DeskDevices             V3DeskDevice[]
   aiSettings                TenantAiSettings?
   aiUsageLogs               AiUsageLog[]
   aiSummaries               AiSummary[]
@@ -1275,6 +1276,44 @@ model V3CommandOutbox {
   @@index([status, claimedUntil])
   @@index([claimOwner])
   @@index([sessionId])
+}
+
+model V3DeskDevice {
+  id                 String             @id @default(uuid())
+  tenantId           String
+  tenant             Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vendor             String
+  model              String?
+  macAddress         String?
+  serialNumber       String?
+  firmwareVersion    String?
+  employeeId         String?
+  extensionId        String?
+  notes              String?
+  provisionUrl       String?
+  configVersion      Int                @default(1)
+  provisionVersion   Int                @default(1)
+  status             V3DeskDeviceStatus @default(CREATED)
+  lastProvisionedAt  DateTime?
+  lastSeenAt         DateTime?
+  lastRegistrationAt DateTime?
+  metadata           Json               @default("{}")
+  removedAt          DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  @@unique([tenantId, macAddress])
+  @@index([tenantId, status])
+  @@index([tenantId, extensionId])
+  @@index([tenantId, employeeId])
+}
+
+enum V3DeskDeviceStatus {
+  CREATED
+  ASSIGNED
+  PROVISIONED
+  REGISTERED
+  REMOVED
 }
 
 model V3FeatureFlag {

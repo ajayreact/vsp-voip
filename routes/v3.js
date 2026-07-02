@@ -16,6 +16,11 @@ const marketplaceService = require('../lib/v3/marketplaceService');
 const assignmentService = require('../lib/v3/assignmentService');
 const inventoryHealthService = require('../lib/v3/inventoryHealthService');
 const telnyxService = require('../lib/v3/telnyxService');
+const deviceService = require('../lib/v3/deviceService');
+const deviceProvisioningService = require('../lib/v3/deviceProvisioningService');
+const deviceHealthService = require('../lib/v3/deviceHealthService');
+const deviceRepairService = require('../lib/v3/deviceRepairService');
+const deviceTemplateService = require('../lib/v3/deviceTemplateService');
 
 const router = express.Router();
 
@@ -342,6 +347,155 @@ router.get('/numbers/health', adminOnly, async (req, res) => {
     res.json({ success: true, ...result });
   } catch (error) {
     sendError(res, error, 'Failed to load number health');
+  }
+});
+
+// --- Phase 3: Desk Phone Management ---
+
+router.get('/devices/health', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const result = await deviceHealthService.listDevicesHealth(prisma, {
+      tenantId: req.user.tenantId,
+      limit: req.query.limit ? Number(req.query.limit) : 100,
+    });
+    res.json({ success: true, ...result });
+  } catch (error) {
+    sendError(res, error, 'Failed to load device health');
+  }
+});
+
+router.post('/devices/provision', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const deviceId = String(req.body?.deviceId || '');
+    if (!deviceId) {
+      return res.status(400).json({ error: 'deviceId is required' });
+    }
+    const result = await deviceProvisioningService.provisionDevice(
+      prisma,
+      req.user.tenantId,
+      deviceId,
+      { regenerate: Boolean(req.body?.regenerate) },
+      { req, actor: req.user },
+    );
+    res.json({ success: true, ...result });
+  } catch (error) {
+    sendError(res, error, 'Device provisioning failed');
+  }
+});
+
+router.post('/devices/repair', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const apply = Boolean(req.body?.apply);
+    const regenerate = Boolean(req.body?.regenerate);
+    const report = await deviceRepairService.repairDevices(
+      prisma,
+      req.user.tenantId,
+      { apply, regenerate },
+    );
+    if (apply) {
+      await auditService.log(prisma, req, {
+        action: 'v3.device.repair',
+        entityType: 'Tenant',
+        entityId: req.user.tenantId,
+        newValue: { applied: report.applied, scanned: report.scanned, regenerate },
+      });
+    }
+    res.json({ success: true, ...report });
+  } catch (error) {
+    sendError(res, error, 'Device repair failed');
+  }
+});
+
+router.get('/devices/vendors', adminOnly, async (req, res) => {
+  res.json({ success: true, vendors: deviceTemplateService.listVendors() });
+});
+
+router.get('/devices', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const result = await deviceService.listDevices(prisma, req.user.tenantId, {
+      search: req.query.search ? String(req.query.search) : undefined,
+      status: req.query.status ? String(req.query.status) : undefined,
+      limit: req.query.limit ? Number(req.query.limit) : 100,
+      offset: req.query.offset ? Number(req.query.offset) : 0,
+    });
+    res.json({ success: true, ...result });
+  } catch (error) {
+    sendError(res, error, 'Failed to load devices');
+  }
+});
+
+router.post('/devices', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const device = await deviceService.createDevice(
+      prisma,
+      req.user.tenantId,
+      req.body || {},
+      { req, actor: req.user },
+    );
+    res.status(201).json({ success: true, device });
+  } catch (error) {
+    sendError(res, error, 'Failed to create device');
+  }
+});
+
+router.get('/devices/:id/config', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const generated = await deviceProvisioningService.generateDeviceConfig(
+      prisma,
+      req.user.tenantId,
+      req.params.id,
+      { regenerate: req.query.regenerate === 'true' },
+    );
+    res.setHeader('Content-Type', generated.config.contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${generated.device.vendor}-provision.${generated.config.format.includes('json') ? 'json' : 'cfg'}"`);
+    res.send(generated.config.body);
+  } catch (error) {
+    sendError(res, error, 'Failed to generate device config');
+  }
+});
+
+router.put('/devices/:id', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const device = await deviceService.updateDevice(
+      prisma,
+      req.user.tenantId,
+      req.params.id,
+      req.body || {},
+      { req, actor: req.user },
+    );
+    res.json({ success: true, device });
+  } catch (error) {
+    sendError(res, error, 'Failed to update device');
+  }
+});
+
+router.delete('/devices/:id', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const device = await deviceService.removeDevice(
+      prisma,
+      req.user.tenantId,
+      req.params.id,
+      { req, actor: req.user },
+    );
+    res.json({ success: true, device });
+  } catch (error) {
+    sendError(res, error, 'Failed to remove device');
   }
 });
 
