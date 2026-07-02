@@ -10,6 +10,10 @@ describe('V3 metricsService', () => {
     const started = new Date(Date.now() - 5000);
     const finished = new Date();
     const prisma = {
+      user: {
+        findMany: vi.fn(async () => [{ id: 'u1' }, { id: 'u2' }]),
+        count: vi.fn(async () => 8),
+      },
       v3RuntimeSyncJob: {
         findMany: vi.fn(async () => [
           { status: 'SUCCESS', startedAt: started, finishedAt: finished, entityType: 'extension', lastError: null },
@@ -23,7 +27,6 @@ describe('V3 metricsService', () => {
       },
       adminAuditLog: { count: vi.fn(async () => 3) },
       extension: { count: vi.fn(async () => 10) },
-      user: { count: vi.fn(async () => 8) },
     };
 
     const metrics = await metricsService.getMetrics(prisma, 't1', { windowHours: 24 });
@@ -32,5 +35,8 @@ describe('V3 metricsService', () => {
     expect(metrics.sync.failed).toBe(1);
     expect(metrics.migration.total).toBe(1);
     expect(metrics.registration.rate).toBe(80);
+    expect(prisma.adminAuditLog.count).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ userId: { in: ['u1', 'u2'] } }),
+    }));
   });
 });

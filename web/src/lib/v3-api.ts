@@ -1216,3 +1216,57 @@ export async function getV3MigrationReport(migrationRunId?: string) {
 export async function getV3ProductionHealth() {
   return apiFetch<{ success: boolean; health: V3ProductionHealth }>('/api/v3/production-health');
 }
+
+// --- V3 Test Lab (super admin integration harness) ---
+
+export type V3TestLabStatus = {
+  enabled: boolean;
+  environment: { nodeEnv: string; runtimeSyncEnabled: boolean; allowProduction: boolean };
+  defaults: { tenantNamePrefix: string; employeeCount: number; maxEmployees: number };
+};
+
+export type V3TestLabRun = {
+  id: string;
+  tenantId?: string | null;
+  tenantName?: string | null;
+  status: string;
+  overallPass?: boolean | null;
+  summary?: Record<string, unknown> | null;
+  createdAt: string;
+};
+
+export type V3TestLabReport = {
+  runId: string;
+  tenantId?: string | null;
+  tenantName?: string | null;
+  credentials?: { email: string; password: string } | null;
+  steps: Array<{ step: string; status: string; durationMs?: number; error?: string; details?: Record<string, unknown> }>;
+  summary: Record<string, unknown>;
+  checklist?: Array<{ area: string; automated: string[]; manual?: string[]; status?: string }>;
+};
+
+export async function getV3TestLabStatus() {
+  return apiFetch<{ success: boolean; status: V3TestLabStatus }>('/api/v3/test-lab/status');
+}
+
+export async function listV3TestLabRuns(limit = 20) {
+  return apiFetch<{ success: boolean; items: V3TestLabRun[]; total: number }>(`/api/v3/test-lab/runs?limit=${limit}`);
+}
+
+export async function getV3TestLabRun(runId: string) {
+  return apiFetch<{ success: boolean; run: V3TestLabRun; report: V3TestLabReport; summary: Record<string, unknown> }>(`/api/v3/test-lab/runs/${encodeURIComponent(runId)}`);
+}
+
+export async function runV3TestLab(body: Record<string, unknown> = {}) {
+  return apiFetch<{ success: boolean; run: V3TestLabRun; report: V3TestLabReport; summary: Record<string, unknown>; credentials?: { email: string; password: string } | null }>('/api/v3/test-lab/run', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export async function teardownV3TestLabTenant(tenantId: string) {
+  return apiFetch<{ success: boolean; result: Record<string, unknown> }>('/api/v3/test-lab/teardown', {
+    method: 'POST',
+    body: JSON.stringify({ tenantId }),
+  });
+}

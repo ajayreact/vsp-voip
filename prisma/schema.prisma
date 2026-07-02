@@ -1631,6 +1631,36 @@ model V3MigrationRun {
   @@index([tenantId, runType])
 }
 
+enum V3TestLabRunStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+  PARTIAL
+  CLEANED_UP
+}
+
+model V3TestLabRun {
+  id              String             @id @default(uuid())
+  tenantId        String?
+  tenantName      String?
+  status          V3TestLabRunStatus @default(RUNNING)
+  employeeCount   Int                @default(20)
+  simulateNumbers Boolean            @default(true)
+  teardownOnFinish Boolean           @default(true)
+  steps           Json               @default("[]")
+  summary         Json?
+  report          Json?
+  overallPass     Boolean?
+  startedAt       DateTime?
+  finishedAt      DateTime?
+  createdByUserId String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@index([status, createdAt])
+  @@index([tenantId])
+}
+
 model V3FeatureFlag {
   tenantId          String   @id
   engineEnabled     Boolean  @default(false)

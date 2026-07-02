@@ -41,6 +41,7 @@ import {
   Stethoscope,
   Shield,
   ArrowRightLeft,
+  FlaskConical,
 } from 'lucide-react';
 
 /** Tenant Portal V3 preview — inlined at build time from NEXT_PUBLIC_V3_PORTAL. */
@@ -56,7 +57,10 @@ export type PortalNavItem = {
   /** Match prefix for active state (defaults to href) */
   matchPrefix?: string;
   badgeKey?: 'voicemail' | 'sms' | 'cart';
+  /** Tenant admin or super admin */
   adminOnly?: boolean;
+  /** Super admin only (platform ops) */
+  superAdminOnly?: boolean;
 };
 
 export type PortalNavSection = {
@@ -159,9 +163,10 @@ export function buildPortalNavSections(): PortalNavSection[] {
         { href: '/v3/diagnostics', label: 'Diagnostics', icon: Stethoscope, matchPrefix: '/v3/diagnostics', adminOnly: true },
         { href: '/v3/runtime-validation', label: 'Runtime Validation', icon: ShieldCheck, matchPrefix: '/v3/runtime-validation', adminOnly: true },
         { href: '/v3/migration', label: 'Migration', icon: ArrowRightLeft, matchPrefix: '/v3/migration', adminOnly: true },
+        { href: '/v3/test-lab', label: 'Test Lab', icon: FlaskConical, matchPrefix: '/v3/test-lab', superAdminOnly: true },
         { href: '/v3/employees', label: 'Employees (V3)', icon: UserPlus, matchPrefix: '/v3/employees', adminOnly: true },
         { href: '/v3/numbers', label: 'Number Inventory', icon: Hash, matchPrefix: '/v3/numbers', adminOnly: true },
-        { href: '/v3/marketplace', label: 'Marketplace', icon: Store, matchPrefix: '/v3/marketplace', adminOnly: true },
+        { href: '/v3/marketplace', label: 'Marketplace', icon: Store, matchPrefix: '/v3/marketplace', superAdminOnly: true },
         { href: '/v3/assignments', label: 'Assignments', icon: Link2, matchPrefix: '/v3/assignments', adminOnly: true },
         { href: '/v3/devices', label: 'Desk Phones', icon: MonitorSmartphone, matchPrefix: '/v3/devices', adminOnly: true },
         { href: '/v3/device-health', label: 'Device Health', icon: Activity, matchPrefix: '/v3/device-health', adminOnly: true },

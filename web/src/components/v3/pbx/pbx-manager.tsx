@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Loader2, Plus, ShieldCheck, Trash2 } from 'lucide-react';
 import { PortalPageHeader } from '@/components/portal/page-header';
+import { runV3AdminGuard } from '@/components/v3/ops/ops-ui';
 
 export type PbxField = {
   key: string;
@@ -41,6 +43,8 @@ export function PbxManager({
   emptyForm,
   formatRow,
 }: Props) {
+  const router = useRouter();
+  const [guardReady, setGuardReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<PbxItem[]>([]);
   const [search, setSearch] = useState('');
@@ -52,6 +56,19 @@ export function PbxManager({
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    runV3AdminGuard(router)
+      .then((ok) => {
+        setGuardReady(ok);
+        if (!ok) setLoading(false);
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : 'Access denied');
+        setLoading(false);
+      });
+  }, [router]);
+
+  useEffect(() => {
+    if (!guardReady) return;
     let active = true;
     listItems(search || undefined)
       .then((res) => {
@@ -64,7 +81,15 @@ export function PbxManager({
         if (active) setLoading(false);
       });
     return () => { active = false; };
-  }, [listItems, search]);
+  }, [guardReady, listItems, search]);
+
+  if (!guardReady) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin" />
+      </div>
+    );
+  }
 
   async function reload() {
     const res = await listItems(search || undefined);

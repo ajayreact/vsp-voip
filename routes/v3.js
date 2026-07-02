@@ -5,6 +5,12 @@
 const express = require('express');
 const { getPrisma } = require('../db');
 const { authMiddleware, requireRole } = require('../lib/auth');
+const {
+  searchLimiter,
+  billingLimiter,
+  v3RepairLimiter,
+  v3HeavyMutationLimiter,
+} = require('../lib/rateLimit');
 const { requireV3Enabled } = require('../lib/v3/featureFlag');
 const employeeService = require('../lib/v3/employeeService');
 const healthCheckService = require('../lib/v3/healthCheckService');
@@ -61,6 +67,7 @@ const monitoringService = require('../lib/v3/monitoringService');
 const metricsService = require('../lib/v3/metricsService');
 const diagnosticsService = require('../lib/v3/diagnosticsService');
 const productionHealthService = require('../lib/v3/productionHealthService');
+const testLabService = require('../lib/v3/testLabService');
 
 const router = express.Router();
 
@@ -141,7 +148,7 @@ router.get('/health/:employeeId', adminOnly, async (req, res) => {
   }
 });
 
-router.post('/repair/inspect', adminOnly, async (req, res) => {
+router.post('/repair/inspect', adminOnly, v3RepairLimiter, async (req, res) => {
   try {
     if (!requireTenant(req, res)) return;
     const prisma = await getPrisma();
@@ -152,7 +159,7 @@ router.post('/repair/inspect', adminOnly, async (req, res) => {
   }
 });
 
-router.post('/repair/apply', adminOnly, async (req, res) => {
+router.post('/repair/apply', adminOnly, v3RepairLimiter, async (req, res) => {
   try {
     if (!requireTenant(req, res)) return;
     const prisma = await getPrisma();
@@ -227,7 +234,7 @@ router.get('/numbers', adminOnly, async (req, res) => {
   }
 });
 
-router.post('/numbers/search', superAdminOnly, async (req, res) => {
+router.post('/numbers/search', superAdminOnly, searchLimiter, async (req, res) => {
   try {
     const result = await marketplaceService.searchMarketplace(req.body || {});
     res.json({ success: true, ...result });
@@ -236,7 +243,7 @@ router.post('/numbers/search', superAdminOnly, async (req, res) => {
   }
 });
 
-router.post('/numbers/purchase', superAdminOnly, async (req, res) => {
+router.post('/numbers/purchase', superAdminOnly, billingLimiter, async (req, res) => {
   try {
     const prisma = await getPrisma();
     const body = req.body || {};
@@ -350,7 +357,7 @@ router.post('/numbers/release', superAdminOnly, async (req, res) => {
   }
 });
 
-router.post('/numbers/repair', adminOnly, async (req, res) => {
+router.post('/numbers/repair', adminOnly, v3RepairLimiter, async (req, res) => {
   try {
     const prisma = await getPrisma();
     const apply = Boolean(req.body?.apply);
@@ -446,7 +453,7 @@ router.post('/devices/provision', adminOnly, async (req, res) => {
   }
 });
 
-router.post('/devices/repair', adminOnly, async (req, res) => {
+router.post('/devices/repair', adminOnly, v3RepairLimiter, async (req, res) => {
   try {
     if (!requireTenant(req, res)) return;
     const prisma = await getPrisma();
@@ -1232,6 +1239,34 @@ router.post('/backup/restore', adminOnly, async (req, res) => {
   }
 });
 
+router.post('/backup/rollback-preview', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const preview = await rollbackService.rollbackPreview(prisma, req.user.tenantId, req.body || {});
+    res.json({ success: true, preview });
+  } catch (error) {
+    sendError(res, error, 'Failed to preview rollback');
+  }
+});
+
+router.post('/backup/rollback', adminOnly, v3HeavyMutationLimiter, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const body = req.body || {};
+    const dryRun = body.dryRun !== false && body.apply !== true;
+    const result = await rollbackService.rollbackExecute(prisma, req.user.tenantId, {
+      ...body,
+      dryRun,
+      req,
+    });
+    res.json({ success: true, result });
+  } catch (error) {
+    sendError(res, error, 'Failed to execute rollback');
+  }
+});
+
 router.post('/export', adminOnly, async (req, res) => {
   try {
     if (!requireTenant(req, res)) return;
@@ -1325,7 +1360,7 @@ router.post('/lifecycle', adminOnly, async (req, res) => {
 router.get('/runtime/status', adminOnly, async (req, res) => {
   try {
     if (!requireTenant(req, res)) return;
-    const prisma = getPrisma();
+    const prisma = await getPrisma();
     const status = await runtimeSyncService.getStatus(prisma, req.user.tenantId);
     res.json({
       success: true,
@@ -1343,7 +1378,7 @@ router.get('/runtime/status', adminOnly, async (req, res) => {
 router.get('/runtime/jobs', adminOnly, async (req, res) => {
   try {
     if (!requireTenant(req, res)) return;
-    const prisma = getPrisma();
+    const prisma = await getPrisma();
     const jobs = await runtimeSyncService.listJobs(prisma, req.user.tenantId, {
       status: req.query.status ? String(req.query.status).toUpperCase() : undefined,
       limit: Number(req.query.limit) || 50,
@@ -1358,7 +1393,7 @@ router.get('/runtime/jobs', adminOnly, async (req, res) => {
 router.get('/runtime/health', adminOnly, async (req, res) => {
   try {
     if (!requireTenant(req, res)) return;
-    const prisma = getPrisma();
+    const prisma = await getPrisma();
     const health = await runtimeHealthService.getRuntimeHealth(prisma, req.user.tenantId);
     res.json({ success: true, health });
   } catch (error) {
@@ -1366,14 +1401,14 @@ router.get('/runtime/health', adminOnly, async (req, res) => {
   }
 });
 
-router.post('/runtime/sync', adminOnly, async (req, res) => {
+router.post('/runtime/sync', adminOnly, v3HeavyMutationLimiter, async (req, res) => {
   try {
     if (!requireTenant(req, res)) return;
     const { entityType, entityId, action } = req.body || {};
     if (!entityType || !entityId) {
       return res.status(400).json({ error: 'entityType and entityId are required' });
     }
-    const prisma = getPrisma();
+    const prisma = await getPrisma();
     const job = await runtimeSyncService.syncNow(prisma, req.user.tenantId, {
       entityType,
       entityId,
@@ -1386,10 +1421,10 @@ router.post('/runtime/sync', adminOnly, async (req, res) => {
   }
 });
 
-router.post('/runtime/resync', adminOnly, async (req, res) => {
+router.post('/runtime/resync', adminOnly, v3HeavyMutationLimiter, async (req, res) => {
   try {
     if (!requireTenant(req, res)) return;
-    const prisma = getPrisma();
+    const prisma = await getPrisma();
     const result = await runtimeSyncService.resyncAll(prisma, req.user.tenantId, { req });
     res.json({ success: true, result });
   } catch (error) {
@@ -1397,10 +1432,10 @@ router.post('/runtime/resync', adminOnly, async (req, res) => {
   }
 });
 
-router.post('/runtime/repair', adminOnly, async (req, res) => {
+router.post('/runtime/repair', adminOnly, v3RepairLimiter, async (req, res) => {
   try {
     if (!requireTenant(req, res)) return;
-    const prisma = getPrisma();
+    const prisma = await getPrisma();
     const result = await runtimeSyncService.repairRuntime(prisma, req.user.tenantId, {
       entityType: req.body?.entityType,
       entityId: req.body?.entityId,
@@ -1415,7 +1450,7 @@ router.post('/runtime/repair', adminOnly, async (req, res) => {
 router.post('/runtime/jobs/:jobId/retry', adminOnly, async (req, res) => {
   try {
     if (!requireTenant(req, res)) return;
-    const prisma = getPrisma();
+    const prisma = await getPrisma();
     const job = await runtimeSyncService.retryJob(prisma, req.user.tenantId, req.params.jobId, { req });
     res.json({ success: true, job });
   } catch (error) {
@@ -1428,7 +1463,7 @@ router.post('/runtime/jobs/:jobId/retry', adminOnly, async (req, res) => {
 router.get('/monitoring', adminOnly, async (req, res) => {
   try {
     if (!requireTenant(req, res)) return;
-    const prisma = getPrisma();
+    const prisma = await getPrisma();
     const monitoring = await monitoringService.getMonitoringOverview(prisma, req.user.tenantId);
     res.json({ success: true, monitoring });
   } catch (error) {
@@ -1439,7 +1474,7 @@ router.get('/monitoring', adminOnly, async (req, res) => {
 router.get('/metrics', adminOnly, async (req, res) => {
   try {
     if (!requireTenant(req, res)) return;
-    const prisma = getPrisma();
+    const prisma = await getPrisma();
     const metrics = await metricsService.getMetrics(prisma, req.user.tenantId, {
       windowHours: Number(req.query.windowHours) || 24,
     });
@@ -1452,7 +1487,7 @@ router.get('/metrics', adminOnly, async (req, res) => {
 router.get('/diagnostics', adminOnly, async (req, res) => {
   try {
     if (!requireTenant(req, res)) return;
-    const prisma = getPrisma();
+    const prisma = await getPrisma();
     const diagnostics = await diagnosticsService.getDiagnostics(prisma, req.user.tenantId);
     res.json({ success: true, diagnostics });
   } catch (error) {
@@ -1463,7 +1498,7 @@ router.get('/diagnostics', adminOnly, async (req, res) => {
 router.get('/runtime-validation', adminOnly, async (req, res) => {
   try {
     if (!requireTenant(req, res)) return;
-    const prisma = getPrisma();
+    const prisma = await getPrisma();
     const validation = await runtimeValidationService.getValidationReport(prisma, req.user.tenantId);
     res.json({ success: true, validation });
   } catch (error) {
@@ -1474,7 +1509,7 @@ router.get('/runtime-validation', adminOnly, async (req, res) => {
 router.post('/runtime-validation/run', adminOnly, async (req, res) => {
   try {
     if (!requireTenant(req, res)) return;
-    const prisma = getPrisma();
+    const prisma = await getPrisma();
     const validation = await runtimeValidationService.runValidation(prisma, req.user.tenantId, { req });
     res.json({ success: true, validation });
   } catch (error) {
@@ -1485,7 +1520,7 @@ router.post('/runtime-validation/run', adminOnly, async (req, res) => {
 router.post('/migration/preview', adminOnly, async (req, res) => {
   try {
     if (!requireTenant(req, res)) return;
-    const prisma = getPrisma();
+    const prisma = await getPrisma();
     const preview = await migrationService.migrationPreview(prisma, req.user.tenantId, req.body || {});
     res.json({ success: true, preview });
   } catch (error) {
@@ -1493,10 +1528,10 @@ router.post('/migration/preview', adminOnly, async (req, res) => {
   }
 });
 
-router.post('/migration/run', adminOnly, async (req, res) => {
+router.post('/migration/run', adminOnly, v3HeavyMutationLimiter, async (req, res) => {
   try {
     if (!requireTenant(req, res)) return;
-    const prisma = getPrisma();
+    const prisma = await getPrisma();
     const dryRun = req.body?.dryRun !== false && req.body?.apply !== true;
     const result = await migrationService.migrationExecute(prisma, req.user.tenantId, {
       ...req.body,
@@ -1509,10 +1544,10 @@ router.post('/migration/run', adminOnly, async (req, res) => {
   }
 });
 
-router.post('/migration/rollback', adminOnly, async (req, res) => {
+router.post('/migration/rollback', adminOnly, v3HeavyMutationLimiter, async (req, res) => {
   try {
     if (!requireTenant(req, res)) return;
-    const prisma = getPrisma();
+    const prisma = await getPrisma();
     const result = await migrationService.migrationRollback(prisma, req.user.tenantId, {
       ...req.body,
       req,
@@ -1526,7 +1561,7 @@ router.post('/migration/rollback', adminOnly, async (req, res) => {
 router.get('/migration/report', adminOnly, async (req, res) => {
   try {
     if (!requireTenant(req, res)) return;
-    const prisma = getPrisma();
+    const prisma = await getPrisma();
     const report = await migrationService.getMigrationReport(prisma, req.user.tenantId, {
       migrationRunId: req.query.migrationRunId ? String(req.query.migrationRunId) : undefined,
       limit: Number(req.query.limit) || 20,
@@ -1540,7 +1575,7 @@ router.get('/migration/report', adminOnly, async (req, res) => {
 router.get('/production-health', adminOnly, async (req, res) => {
   try {
     if (!requireTenant(req, res)) return;
-    const prisma = getPrisma();
+    const prisma = await getPrisma();
     const health = await productionHealthService.getProductionHealth(prisma, req.user.tenantId);
     await auditService.log(prisma, req, {
       action: 'v3.production.health.checked',
@@ -1557,11 +1592,71 @@ router.get('/production-health', adminOnly, async (req, res) => {
 router.get('/deployment', adminOnly, async (req, res) => {
   try {
     if (!requireTenant(req, res)) return;
-    const prisma = getPrisma();
+    const prisma = await getPrisma();
     const deployment = await deploymentService.getDeploymentStatus(prisma, req.user.tenantId);
     res.json({ success: true, deployment });
   } catch (error) {
     sendError(res, error, 'Failed to load deployment status');
+  }
+});
+
+// --- V3 Test Lab (super admin integration harness) ---
+
+router.get('/test-lab/status', superAdminOnly, async (req, res) => {
+  try {
+    const status = await testLabService.getTestLabStatus();
+    res.json({ success: true, status });
+  } catch (error) {
+    sendError(res, error, 'Failed to load test lab status');
+  }
+});
+
+router.get('/test-lab/runs', superAdminOnly, async (req, res) => {
+  try {
+    const prisma = await getPrisma();
+    const runs = await testLabService.listRuns(prisma, { limit: Number(req.query.limit) || 20 });
+    res.json({ success: true, ...runs });
+  } catch (error) {
+    sendError(res, error, 'Failed to list test lab runs');
+  }
+});
+
+router.get('/test-lab/runs/:runId', superAdminOnly, async (req, res) => {
+  try {
+    const prisma = await getPrisma();
+    const result = await testLabService.getRunReport(prisma, req.params.runId);
+    res.json({ success: true, ...result });
+  } catch (error) {
+    sendError(res, error, 'Failed to load test lab report');
+  }
+});
+
+router.post('/test-lab/run', superAdminOnly, v3HeavyMutationLimiter, async (req, res) => {
+  try {
+    const prisma = await getPrisma();
+    const body = req.body || {};
+    const result = await testLabService.runIntegrationSuite(prisma, {
+      tenantName: body.tenantName,
+      employeeCount: body.employeeCount,
+      simulateNumbers: body.simulateNumbers,
+      teardown: body.teardown,
+      teardownOnFinish: body.teardownOnFinish,
+    }, { req, actor: req.user });
+    res.json({ success: true, ...result });
+  } catch (error) {
+    sendError(res, error, 'Test lab run failed');
+  }
+});
+
+router.post('/test-lab/teardown', superAdminOnly, async (req, res) => {
+  try {
+    const prisma = await getPrisma();
+    const tenantId = String(req.body?.tenantId || '');
+    if (!tenantId) return res.status(400).json({ error: 'tenantId is required' });
+    const result = await testLabService.teardownTestTenant(prisma, tenantId, { req, actor: req.user });
+    res.json({ success: true, result });
+  } catch (error) {
+    sendError(res, error, 'Test lab teardown failed');
   }
 });
 
