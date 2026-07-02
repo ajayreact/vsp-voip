@@ -190,6 +190,10 @@ model Tenant {
   v3BusinessHoursSchedules  V3BusinessHoursSchedule[]
   v3Holidays                V3Holiday[]
   v3VoicemailBoxes          V3VoicemailBox[]
+  v3SoftphoneProfiles       V3SoftphoneProfile[]
+  v3UserPreferences         V3UserPreference[]
+  v3DevicePreferences       V3DevicePreference[]
+  v3PresenceConfigs         V3PresenceConfig[]
   aiSettings                TenantAiSettings?
   aiUsageLogs               AiUsageLog[]
   aiSummaries               AiSummary[]
@@ -1444,6 +1448,80 @@ model V3VoicemailBox {
 
   @@unique([tenantId, mailboxNumber])
   @@index([tenantId, removedAt])
+}
+
+model V3SoftphoneProfile {
+  id                      String   @id @default(uuid())
+  tenantId                String
+  tenant                  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId                  String
+  preferredCallerId       String?
+  preferredDevice         String?
+  defaultAudioDevice      String?
+  ringDevice              String?
+  theme                   String   @default("system")
+  language                String   @default("en")
+  timezone                String?
+  callRecordingPreference String   @default("inherit")
+  autoAnswer              Boolean  @default(false)
+  dnd                     Boolean  @default(false)
+  busy                    Boolean  @default(false)
+  away                    Boolean  @default(false)
+  presenceVisibility      String   @default("everyone")
+  favoriteContactIds      Json     @default("[]")
+  speedDial               Json     @default("[]")
+  recentContacts          Json     @default("[]")
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@unique([tenantId, userId])
+  @@index([tenantId])
+}
+
+model V3UserPreference {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId      String
+  preferences Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tenantId, userId])
+  @@index([tenantId])
+}
+
+model V3DevicePreference {
+  id                     String    @id @default(uuid())
+  tenantId               String
+  tenant                 Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId                 String
+  deviceType             String
+  deviceAlias            String?
+  lastActiveAt           DateTime?
+  preferred              Boolean   @default(false)
+  notificationPreference String    @default("all")
+  ringPreference         String    @default("default")
+  metadata               Json      @default("{}")
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  @@unique([tenantId, userId, deviceType, deviceAlias])
+  @@index([tenantId, userId])
+}
+
+model V3PresenceConfig {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId    String
+  status    String   @default("available")
+  message   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, userId])
+  @@index([tenantId, status])
 }
 
 model V3FeatureFlag {

@@ -31,6 +31,12 @@ const businessHoursService = require('../lib/v3/businessHoursService');
 const holidayService = require('../lib/v3/holidayService');
 const voicemailService = require('../lib/v3/voicemailService');
 const pbxHealthService = require('../lib/v3/pbxHealthService');
+const softphoneProfileService = require('../lib/v3/softphoneProfileService');
+const userPreferenceService = require('../lib/v3/userPreferenceService');
+const devicePreferenceService = require('../lib/v3/devicePreferenceService');
+const contactDirectoryService = require('../lib/v3/contactDirectoryService');
+const presenceService = require('../lib/v3/presenceService');
+const softphoneHealthService = require('../lib/v3/softphoneHealthService');
 
 const router = express.Router();
 
@@ -46,6 +52,14 @@ function requireTenant(req, res) {
 
 function sendError(res, error, fallback) {
   res.status(error.status || 500).json({ error: error.message || fallback, code: error.code });
+}
+
+function resolveTargetUserId(req) {
+  const requested = req.query.userId || req.body?.userId;
+  if (requested && (req.user.role === 'TENANT_ADMIN' || req.user.role === 'SUPER_ADMIN')) {
+    return String(requested);
+  }
+  return req.user.sub;
 }
 
 const adminOnly = requireRole('SUPER_ADMIN', 'TENANT_ADMIN');
@@ -71,12 +85,13 @@ router.get('/health', adminOnly, async (req, res) => {
   try {
     if (!requireTenant(req, res)) return;
     const prisma = await getPrisma();
-    const [health, summary, pbx] = await Promise.all([
+    const [health, summary, pbx, softphone] = await Promise.all([
       healthCheckService.employeeHealth(prisma, req.user.tenantId),
       healthCheckService.tenantHealthSummary(prisma, req.user.tenantId),
       pbxHealthService.pbxObjectsHealth(prisma, req.user.tenantId),
+      softphoneHealthService.softphoneUxHealth(prisma, req.user.tenantId),
     ]);
-    res.json({ success: true, summary, employees: health.employees, readiness: health.readiness, pbx });
+    res.json({ success: true, summary, employees: health.employees, readiness: health.readiness, pbx, softphone });
   } catch (error) {
     sendError(res, error, 'Failed to load health');
   }
@@ -807,6 +822,144 @@ router.delete('/callflows/:id', adminOnly, async (req, res) => {
     res.json({ success: true, callFlow: flow });
   } catch (error) {
     sendError(res, error, 'Failed to delete call flow');
+  }
+});
+
+// --- Phase 6: Softphone UX (management only — no runtime telephony) ---
+
+router.get('/profile', async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const userId = resolveTargetUserId(req);
+    const profile = await softphoneProfileService.getOrCreateProfile(prisma, req.user.tenantId, userId);
+    res.json({ success: true, profile });
+  } catch (error) {
+    sendError(res, error, 'Failed to load profile');
+  }
+});
+
+router.put('/profile', async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const userId = resolveTargetUserId(req);
+    const profile = await softphoneProfileService.updateProfile(
+      prisma,
+      req.user.tenantId,
+      userId,
+      req.body || {},
+      { req },
+    );
+    res.json({ success: true, profile });
+  } catch (error) {
+    sendError(res, error, 'Failed to update profile');
+  }
+});
+
+router.get('/directory', async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const result = await contactDirectoryService.searchDirectory(prisma, req.user.tenantId, {
+      search: req.query.search ? String(req.query.search) : undefined,
+      department: req.query.department ? String(req.query.department) : undefined,
+      limit: req.query.limit ? Number(req.query.limit) : 50,
+      offset: req.query.offset ? Number(req.query.offset) : 0,
+      favoritesOnly: req.query.favorites === 'true',
+      recentOnly: req.query.recent === 'true',
+      userId: req.user.sub,
+    });
+    res.json({ success: true, ...result });
+  } catch (error) {
+    sendError(res, error, 'Failed to search directory');
+  }
+});
+
+router.get('/presence', async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const userId = resolveTargetUserId(req);
+    const presence = await presenceService.getPresence(prisma, req.user.tenantId, userId);
+    res.json({ success: true, presence });
+  } catch (error) {
+    sendError(res, error, 'Failed to load presence');
+  }
+});
+
+router.put('/presence', async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const userId = resolveTargetUserId(req);
+    const presence = await presenceService.updatePresence(
+      prisma,
+      req.user.tenantId,
+      userId,
+      req.body || {},
+      { req },
+    );
+    res.json({ success: true, presence });
+  } catch (error) {
+    sendError(res, error, 'Failed to update presence');
+  }
+});
+
+router.get('/preferences', async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const userId = resolveTargetUserId(req);
+    const [preferences, devices] = await Promise.all([
+      userPreferenceService.getPreferences(prisma, req.user.tenantId, userId),
+      devicePreferenceService.listDevicePreferences(prisma, req.user.tenantId, userId),
+    ]);
+    res.json({ success: true, preferences, devices });
+  } catch (error) {
+    sendError(res, error, 'Failed to load preferences');
+  }
+});
+
+router.put('/preferences', async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const userId = resolveTargetUserId(req);
+    const body = req.body || {};
+
+    const preferences = body.preferences !== undefined
+      ? await userPreferenceService.updatePreferences(prisma, req.user.tenantId, userId, body, { req })
+      : await userPreferenceService.getPreferences(prisma, req.user.tenantId, userId);
+
+    let devices = null;
+    if (body.device) {
+      const device = await devicePreferenceService.upsertDevicePreference(
+        prisma,
+        req.user.tenantId,
+        userId,
+        body.device,
+        { req },
+      );
+      devices = { items: [device], total: 1 };
+    } else if (Array.isArray(body.devices)) {
+      const items = await Promise.all(
+        body.devices.map((d) => devicePreferenceService.upsertDevicePreference(
+          prisma,
+          req.user.tenantId,
+          userId,
+          d,
+          { req },
+        )),
+      );
+      devices = { items, total: items.length };
+    } else {
+      devices = await devicePreferenceService.listDevicePreferences(prisma, req.user.tenantId, userId);
+    }
+
+    res.json({ success: true, preferences, devices });
+  } catch (error) {
+    sendError(res, error, 'Failed to update preferences');
   }
 });
 

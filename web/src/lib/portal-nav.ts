@@ -27,6 +27,10 @@ import {
   Play,
   Clock,
   Calendar,
+  UserCircle,
+  SlidersHorizontal,
+  BookUser,
+  Radio,
 } from 'lucide-react';
 
 /** Tenant Portal V3 preview — inlined at build time from NEXT_PUBLIC_V3_PORTAL. */
@@ -141,6 +145,10 @@ export function buildPortalNavSections(): PortalNavSection[] {
         { href: '/v3/business-hours', label: 'Business Hours', icon: Clock, matchPrefix: '/v3/business-hours', adminOnly: true },
         { href: '/v3/holidays', label: 'Holidays', icon: Calendar, matchPrefix: '/v3/holidays', adminOnly: true },
         { href: '/v3/voicemail', label: 'Voicemail', icon: Voicemail, matchPrefix: '/v3/voicemail', adminOnly: true },
+        { href: '/v3/profile', label: 'My Profile', icon: UserCircle, matchPrefix: '/v3/profile' },
+        { href: '/v3/preferences', label: 'Preferences', icon: SlidersHorizontal, matchPrefix: '/v3/preferences' },
+        { href: '/v3/directory', label: 'Directory', icon: BookUser, matchPrefix: '/v3/directory' },
+        { href: '/v3/presence', label: 'Presence', icon: Radio, matchPrefix: '/v3/presence' },
       ],
     });
   }

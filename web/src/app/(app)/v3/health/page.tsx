@@ -13,6 +13,7 @@ import {
   type HealthSummary,
   type PbxHealthResponse,
   type PbxObjectHealth,
+  type SoftphoneHealthResponse,
 } from '@/lib/v3-api';
 
 const LEVEL_CLASS: Record<HealthLevel, string> = {
@@ -59,12 +60,14 @@ export default function V3HealthCenterPage() {
   const [summary, setSummary] = useState<HealthSummary | null>(null);
   const [employees, setEmployees] = useState<EmployeeHealth[]>([]);
   const [pbx, setPbx] = useState<PbxHealthResponse | null>(null);
+  const [softphone, setSoftphone] = useState<SoftphoneHealthResponse | null>(null);
 
   async function load() {
     const res = await getV3Health();
     setSummary(res.summary);
     setEmployees(res.employees || []);
     setPbx(res.pbx || null);
+    setSoftphone(res.softphone || null);
   }
 
   useEffect(() => {
@@ -200,6 +203,52 @@ export default function V3HealthCenterPage() {
           <PbxHealthTable title="Business Hours" items={pbx.businessHours} />
           <PbxHealthTable title="Holidays" items={pbx.holidays} />
           <PbxHealthTable title="Voicemail" items={pbx.voicemails} />
+        </div>
+      ) : null}
+
+      {softphone ? (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold text-slate-900">Softphone UX</h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <SummaryCard label="Users" value={softphone.summary.total} />
+            <SummaryCard label="Ready" value={softphone.summary.ready} accent="text-emerald-600" />
+            <SummaryCard label="Warnings" value={softphone.summary.warnings} accent="text-amber-600" />
+            <SummaryCard label="Directory Sync" value={softphone.directory.synced ? 1 : 0} accent={softphone.directory.synced ? 'text-emerald-600' : 'text-amber-600'} />
+          </div>
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <table className="min-w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">User</th>
+                  <th className="px-4 py-3">Profile</th>
+                  <th className="px-4 py-3">Device</th>
+                  <th className="px-4 py-3">Caller ID</th>
+                  <th className="px-4 py-3">Presence</th>
+                  <th className="px-4 py-3">Directory</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {softphone.users.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-8 text-center text-slate-500">No users configured.</td>
+                  </tr>
+                ) : (
+                  softphone.users.map((u) => (
+                    <tr key={u.userId}>
+                      <td className="px-4 py-3"><Dot level={u.overall} /></td>
+                      <td className="px-4 py-3 font-mono text-xs text-slate-600">{u.userId.slice(0, 8)}…</td>
+                      <td className="px-4 py-3"><Dot level={u.checks.profileComplete} title="Profile complete" /></td>
+                      <td className="px-4 py-3"><Dot level={u.checks.preferredDevice} title={u.preferredDevice || 'none'} /></td>
+                      <td className="px-4 py-3"><Dot level={u.checks.callerId} title={u.callerId || 'none'} /></td>
+                      <td className="px-4 py-3"><Dot level={u.checks.presenceConfig} title={u.presenceStatus} /></td>
+                      <td className="px-4 py-3"><Dot level={u.checks.directorySync} /></td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : null}
 

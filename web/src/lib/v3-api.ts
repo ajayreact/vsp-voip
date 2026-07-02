@@ -57,6 +57,7 @@ export async function getV3Health() {
     employees: EmployeeHealth[];
     readiness: TelephonyReadiness;
     pbx?: PbxHealthResponse;
+    softphone?: SoftphoneHealthResponse;
   }>('/api/v3/health');
 }
 
@@ -589,3 +590,145 @@ export type PbxHealthResponse = {
   voicemails: PbxObjectHealth[];
   summary: { total: number; ready: number; warnings: number; errors: number };
 };
+
+// --- Phase 6: Softphone UX ---
+
+export type SoftphoneProfile = {
+  id: string;
+  tenantId: string;
+  userId: string;
+  preferredCallerId: string | null;
+  preferredDevice: string | null;
+  defaultAudioDevice: string | null;
+  ringDevice: string | null;
+  theme: string;
+  language: string;
+  timezone: string | null;
+  callRecordingPreference: string;
+  autoAnswer: boolean;
+  dnd: boolean;
+  busy: boolean;
+  away: boolean;
+  presenceVisibility: string;
+  favoriteContactIds: string[];
+  speedDial: Array<{ slot: number; contactId: string | null; label: string | null; number: string | null }>;
+  recentContacts: string[];
+};
+
+export type PresenceConfig = {
+  id: string;
+  status: string;
+  message: string | null;
+};
+
+export type DirectoryContact = {
+  contactId: string;
+  userId: string;
+  name: string;
+  email: string;
+  extensionNumber: string | null;
+  department: string | null;
+  did: string | null;
+  deviceLabel: string | null;
+  isFavorite: boolean;
+};
+
+export type DevicePreference = {
+  id: string;
+  deviceType: string;
+  deviceAlias: string | null;
+  lastActiveAt: string | null;
+  preferred: boolean;
+  notificationPreference: string;
+  ringPreference: string;
+};
+
+export type SoftphoneHealthUser = {
+  userId: string;
+  overall: HealthLevel;
+  checks: Record<string, HealthLevel>;
+  preferredDevice: string | null;
+  callerId: string | null;
+  presenceStatus: string;
+};
+
+export type SoftphoneHealthResponse = {
+  users: SoftphoneHealthUser[];
+  directory: { userCount: number; extensionCount: number; linkedCount: number; synced: boolean };
+  summary: { total: number; ready: number; warnings: number; errors: number };
+};
+
+export async function getV3Profile(userId?: string) {
+  const q = userId ? `?userId=${encodeURIComponent(userId)}` : '';
+  return apiFetch<{ success: boolean; profile: SoftphoneProfile }>(`/api/v3/profile${q}`);
+}
+
+export async function updateV3Profile(data: Partial<SoftphoneProfile> & { userId?: string }) {
+  return apiFetch<{ success: boolean; profile: SoftphoneProfile }>('/api/v3/profile', {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function searchV3Directory(params?: {
+  search?: string;
+  department?: string;
+  favorites?: boolean;
+  recent?: boolean;
+  limit?: number;
+  offset?: number;
+}) {
+  const qs = new URLSearchParams();
+  if (params?.search) qs.set('search', params.search);
+  if (params?.department) qs.set('department', params.department);
+  if (params?.favorites) qs.set('favorites', 'true');
+  if (params?.recent) qs.set('recent', 'true');
+  if (params?.limit) qs.set('limit', String(params.limit));
+  if (params?.offset) qs.set('offset', String(params.offset));
+  const q = qs.toString() ? `?${qs.toString()}` : '';
+  return apiFetch<{
+    success: boolean;
+    items: DirectoryContact[];
+    total: number;
+    favorites: number;
+    recent: number;
+    speedDial: SoftphoneProfile['speedDial'];
+  }>(`/api/v3/directory${q}`);
+}
+
+export async function getV3Presence(userId?: string) {
+  const q = userId ? `?userId=${encodeURIComponent(userId)}` : '';
+  return apiFetch<{ success: boolean; presence: PresenceConfig }>(`/api/v3/presence${q}`);
+}
+
+export async function updateV3Presence(data: { status: string; message?: string; userId?: string }) {
+  return apiFetch<{ success: boolean; presence: PresenceConfig }>('/api/v3/presence', {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getV3Preferences(userId?: string) {
+  const q = userId ? `?userId=${encodeURIComponent(userId)}` : '';
+  return apiFetch<{
+    success: boolean;
+    preferences: { preferences: Record<string, unknown> };
+    devices: { items: DevicePreference[]; total: number };
+  }>(`/api/v3/preferences${q}`);
+}
+
+export async function updateV3Preferences(data: {
+  preferences?: Record<string, unknown>;
+  device?: Partial<DevicePreference> & { deviceType: string };
+  devices?: Array<Partial<DevicePreference> & { deviceType: string }>;
+  userId?: string;
+}) {
+  return apiFetch<{
+    success: boolean;
+    preferences: { preferences: Record<string, unknown> };
+    devices: { items: DevicePreference[]; total: number };
+  }>('/api/v3/preferences', {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
