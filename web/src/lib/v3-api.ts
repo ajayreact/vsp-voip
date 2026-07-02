@@ -370,3 +370,135 @@ export async function getV3DevicesHealth() {
 export async function getV3DeviceVendors() {
   return apiFetch<{ success: boolean; vendors: Array<{ id: string; label: string }> }>('/api/v3/devices/vendors');
 }
+
+// --- Phase 4: Call Flow Builder (engine only) ---
+
+export type CallFlowStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+
+export type FlowNode = {
+  id: string;
+  type: string;
+  label: string;
+  position: { x: number; y: number };
+  data: Record<string, unknown>;
+};
+
+export type FlowEdge = {
+  id: string;
+  source: string;
+  target: string;
+  sourceHandle: string;
+  label: string | null;
+};
+
+export type CallFlowDefinition = {
+  version: number;
+  nodes: FlowNode[];
+  edges: FlowEdge[];
+};
+
+export type CallFlow = {
+  id: string;
+  tenantId: string;
+  name: string;
+  description: string | null;
+  did: string | null;
+  status: CallFlowStatus;
+  version: number;
+  definition: CallFlowDefinition;
+  nodeCount: number;
+  edgeCount: number;
+};
+
+export type CallFlowValidationIssue = {
+  severity: 'error' | 'warning';
+  code: string;
+  message: string;
+  nodeId?: string | null;
+};
+
+export type CallFlowSimulationStep = {
+  nodeId: string;
+  nodeType: string;
+  label: string;
+  action: string;
+  terminal: boolean;
+  destination: Record<string, unknown> | null;
+  detail: Record<string, unknown>;
+};
+
+export async function getV3CallFlows(params?: { search?: string; status?: string }) {
+  const q = new URLSearchParams();
+  if (params?.search) q.set('search', params.search);
+  if (params?.status) q.set('status', params.status);
+  const suffix = q.toString() ? `?${q.toString()}` : '';
+  return apiFetch<{ success: boolean; items: CallFlow[]; total: number }>(`/api/v3/callflows${suffix}`);
+}
+
+export async function getV3CallFlow(id: string) {
+  return apiFetch<{ success: boolean; callFlow: CallFlow }>(`/api/v3/callflows/${id}`);
+}
+
+export async function createV3CallFlow(data: { name: string; description?: string; did?: string; definition?: CallFlowDefinition }) {
+  return apiFetch<{ success: boolean; callFlow: CallFlow }>('/api/v3/callflows', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateV3CallFlow(id: string, data: Partial<CallFlow>) {
+  return apiFetch<{ success: boolean; callFlow: CallFlow }>(`/api/v3/callflows/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteV3CallFlow(id: string) {
+  return apiFetch<{ success: boolean; callFlow: CallFlow }>(`/api/v3/callflows/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function validateV3CallFlow(payload: { callFlowId?: string; definition?: CallFlowDefinition }) {
+  return apiFetch<{
+    success: boolean;
+    valid: boolean;
+    issues: CallFlowValidationIssue[];
+    errors: CallFlowValidationIssue[];
+    warnings: CallFlowValidationIssue[];
+  }>('/api/v3/callflows/validate', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function simulateV3CallFlow(payload: {
+  callFlowId?: string;
+  definition?: CallFlowDefinition;
+  input?: {
+    incomingDid?: string;
+    did?: string;
+    currentTime?: string;
+    businessHours?: Record<string, unknown>;
+    pressedDigits?: string[];
+    holidays?: string[];
+  };
+}) {
+  return apiFetch<{
+    success: boolean;
+    ok: boolean;
+    executionPath: CallFlowSimulationStep[];
+    finalDestination: Record<string, unknown> | null;
+    warnings: CallFlowValidationIssue[];
+    errors: CallFlowValidationIssue[];
+  }>('/api/v3/callflows/simulate', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getV3CallFlowNodeTypes() {
+  return apiFetch<{ success: boolean; nodeTypes: Array<{ type: string; label: string; color: string; terminal: boolean }> }>(
+    '/api/v3/callflows/node-types',
+  );
+}

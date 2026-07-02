@@ -184,6 +184,7 @@ model Tenant {
   extensionProvisioningTokens ExtensionProvisioningToken[]
   didAssignmentHistory      DidAssignmentHistory[]
   v3DeskDevices             V3DeskDevice[]
+  v3CallFlows               V3CallFlow[]
   aiSettings                TenantAiSettings?
   aiUsageLogs               AiUsageLog[]
   aiSummaries               AiSummary[]
@@ -1314,6 +1315,30 @@ enum V3DeskDeviceStatus {
   PROVISIONED
   REGISTERED
   REMOVED
+}
+
+model V3CallFlow {
+  id          String           @id @default(uuid())
+  tenantId    String
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  did         String?
+  status      V3CallFlowStatus @default(DRAFT)
+  definition  Json             @default("{\"version\":1,\"nodes\":[],\"edges\":[]}")
+  version     Int              @default(1)
+  removedAt   DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([tenantId, status])
+  @@index([tenantId, did])
+}
+
+enum V3CallFlowStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
 }
 
 model V3FeatureFlag {

@@ -22,6 +22,9 @@ import {
   MonitorSmartphone,
   Activity,
   Settings2,
+  GitBranch,
+  Wrench,
+  Play,
 } from 'lucide-react';
 
 /** Tenant Portal V3 preview — inlined at build time from NEXT_PUBLIC_V3_PORTAL. */
@@ -128,6 +131,9 @@ export function buildPortalNavSections(): PortalNavSection[] {
         { href: '/v3/devices', label: 'Desk Phones', icon: MonitorSmartphone, matchPrefix: '/v3/devices', adminOnly: true },
         { href: '/v3/device-health', label: 'Device Health', icon: Activity, matchPrefix: '/v3/device-health', adminOnly: true },
         { href: '/v3/device-provision', label: 'Device Provision', icon: Settings2, matchPrefix: '/v3/device-provision', adminOnly: true },
+        { href: '/v3/callflows', label: 'Call Flows', icon: GitBranch, matchPrefix: '/v3/callflows', adminOnly: true },
+        { href: '/v3/callflows/builder', label: 'Flow Builder', icon: Wrench, matchPrefix: '/v3/callflows/builder', adminOnly: true },
+        { href: '/v3/callflows/simulator', label: 'Flow Simulator', icon: Play, matchPrefix: '/v3/callflows/simulator', adminOnly: true },
       ],
     });
   }

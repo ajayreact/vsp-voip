@@ -21,6 +21,10 @@ const deviceProvisioningService = require('../lib/v3/deviceProvisioningService')
 const deviceHealthService = require('../lib/v3/deviceHealthService');
 const deviceRepairService = require('../lib/v3/deviceRepairService');
 const deviceTemplateService = require('../lib/v3/deviceTemplateService');
+const callFlowService = require('../lib/v3/callFlowService');
+const callFlowNodeService = require('../lib/v3/callFlowNodeService');
+const callFlowValidationService = require('../lib/v3/callFlowValidationService');
+const callFlowSimulationService = require('../lib/v3/callFlowSimulationService');
 
 const router = express.Router();
 
@@ -496,6 +500,153 @@ router.delete('/devices/:id', adminOnly, async (req, res) => {
     res.json({ success: true, device });
   } catch (error) {
     sendError(res, error, 'Failed to remove device');
+  }
+});
+
+// --- Phase 4: Call Flow Builder (engine only — no live routing) ---
+
+router.get('/callflows/node-types', adminOnly, async (req, res) => {
+  res.json({ success: true, nodeTypes: callFlowNodeService.listNodeTypes() });
+});
+
+router.post('/callflows/validate', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const body = req.body || {};
+    let definition = body.definition;
+
+    if (body.callFlowId) {
+      const flow = await callFlowService.getCallFlow(prisma, req.user.tenantId, String(body.callFlowId));
+      if (!flow) return res.status(404).json({ error: 'Call flow not found' });
+      definition = flow.definition;
+    }
+
+    const report = await callFlowValidationService.validateFlow(prisma, req.user.tenantId, definition);
+    await auditService.log(prisma, req, {
+      action: 'v3.callflow.validated',
+      entityType: 'V3CallFlow',
+      entityId: body.callFlowId || null,
+      newValue: { valid: report.valid, errors: report.errors.length, warnings: report.warnings.length },
+    });
+    res.json({ success: true, ...report });
+  } catch (error) {
+    sendError(res, error, 'Validation failed');
+  }
+});
+
+router.post('/callflows/simulate', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const body = req.body || {};
+    let definition = body.definition;
+
+    if (body.callFlowId) {
+      const flow = await callFlowService.getCallFlow(prisma, req.user.tenantId, String(body.callFlowId));
+      if (!flow) return res.status(404).json({ error: 'Call flow not found' });
+      definition = flow.definition;
+    }
+
+    const result = await callFlowSimulationService.simulateFlow(
+      prisma,
+      req.user.tenantId,
+      definition,
+      body.input || {},
+    );
+
+    await auditService.log(prisma, req, {
+      action: 'v3.callflow.simulated',
+      entityType: 'V3CallFlow',
+      entityId: body.callFlowId || null,
+      newValue: {
+        ok: result.ok,
+        finalDestination: result.finalDestination,
+        steps: result.executionPath.length,
+      },
+      extra: { input: body.input || {} },
+    });
+
+    res.json({ success: true, ...result });
+  } catch (error) {
+    sendError(res, error, 'Simulation failed');
+  }
+});
+
+router.get('/callflows', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const result = await callFlowService.listCallFlows(prisma, req.user.tenantId, {
+      search: req.query.search ? String(req.query.search) : undefined,
+      status: req.query.status ? String(req.query.status) : undefined,
+      limit: req.query.limit ? Number(req.query.limit) : 50,
+      offset: req.query.offset ? Number(req.query.offset) : 0,
+    });
+    res.json({ success: true, ...result });
+  } catch (error) {
+    sendError(res, error, 'Failed to load call flows');
+  }
+});
+
+router.post('/callflows', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const flow = await callFlowService.createCallFlow(
+      prisma,
+      req.user.tenantId,
+      req.body || {},
+      { req, actor: req.user },
+    );
+    res.status(201).json({ success: true, callFlow: flow });
+  } catch (error) {
+    sendError(res, error, 'Failed to create call flow');
+  }
+});
+
+router.get('/callflows/:id', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const flow = await callFlowService.getCallFlow(prisma, req.user.tenantId, req.params.id);
+    if (!flow) return res.status(404).json({ error: 'Call flow not found' });
+    res.json({ success: true, callFlow: flow });
+  } catch (error) {
+    sendError(res, error, 'Failed to load call flow');
+  }
+});
+
+router.put('/callflows/:id', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const flow = await callFlowService.updateCallFlow(
+      prisma,
+      req.user.tenantId,
+      req.params.id,
+      req.body || {},
+      { req, actor: req.user },
+    );
+    res.json({ success: true, callFlow: flow });
+  } catch (error) {
+    sendError(res, error, 'Failed to update call flow');
+  }
+});
+
+router.delete('/callflows/:id', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const flow = await callFlowService.removeCallFlow(
+      prisma,
+      req.user.tenantId,
+      req.params.id,
+      { req, actor: req.user },
+    );
+    res.json({ success: true, callFlow: flow });
+  } catch (error) {
+    sendError(res, error, 'Failed to delete call flow');
   }
 });
 
