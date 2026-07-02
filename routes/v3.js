@@ -43,6 +43,13 @@ const reportService = require('../lib/v3/reportService');
 const systemHealthService = require('../lib/v3/systemHealthService');
 const activityService = require('../lib/v3/activityService');
 const notificationCenterService = require('../lib/v3/notificationCenterService');
+const billingService = require('../lib/v3/billingService');
+const subscriptionService = require('../lib/v3/subscriptionService');
+const licenseService = require('../lib/v3/licenseService');
+const backupService = require('../lib/v3/backupService');
+const restoreService = require('../lib/v3/restoreService');
+const tenantLifecycleService = require('../lib/v3/tenantLifecycleService');
+const exportImportService = require('../lib/v3/exportImportService');
 
 const router = express.Router();
 
@@ -1102,6 +1109,203 @@ router.get('/system-health', adminOnly, async (req, res) => {
     res.json({ success: true, systemHealth });
   } catch (error) {
     sendError(res, error, 'Failed to load system health');
+  }
+});
+
+// --- Phase 8: Billing, Subscription, Lifecycle & Backup ---
+
+router.get('/billing', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const billing = await billingService.getBillingOverview(prisma, req.user.tenantId);
+    res.json({ success: true, billing });
+  } catch (error) {
+    sendError(res, error, 'Failed to load billing');
+  }
+});
+
+router.get('/subscription', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const subscription = await subscriptionService.getSubscription(prisma, req.user.tenantId);
+    res.json({ success: true, subscription });
+  } catch (error) {
+    sendError(res, error, 'Failed to load subscription');
+  }
+});
+
+router.put('/subscription', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const subscription = await subscriptionService.changePlan(
+      prisma,
+      req.user.tenantId,
+      req.body || {},
+      { req },
+    );
+    res.json({ success: true, subscription });
+  } catch (error) {
+    sendError(res, error, 'Failed to update subscription');
+  }
+});
+
+router.get('/license', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const license = await licenseService.getLicense(prisma, req.user.tenantId);
+    res.json({ success: true, license });
+  } catch (error) {
+    sendError(res, error, 'Failed to load license');
+  }
+});
+
+router.get('/backup', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const backups = await backupService.listBackups(prisma, req.user.tenantId, {
+      limit: req.query.limit ? Number(req.query.limit) : 20,
+      offset: req.query.offset ? Number(req.query.offset) : 0,
+    });
+    res.json({ success: true, ...backups });
+  } catch (error) {
+    sendError(res, error, 'Failed to load backups');
+  }
+});
+
+router.post('/backup/create', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const backup = await backupService.createBackup(
+      prisma,
+      req.user.tenantId,
+      req.body || {},
+      { req, actor: req.user },
+    );
+    res.status(201).json({ success: true, backup });
+  } catch (error) {
+    sendError(res, error, 'Failed to create backup');
+  }
+});
+
+router.post('/backup/restore-preview', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const preview = await restoreService.restorePreview(prisma, req.user.tenantId, req.body || {});
+    res.json({ success: true, preview });
+  } catch (error) {
+    sendError(res, error, 'Failed to preview restore');
+  }
+});
+
+router.post('/backup/restore', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const body = req.body || {};
+    const result = await restoreService.applyRestore(
+      prisma,
+      req.user.tenantId,
+      body,
+      { req, dryRun: body.dryRun !== false && body.apply !== true },
+    );
+    res.json({ success: true, result });
+  } catch (error) {
+    sendError(res, error, 'Failed to restore backup');
+  }
+});
+
+router.post('/export', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const format = req.body?.format || req.query.format || 'json';
+    const exported = await exportImportService.exportConfiguration(
+      prisma,
+      req.user.tenantId,
+      format,
+      { req },
+    );
+    res.setHeader('Content-Type', exported.contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${exported.filename}"`);
+    if (exported.encoding === 'binary') {
+      return res.send(exported.body);
+    }
+    return res.send(exported.body);
+  } catch (error) {
+    sendError(res, error, 'Failed to export configuration');
+  }
+});
+
+router.post('/import', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const body = req.body || {};
+    const result = await exportImportService.importConfiguration(
+      prisma,
+      req.user.tenantId,
+      {
+        payload: body.payload || body,
+        dryRun: body.dryRun !== false && body.apply !== true,
+        apply: body.apply === true,
+      },
+      { req },
+    );
+    res.json({ success: true, ...result });
+  } catch (error) {
+    sendError(res, error, 'Failed to import configuration');
+  }
+});
+
+router.get('/lifecycle', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const lifecycle = await tenantLifecycleService.getLifecycle(prisma, req.user.tenantId);
+    res.json({ success: true, lifecycle });
+  } catch (error) {
+    sendError(res, error, 'Failed to load lifecycle');
+  }
+});
+
+router.post('/lifecycle', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const action = String(req.body?.action || '').toLowerCase();
+    const ctx = { req, actor: req.user };
+
+    let result;
+    switch (action) {
+      case 'snapshot':
+        result = await tenantLifecycleService.createSnapshot(prisma, req.user.tenantId, req.body || {}, ctx);
+        break;
+      case 'archive':
+        result = await tenantLifecycleService.archiveTenant(prisma, req.user.tenantId, ctx);
+        break;
+      case 'deactivate':
+        result = await tenantLifecycleService.deactivateTenant(prisma, req.user.tenantId, ctx);
+        break;
+      case 'reactivate':
+        result = await tenantLifecycleService.reactivateTenant(prisma, req.user.tenantId, ctx);
+        break;
+      case 'clone-preview':
+        result = await tenantLifecycleService.clonePreview(prisma, req.user.tenantId);
+        break;
+      default:
+        return res.status(400).json({ error: 'Invalid lifecycle action', code: 'INVALID_ACTION' });
+    }
+
+    res.json({ success: true, result });
+  } catch (error) {
+    sendError(res, error, 'Lifecycle action failed');
   }
 });
 

@@ -807,6 +807,14 @@ export type SystemHealthResponse = {
   }>;
   historicalTrend: Array<{ label: string; healthScore: number; employeeCount: number }>;
   repairSuggestions: Array<{ source: string; severity: string; type: string; detail: string; ref: string }>;
+  lifecycleHealth?: {
+    license: { level: HealthLevel; warnings: number };
+    storage: { level: HealthLevel; totalEstimatedMb: number };
+    backup: { level: HealthLevel; count: number };
+    subscription: { level: HealthLevel; renewalDate: string | null };
+    billing: { level: HealthLevel; status: string };
+    overall: HealthLevel;
+  };
 };
 
 export async function getV3Dashboard() {
@@ -864,4 +872,179 @@ export async function exportV3Report(type: string, format: 'csv' | 'excel' | 'pd
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// --- Phase 8: Billing & Lifecycle ---
+
+export type V3BillingInvoiceRow = {
+  id: string;
+  invoiceNumber?: string | null;
+  status?: string;
+  amount?: number | null;
+  createdAt?: string;
+};
+
+export type V3BillingOverview = {
+  plan?: {
+    name?: string;
+    billingStatus?: string;
+    platformFeeMonthly?: number | null;
+  };
+  usage?: {
+    seats?: number;
+    extensions?: number;
+    numbers?: number;
+    deskPhones?: number;
+    storage?: { totalEstimatedMb?: number };
+    smsUsage?: { last30Days?: number };
+    recordingUsage?: { count?: number };
+  };
+  costs?: { estimatedMonthlyTotal?: number | null };
+  renewalDate?: string | null;
+  invoices?: V3BillingInvoiceRow[];
+  receivables?: V3BillingInvoiceRow[];
+};
+
+export type V3PlanTier = {
+  tier: string;
+  label: string;
+  maxUsers?: number;
+  maxPhoneNumbers?: number;
+  maxConcurrentCalls?: number;
+};
+
+export type V3SubscriptionOverview = {
+  currentPlan?: { tier?: string; label?: string; renewalDate?: string | null };
+  limits?: { seats?: number; numbers?: number };
+  usage?: { seats?: number; numbers?: number };
+  availableTiers?: V3PlanTier[];
+  featureMatrix?: Record<string, boolean>;
+};
+
+export type V3LicenseWarning = {
+  code: string;
+  message: string;
+  severity: 'warning' | 'error';
+};
+
+export type V3LicenseOverview = {
+  health?: Record<string, HealthLevel | string>;
+  utilization?: { seats?: number; numbers?: number; extensions?: number };
+  warnings?: V3LicenseWarning[];
+};
+
+export type V3BackupItem = {
+  id: string;
+  label: string;
+  itemCounts: Record<string, number>;
+  sizeBytes: number;
+  createdAt: string;
+};
+
+export type V3RestoreResult = {
+  applied?: unknown[];
+};
+
+export type V3LifecycleOverview = {
+  status?: string;
+  tenant?: { isActive?: boolean; billingStatus?: string };
+  backup?: { count?: number };
+  actions?: {
+    canSnapshot?: boolean;
+    canArchive?: boolean;
+    canDeactivate?: boolean;
+    canReactivate?: boolean;
+    canClonePreview?: boolean;
+  };
+};
+
+export async function getV3Billing() {
+  return apiFetch<{ success: boolean; billing: V3BillingOverview }>('/api/v3/billing');
+}
+
+export async function getV3Subscription() {
+  return apiFetch<{ success: boolean; subscription: V3SubscriptionOverview }>('/api/v3/subscription');
+}
+
+export async function updateV3Subscription(data: { tier?: string; maxUsers?: number; maxPhoneNumbers?: number }) {
+  return apiFetch<{ success: boolean; subscription: V3SubscriptionOverview }>('/api/v3/subscription', {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getV3License() {
+  return apiFetch<{ success: boolean; license: V3LicenseOverview }>('/api/v3/license');
+}
+
+export async function getV3Backups() {
+  return apiFetch<{ success: boolean; items: V3BackupItem[]; total: number }>('/api/v3/backup');
+}
+
+export async function createV3Backup(label?: string) {
+  return apiFetch<{ success: boolean; backup: { id: string; label: string; itemCounts: Record<string, number> } }>('/api/v3/backup/create', {
+    method: 'POST',
+    body: JSON.stringify({ label }),
+  });
+}
+
+export async function previewV3Restore(backupId: string) {
+  return apiFetch<{ success: boolean; preview: Record<string, unknown> }>('/api/v3/backup/restore-preview', {
+    method: 'POST',
+    body: JSON.stringify({ backupId }),
+  });
+}
+
+export async function restoreV3Backup(backupId: string, apply = false) {
+  return apiFetch<{ success: boolean; result: V3RestoreResult }>('/api/v3/backup/restore', {
+    method: 'POST',
+    body: JSON.stringify({ backupId, apply, dryRun: !apply }),
+  });
+}
+
+export async function getV3Lifecycle() {
+  return apiFetch<{ success: boolean; lifecycle: V3LifecycleOverview }>('/api/v3/lifecycle');
+}
+
+export async function runV3LifecycleAction(action: string, body: Record<string, unknown> = {}) {
+  return apiFetch<{ success: boolean; result: Record<string, unknown> }>('/api/v3/lifecycle', {
+    method: 'POST',
+    body: JSON.stringify({ action, ...body }),
+  });
+}
+
+export async function exportV3Configuration(format: 'json' | 'csv' | 'zip' = 'json') {
+  const { getToken } = await import('./api');
+  const token = getToken();
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
+  const res = await fetch(`${API_URL}/api/v3/export`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ format }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Export failed (${res.status})`);
+  }
+  const blob = await res.blob();
+  const disposition = res.headers.get('Content-Disposition') || '';
+  const match = disposition.match(/filename="([^"]+)"/);
+  const ext = format === 'zip' ? 'zip' : format;
+  const filename = match?.[1] || `tenant-export.${ext}`;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export async function importV3Configuration(payload: Record<string, unknown>, apply = false) {
+  return apiFetch<{ success: boolean; validation: Record<string, unknown>; result: Record<string, unknown> }>('/api/v3/import', {
+    method: 'POST',
+    body: JSON.stringify({ payload, apply, dryRun: !apply }),
+  });
 }

@@ -18,6 +18,8 @@ const repairService = require('../../lib/v3/repairService.js');
 const deviceRepairService = require('../../lib/v3/deviceRepairService.js');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const analyticsService = require('../../lib/v3/analyticsService.js');
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const lifecycleHealthService = require('../../lib/v3/lifecycleHealthService.js');
 
 describe('V3 systemHealthService', () => {
   beforeEach(() => vi.restoreAllMocks());
@@ -43,6 +45,14 @@ describe('V3 systemHealthService', () => {
     vi.spyOn(repairService, 'inspect').mockResolvedValue({ changes: [], scanned: {}, observations: [] });
     vi.spyOn(deviceRepairService, 'inspectDevices').mockResolvedValue({ changes: [], scanned: {}, observations: [] });
     vi.spyOn(analyticsService, 'getCharts').mockResolvedValue({ employeeGrowth: [{ label: '2026-01', cumulative: 1 }] });
+    vi.spyOn(lifecycleHealthService, 'getLifecycleHealth').mockResolvedValue({
+      license: { level: 'green', warnings: 0, utilization: { seats: 50 } },
+      storage: { level: 'green', totalEstimatedMb: 10 },
+      backup: { level: 'yellow', count: 0, latest: null },
+      subscription: { level: 'green', renewalDate: null },
+      billing: { level: 'green', status: 'ACTIVE' },
+      overall: 'green',
+    });
 
     const health = await systemHealthService.getSystemHealth(prisma, 't1');
     expect(health.overallScore).toBeGreaterThan(0);

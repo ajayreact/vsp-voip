@@ -194,6 +194,7 @@ model Tenant {
   v3UserPreferences         V3UserPreference[]
   v3DevicePreferences       V3DevicePreference[]
   v3PresenceConfigs         V3PresenceConfig[]
+  v3TenantBackups           V3TenantBackup[]
   aiSettings                TenantAiSettings?
   aiUsageLogs               AiUsageLog[]
   aiSummaries               AiSummary[]
@@ -1522,6 +1523,25 @@ model V3PresenceConfig {
 
   @@unique([tenantId, userId])
   @@index([tenantId, status])
+}
+
+model V3TenantBackup {
+  id              String    @id @default(uuid())
+  tenantId        String
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  label           String?
+  backupType      String    @default("full")
+  status          String    @default("completed")
+  payload         Json
+  itemCounts      Json      @default("{}")
+  sizeBytes       Int       @default(0)
+  createdByUserId String?
+  removedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, removedAt])
 }
 
 model V3FeatureFlag {

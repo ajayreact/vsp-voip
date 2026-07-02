@@ -291,6 +291,22 @@ export default function V3HealthCenterPage() {
         </div>
       ) : null}
 
+      {systemHealth?.lifecycleHealth ? (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold text-slate-900">Billing & Lifecycle Health</h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+            <SummaryCard label="License" value={systemHealth.lifecycleHealth.license.warnings} accent={systemHealth.lifecycleHealth.license.level === 'green' ? 'text-emerald-600' : 'text-amber-600'} />
+            <SummaryCard label="Storage (MB)" value={Math.round(systemHealth.lifecycleHealth.storage.totalEstimatedMb)} />
+            <SummaryCard label="Backups" value={systemHealth.lifecycleHealth.backup.count} />
+            <SummaryCard label="Subscription" value={systemHealth.lifecycleHealth.subscription.level === 'green' ? 1 : 0} accent={systemHealth.lifecycleHealth.subscription.level === 'green' ? 'text-emerald-600' : 'text-amber-600'} />
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Billing</p>
+              <p className={`mt-1 text-lg font-semibold ${systemHealth.lifecycleHealth.billing.level === 'green' ? 'text-emerald-600' : 'text-rose-600'}`}>{systemHealth.lifecycleHealth.billing.status}</p>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
         <span className="inline-flex items-center gap-1.5"><Dot level="green" /> Ready</span>
         <span className="inline-flex items-center gap-1.5"><Dot level="yellow" /> Needs attention</span>

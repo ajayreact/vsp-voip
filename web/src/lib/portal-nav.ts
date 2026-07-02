@@ -33,6 +33,9 @@ import {
   Radio,
   Bell,
   FileText,
+  HardDrive,
+  RefreshCw,
+  ShieldCheck,
 } from 'lucide-react';
 
 /** Tenant Portal V3 preview — inlined at build time from NEXT_PUBLIC_V3_PORTAL. */
@@ -138,6 +141,12 @@ export function buildPortalNavSections(): PortalNavSection[] {
         { href: '/v3/activity', label: 'Activity', icon: History, matchPrefix: '/v3/activity', adminOnly: true },
         { href: '/v3/notifications', label: 'Notifications', icon: Bell, matchPrefix: '/v3/notifications', adminOnly: true },
         { href: '/v3/system-health', label: 'System Health', icon: Activity, matchPrefix: '/v3/system-health', adminOnly: true },
+        { href: '/v3/billing', label: 'Billing', icon: CreditCard, matchPrefix: '/v3/billing', adminOnly: true },
+        { href: '/v3/subscription', label: 'Subscription', icon: ShoppingCart, matchPrefix: '/v3/subscription', adminOnly: true },
+        { href: '/v3/license', label: 'License', icon: ShieldCheck, matchPrefix: '/v3/license', adminOnly: true },
+        { href: '/v3/backups', label: 'Backups', icon: HardDrive, matchPrefix: '/v3/backups', adminOnly: true },
+        { href: '/v3/import-export', label: 'Import / Export', icon: FileText, matchPrefix: '/v3/import-export', adminOnly: true },
+        { href: '/v3/lifecycle', label: 'Lifecycle', icon: RefreshCw, matchPrefix: '/v3/lifecycle', adminOnly: true },
         { href: '/v3/employees', label: 'Employees (V3)', icon: UserPlus, matchPrefix: '/v3/employees', adminOnly: true },
         { href: '/v3/numbers', label: 'Number Inventory', icon: Hash, matchPrefix: '/v3/numbers', adminOnly: true },
         { href: '/v3/marketplace', label: 'Marketplace', icon: Store, matchPrefix: '/v3/marketplace', adminOnly: true },
