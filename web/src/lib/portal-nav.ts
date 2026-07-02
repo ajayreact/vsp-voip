@@ -15,7 +15,15 @@ import {
   MessagesSquare,
   Sparkles,
   ShoppingCart,
+  HeartPulse,
+  UserPlus,
 } from 'lucide-react';
+
+/** Tenant Portal V3 preview — inlined at build time from NEXT_PUBLIC_V3_PORTAL. */
+function isV3PortalNavEnabled(): boolean {
+  const value = (process.env.NEXT_PUBLIC_V3_PORTAL || '').toLowerCase();
+  return value === 'true' || value === '1' || value === 'yes' || value === 'on';
+}
 
 export type PortalNavItem = {
   href: string;
@@ -35,7 +43,7 @@ export type PortalNavSection = {
 
 /** Canonical tenant portal navigation (Phase 2.7). */
 export function buildPortalNavSections(): PortalNavSection[] {
-  return [
+  const sections: PortalNavSection[] = [
     {
       id: 'overview',
       label: 'Overview',
@@ -101,6 +109,19 @@ export function buildPortalNavSections(): PortalNavSection[] {
       ],
     },
   ];
+
+  if (isV3PortalNavEnabled()) {
+    sections.push({
+      id: 'v3',
+      label: 'V3 Preview',
+      items: [
+        { href: '/v3/health', label: 'Health Center', icon: HeartPulse, matchPrefix: '/v3/health', adminOnly: true },
+        { href: '/v3/employees', label: 'Employees (V3)', icon: UserPlus, matchPrefix: '/v3/employees', adminOnly: true },
+      ],
+    });
+  }
+
+  return sections;
 }
 
 export function isPortalNavActive(pathname: string, item: PortalNavItem): boolean {

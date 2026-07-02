@@ -39,6 +39,7 @@ const aiTranscriptRoutes = require('./routes/aiTranscripts');
 const aiAssistantRoutes = require('./routes/aiAssistant');
 const portalRoutes = require('./routes/portal');
 const adminRoutes = require('./routes/admin');
+const v3Routes = require('./routes/v3');
 const { handleStripeWebhook } = require('./lib/billing');
 const { handleRazorpayWebhook } = require('./lib/razorpayBilling');
 const {
@@ -279,6 +280,7 @@ app.use('/api', aiTranscriptRoutes);
 app.use('/api', aiAssistantRoutes);
 app.use('/api', portalRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/v3', v3Routes);
 
 function getPublicWebhookBase(req) {
     if (process.env.API_PUBLIC_URL) {
