@@ -53,7 +53,6 @@ export function PbxManager({
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
     listItems(search || undefined)
       .then((res) => {
         if (active) setItems(res.items || []);
