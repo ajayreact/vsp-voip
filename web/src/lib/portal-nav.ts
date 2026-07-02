@@ -36,6 +36,7 @@ import {
   HardDrive,
   RefreshCw,
   ShieldCheck,
+  Server,
 } from 'lucide-react';
 
 /** Tenant Portal V3 preview — inlined at build time from NEXT_PUBLIC_V3_PORTAL. */
@@ -147,6 +148,7 @@ export function buildPortalNavSections(): PortalNavSection[] {
         { href: '/v3/backups', label: 'Backups', icon: HardDrive, matchPrefix: '/v3/backups', adminOnly: true },
         { href: '/v3/import-export', label: 'Import / Export', icon: FileText, matchPrefix: '/v3/import-export', adminOnly: true },
         { href: '/v3/lifecycle', label: 'Lifecycle', icon: RefreshCw, matchPrefix: '/v3/lifecycle', adminOnly: true },
+        { href: '/v3/runtime', label: 'Runtime Sync', icon: Server, matchPrefix: '/v3/runtime', adminOnly: true },
         { href: '/v3/employees', label: 'Employees (V3)', icon: UserPlus, matchPrefix: '/v3/employees', adminOnly: true },
         { href: '/v3/numbers', label: 'Number Inventory', icon: Hash, matchPrefix: '/v3/numbers', adminOnly: true },
         { href: '/v3/marketplace', label: 'Marketplace', icon: Store, matchPrefix: '/v3/marketplace', adminOnly: true },

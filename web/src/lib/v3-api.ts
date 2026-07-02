@@ -1048,3 +1048,78 @@ export async function importV3Configuration(payload: Record<string, unknown>, ap
     body: JSON.stringify({ payload, apply, dryRun: !apply }),
   });
 }
+
+// --- Phase 9: Runtime Telephony Integration ---
+
+export type V3RuntimeJobStatus = 'PENDING' | 'RUNNING' | 'SUCCESS' | 'FAILED' | 'RETRYING' | 'DEAD_LETTER';
+
+export type V3RuntimeSyncJob = {
+  id: string;
+  entityType: string;
+  entityId: string;
+  action: string;
+  status: V3RuntimeJobStatus;
+  attempts: number;
+  lastError?: string | null;
+  createdAt: string;
+  finishedAt?: string | null;
+};
+
+export type V3RuntimeStatus = {
+  enabled: boolean;
+  jobs: { pending: number; running: number; success: number; failed: number; deadLetter: number };
+  links: { total: number };
+  lastSuccessfulSync?: string | null;
+};
+
+export type V3RuntimeHealth = {
+  enabled: boolean;
+  overall: HealthLevel;
+  domains: Record<string, HealthLevel>;
+  status: V3RuntimeStatus;
+  details?: Array<{
+    entityType: string;
+    total: number;
+    synced: number;
+    warnings: number;
+    errors: number;
+    level: HealthLevel;
+  }>;
+};
+
+export async function getV3RuntimeStatus() {
+  return apiFetch<{ success: boolean; status: V3RuntimeStatus; featureFlag: { globalEnabled: boolean; tenantEnabled: boolean } }>(
+    '/api/v3/runtime/status',
+  );
+}
+
+export async function getV3RuntimeJobs(status?: string) {
+  const qs = status ? `?status=${encodeURIComponent(status)}` : '';
+  return apiFetch<{ success: boolean; items: V3RuntimeSyncJob[]; total: number }>(`/api/v3/runtime/jobs${qs}`);
+}
+
+export async function getV3RuntimeHealth() {
+  return apiFetch<{ success: boolean; health: V3RuntimeHealth }>('/api/v3/runtime/health');
+}
+
+export async function triggerV3RuntimeSync(entityType: string, entityId: string, action = 'sync') {
+  return apiFetch<{ success: boolean; job: V3RuntimeSyncJob }>('/api/v3/runtime/sync', {
+    method: 'POST',
+    body: JSON.stringify({ entityType, entityId, action }),
+  });
+}
+
+export async function resyncV3Runtime() {
+  return apiFetch<{ success: boolean; result: Record<string, unknown> }>('/api/v3/runtime/resync', { method: 'POST' });
+}
+
+export async function repairV3Runtime(entityType?: string, entityId?: string) {
+  return apiFetch<{ success: boolean; result: { count: number; repairs: unknown[] } }>('/api/v3/runtime/repair', {
+    method: 'POST',
+    body: JSON.stringify({ entityType, entityId }),
+  });
+}
+
+export async function retryV3RuntimeJob(jobId: string) {
+  return apiFetch<{ success: boolean; job: V3RuntimeSyncJob }>(`/api/v3/runtime/jobs/${jobId}/retry`, { method: 'POST' });
+}

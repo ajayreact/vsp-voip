@@ -50,6 +50,9 @@ const backupService = require('../lib/v3/backupService');
 const restoreService = require('../lib/v3/restoreService');
 const tenantLifecycleService = require('../lib/v3/tenantLifecycleService');
 const exportImportService = require('../lib/v3/exportImportService');
+const runtimeSyncService = require('../lib/v3/runtime/runtimeSyncService');
+const runtimeHealthService = require('../lib/v3/runtime/runtimeHealthService');
+const { isV3RuntimeSyncEnabled } = require('../lib/v3/runtime/runtimeFeatureFlag');
 
 const router = express.Router();
 
@@ -1306,6 +1309,109 @@ router.post('/lifecycle', adminOnly, async (req, res) => {
     res.json({ success: true, result });
   } catch (error) {
     sendError(res, error, 'Lifecycle action failed');
+  }
+});
+
+// --- Phase 9: Runtime Telephony Integration ---
+
+router.get('/runtime/status', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = getPrisma();
+    const status = await runtimeSyncService.getStatus(prisma, req.user.tenantId);
+    res.json({
+      success: true,
+      status,
+      featureFlag: {
+        globalEnabled: isV3RuntimeSyncEnabled(),
+        tenantEnabled: status.enabled,
+      },
+    });
+  } catch (error) {
+    sendError(res, error, 'Failed to load runtime status');
+  }
+});
+
+router.get('/runtime/jobs', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = getPrisma();
+    const jobs = await runtimeSyncService.listJobs(prisma, req.user.tenantId, {
+      status: req.query.status ? String(req.query.status).toUpperCase() : undefined,
+      limit: Number(req.query.limit) || 50,
+      offset: Number(req.query.offset) || 0,
+    });
+    res.json({ success: true, ...jobs });
+  } catch (error) {
+    sendError(res, error, 'Failed to list runtime jobs');
+  }
+});
+
+router.get('/runtime/health', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = getPrisma();
+    const health = await runtimeHealthService.getRuntimeHealth(prisma, req.user.tenantId);
+    res.json({ success: true, health });
+  } catch (error) {
+    sendError(res, error, 'Failed to load runtime health');
+  }
+});
+
+router.post('/runtime/sync', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const { entityType, entityId, action } = req.body || {};
+    if (!entityType || !entityId) {
+      return res.status(400).json({ error: 'entityType and entityId are required' });
+    }
+    const prisma = getPrisma();
+    const job = await runtimeSyncService.syncNow(prisma, req.user.tenantId, {
+      entityType,
+      entityId,
+      action: action || 'sync',
+      req,
+    });
+    res.json({ success: true, job });
+  } catch (error) {
+    sendError(res, error, 'Runtime sync failed');
+  }
+});
+
+router.post('/runtime/resync', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = getPrisma();
+    const result = await runtimeSyncService.resyncAll(prisma, req.user.tenantId, { req });
+    res.json({ success: true, result });
+  } catch (error) {
+    sendError(res, error, 'Runtime resync failed');
+  }
+});
+
+router.post('/runtime/repair', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = getPrisma();
+    const result = await runtimeSyncService.repairRuntime(prisma, req.user.tenantId, {
+      entityType: req.body?.entityType,
+      entityId: req.body?.entityId,
+      req,
+    });
+    res.json({ success: true, result });
+  } catch (error) {
+    sendError(res, error, 'Runtime repair failed');
+  }
+});
+
+router.post('/runtime/jobs/:jobId/retry', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = getPrisma();
+    const job = await runtimeSyncService.retryJob(prisma, req.user.tenantId, req.params.jobId, { req });
+    res.json({ success: true, job });
+  } catch (error) {
+    sendError(res, error, 'Runtime job retry failed');
   }
 });
 
