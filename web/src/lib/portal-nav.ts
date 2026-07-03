@@ -163,6 +163,7 @@ export function buildPortalNavSections(): PortalNavSection[] {
         { href: '/v3/diagnostics', label: 'Diagnostics', icon: Stethoscope, matchPrefix: '/v3/diagnostics', adminOnly: true },
         { href: '/v3/runtime-validation', label: 'Runtime Validation', icon: ShieldCheck, matchPrefix: '/v3/runtime-validation', adminOnly: true },
         { href: '/v3/migration', label: 'Migration', icon: ArrowRightLeft, matchPrefix: '/v3/migration', adminOnly: true },
+        { href: '/v3/migration-wizard', label: 'Migration Wizard', icon: ArrowRightLeft, matchPrefix: '/v3/migration-wizard', superAdminOnly: true },
         { href: '/v3/test-lab', label: 'Test Lab', icon: FlaskConical, matchPrefix: '/v3/test-lab', superAdminOnly: true },
         { href: '/v3/employees', label: 'Employees (V3)', icon: UserPlus, matchPrefix: '/v3/employees', adminOnly: true },
         { href: '/v3/numbers', label: 'Number Inventory', icon: Hash, matchPrefix: '/v3/numbers', adminOnly: true },

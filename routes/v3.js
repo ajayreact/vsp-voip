@@ -68,6 +68,7 @@ const metricsService = require('../lib/v3/metricsService');
 const diagnosticsService = require('../lib/v3/diagnosticsService');
 const productionHealthService = require('../lib/v3/productionHealthService');
 const testLabService = require('../lib/v3/testLabService');
+const migrationWizardService = require('../lib/v3/migrationWizardService');
 
 const router = express.Router();
 
@@ -1569,6 +1570,92 @@ router.get('/migration/report', adminOnly, async (req, res) => {
     res.json({ success: true, report });
   } catch (error) {
     sendError(res, error, 'Failed to load migration report');
+  }
+});
+
+function resolveWizardTenantId(req) {
+  const requested = req.query?.tenantId || req.body?.tenantId;
+  if (requested) return String(requested);
+  return req.user.tenantId;
+}
+
+router.get('/migration-wizard/discovery', superAdminOnly, async (req, res) => {
+  try {
+    const tenantId = resolveWizardTenantId(req);
+    if (!tenantId) {
+      return res.status(400).json({ error: 'tenantId is required for migration wizard' });
+    }
+    const prisma = await getPrisma();
+    const discoveryResult = await migrationWizardService.discovery(prisma, tenantId);
+    res.json({ success: true, discovery: discoveryResult });
+  } catch (error) {
+    sendError(res, error, 'Migration wizard discovery failed');
+  }
+});
+
+router.post('/migration-wizard/validate', superAdminOnly, async (req, res) => {
+  try {
+    const tenantId = resolveWizardTenantId(req);
+    if (!tenantId) {
+      return res.status(400).json({ error: 'tenantId is required for migration wizard' });
+    }
+    const prisma = await getPrisma();
+    const validation = await migrationWizardService.validate(prisma, tenantId);
+    res.json({ success: true, validation });
+  } catch (error) {
+    sendError(res, error, 'Migration wizard validation failed');
+  }
+});
+
+router.post('/migration-wizard/preview', superAdminOnly, async (req, res) => {
+  try {
+    const tenantId = resolveWizardTenantId(req);
+    if (!tenantId) {
+      return res.status(400).json({ error: 'tenantId is required for migration wizard' });
+    }
+    const prisma = await getPrisma();
+    const previewResult = await migrationWizardService.preview(prisma, tenantId);
+    res.json({ success: true, preview: previewResult });
+  } catch (error) {
+    sendError(res, error, 'Migration wizard preview failed');
+  }
+});
+
+router.post('/migration-wizard/run', superAdminOnly, v3HeavyMutationLimiter, async (req, res) => {
+  try {
+    const tenantId = resolveWizardTenantId(req);
+    if (!tenantId) {
+      return res.status(400).json({ error: 'tenantId is required for migration wizard' });
+    }
+    const prisma = await getPrisma();
+    const dryRun = req.body?.dryRun !== false && req.body?.apply !== true;
+    const result = await migrationWizardService.runMigration(prisma, tenantId, {
+      dryRun,
+      autoRollback: req.body?.autoRollback !== false,
+      req,
+    });
+    res.json({ success: true, ...result });
+  } catch (error) {
+    sendError(res, error, 'Migration wizard run failed');
+  }
+});
+
+router.post('/migration-wizard/rollback', superAdminOnly, v3HeavyMutationLimiter, async (req, res) => {
+  try {
+    const tenantId = resolveWizardTenantId(req);
+    if (!tenantId) {
+      return res.status(400).json({ error: 'tenantId is required for migration wizard' });
+    }
+    const prisma = await getPrisma();
+    const result = await migrationWizardService.rollbackMigration(prisma, tenantId, {
+      migrationRunId: req.body?.migrationRunId,
+      backupId: req.body?.backupId,
+      dryRun: req.body?.dryRun === true,
+      req,
+    });
+    res.json({ success: true, rollback: result });
+  } catch (error) {
+    sendError(res, error, 'Migration wizard rollback failed');
   }
 });
 

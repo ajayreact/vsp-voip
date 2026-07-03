@@ -86,3 +86,23 @@ export async function runV3AdminGuard(router: { replace: (path: string) => void 
     throw err;
   }
 }
+
+export async function runV3SuperAdminGuard(router: { replace: (path: string) => void }) {
+  const { isV3PortalEnabled } = await import('@/lib/v3-api');
+  const { getMe, isUnauthorizedError } = await import('@/lib/api');
+  if (!isV3PortalEnabled()) {
+    router.replace('/dashboard');
+    return false;
+  }
+  try {
+    const user = await getMe();
+    if (user.role !== 'SUPER_ADMIN') {
+      router.replace('/dashboard');
+      return false;
+    }
+    return user;
+  } catch (err) {
+    if (isUnauthorizedError(err)) router.replace('/login');
+    throw err;
+  }
+}

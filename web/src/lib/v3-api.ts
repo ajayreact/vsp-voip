@@ -1213,6 +1213,51 @@ export async function getV3MigrationReport(migrationRunId?: string) {
   return apiFetch<{ success: boolean; report: Record<string, unknown> }>(`/api/v3/migration/report${qs}`);
 }
 
+export type V3MigrationWizardValidation = {
+  overall: HealthLevel;
+  summary: Record<string, number | string>;
+  grouped: { green: unknown[]; yellow: unknown[]; red: unknown[] };
+};
+
+export type V3MigrationWizardPreview = {
+  readOnly: boolean;
+  actions: Record<string, { create?: number; update?: number; assign?: number }>;
+  validation: { overall: HealthLevel; summary: Record<string, unknown> };
+};
+
+export async function getV3MigrationWizardDiscovery(tenantId: string) {
+  const qs = `?tenantId=${encodeURIComponent(tenantId)}`;
+  return apiFetch<{ success: boolean; discovery: Record<string, unknown> }>(`/api/v3/migration-wizard/discovery${qs}`);
+}
+
+export async function validateV3MigrationWizard(tenantId: string) {
+  return apiFetch<{ success: boolean; validation: V3MigrationWizardValidation }>('/api/v3/migration-wizard/validate', {
+    method: 'POST',
+    body: JSON.stringify({ tenantId }),
+  });
+}
+
+export async function previewV3MigrationWizard(tenantId: string) {
+  return apiFetch<{ success: boolean; preview: V3MigrationWizardPreview }>('/api/v3/migration-wizard/preview', {
+    method: 'POST',
+    body: JSON.stringify({ tenantId }),
+  });
+}
+
+export async function runV3MigrationWizard(tenantId: string, body: { dryRun?: boolean; apply?: boolean; autoRollback?: boolean } = {}) {
+  return apiFetch<{ success: boolean; run: Record<string, unknown>; report: Record<string, unknown>; postValidation: Record<string, unknown> }>(
+    '/api/v3/migration-wizard/run',
+    { method: 'POST', body: JSON.stringify({ tenantId, ...body }) },
+  );
+}
+
+export async function rollbackV3MigrationWizard(tenantId: string, body: { migrationRunId?: string; backupId?: string; dryRun?: boolean } = {}) {
+  return apiFetch<{ success: boolean; rollback: Record<string, unknown> }>('/api/v3/migration-wizard/rollback', {
+    method: 'POST',
+    body: JSON.stringify({ tenantId, ...body }),
+  });
+}
+
 export async function getV3ProductionHealth() {
   return apiFetch<{ success: boolean; health: V3ProductionHealth }>('/api/v3/production-health');
 }
