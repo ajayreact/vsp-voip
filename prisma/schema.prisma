@@ -183,6 +183,21 @@ model Tenant {
   ringGroups              RingGroup[]
   extensionProvisioningTokens ExtensionProvisioningToken[]
   didAssignmentHistory      DidAssignmentHistory[]
+  v3DeskDevices             V3DeskDevice[]
+  v3CallFlows               V3CallFlow[]
+  v3RingGroups              V3RingGroup[]
+  v3Queues                  V3Queue[]
+  v3BusinessHoursSchedules  V3BusinessHoursSchedule[]
+  v3Holidays                V3Holiday[]
+  v3VoicemailBoxes          V3VoicemailBox[]
+  v3SoftphoneProfiles       V3SoftphoneProfile[]
+  v3UserPreferences         V3UserPreference[]
+  v3DevicePreferences       V3DevicePreference[]
+  v3PresenceConfigs         V3PresenceConfig[]
+  v3TenantBackups           V3TenantBackup[]
+  v3RuntimeSyncJobs         V3RuntimeSyncJob[]
+  v3RuntimeLinks            V3RuntimeLink[]
+  v3MigrationRuns           V3MigrationRun[]
   aiSettings                TenantAiSettings?
   aiUsageLogs               AiUsageLog[]
   aiSummaries               AiSummary[]
@@ -1275,6 +1290,375 @@ model V3CommandOutbox {
   @@index([status, claimedUntil])
   @@index([claimOwner])
   @@index([sessionId])
+}
+
+model V3DeskDevice {
+  id                 String             @id @default(uuid())
+  tenantId           String
+  tenant             Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vendor             String
+  model              String?
+  macAddress         String?
+  serialNumber       String?
+  firmwareVersion    String?
+  employeeId         String?
+  extensionId        String?
+  notes              String?
+  provisionUrl       String?
+  configVersion      Int                @default(1)
+  provisionVersion   Int                @default(1)
+  status             V3DeskDeviceStatus @default(CREATED)
+  lastProvisionedAt  DateTime?
+  lastSeenAt         DateTime?
+  lastRegistrationAt DateTime?
+  metadata           Json               @default("{}")
+  removedAt          DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  @@unique([tenantId, macAddress])
+  @@index([tenantId, status])
+  @@index([tenantId, extensionId])
+  @@index([tenantId, employeeId])
+}
+
+enum V3DeskDeviceStatus {
+  CREATED
+  ASSIGNED
+  PROVISIONED
+  REGISTERED
+  REMOVED
+}
+
+model V3CallFlow {
+  id          String           @id @default(uuid())
+  tenantId    String
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  did         String?
+  status      V3CallFlowStatus @default(DRAFT)
+  definition  Json             @default("{\"version\":1,\"nodes\":[],\"edges\":[]}")
+  version     Int              @default(1)
+  removedAt   DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([tenantId, status])
+  @@index([tenantId, did])
+}
+
+enum V3CallFlowStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model V3RingGroup {
+  id                  String    @id @default(uuid())
+  tenantId            String
+  tenant              Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name                String
+  extensionNumber     String?
+  strategy            String    @default("SIMULTANEOUS")
+  memberExtensionIds  Json      @default("[]")
+  ringTimeoutSeconds  Int       @default(25)
+  overflowDestination Json?
+  musicOnHold         Json?
+  failoverDestination Json?
+  isActive            Boolean   @default(true)
+  removedAt           DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@unique([tenantId, name])
+  @@index([tenantId, removedAt])
+}
+
+model V3Queue {
+  id                  String    @id @default(uuid())
+  tenantId            String
+  tenant              Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name                String
+  queueNumber         String?
+  strategy            String    @default("ROUND_ROBIN")
+  agentExtensionIds   Json      @default("[]")
+  wrapUpTimeSeconds   Int       @default(0)
+  maxWaiting          Int       @default(50)
+  queueTimeoutSeconds Int       @default(120)
+  overflowDestination Json?
+  musicOnHold         Json?
+  stats               Json      @default("{\"callsOffered\":0,\"callsAnswered\":0,\"callsAbandoned\":0,\"avgWaitSeconds\":0}")
+  isActive            Boolean   @default(true)
+  removedAt           DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@unique([tenantId, name])
+  @@index([tenantId, removedAt])
+}
+
+model V3BusinessHoursSchedule {
+  id          String    @id @default(uuid())
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  timezone    String    @default("America/New_York")
+  weekdays    Json      @default("{}")
+  weekends    Json      @default("{}")
+  lunchBreak  Json?
+  closedHours Json?
+  isDefault   Boolean   @default(false)
+  removedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([tenantId, name])
+  @@index([tenantId, removedAt])
+}
+
+model V3Holiday {
+  id                  String    @id @default(uuid())
+  tenantId            String
+  tenant              Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name                String
+  date                String
+  recurring           Boolean   @default(false)
+  oneTime             Boolean   @default(true)
+  overrideDestination Json?
+  removedAt           DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([tenantId, removedAt])
+  @@index([tenantId, date])
+}
+
+model V3VoicemailBox {
+  id             String    @id @default(uuid())
+  tenantId       String
+  tenant         Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  mailboxNumber  String
+  extensionId    String?
+  greeting       Json?
+  emailDelivery  Json?
+  pin            String?
+  storageLimitMb Int       @default(100)
+  notification   Json?
+  isActive       Boolean   @default(true)
+  removedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([tenantId, mailboxNumber])
+  @@index([tenantId, removedAt])
+}
+
+model V3SoftphoneProfile {
+  id                      String   @id @default(uuid())
+  tenantId                String
+  tenant                  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId                  String
+  preferredCallerId       String?
+  preferredDevice         String?
+  defaultAudioDevice      String?
+  ringDevice              String?
+  theme                   String   @default("system")
+  language                String   @default("en")
+  timezone                String?
+  callRecordingPreference String   @default("inherit")
+  autoAnswer              Boolean  @default(false)
+  dnd                     Boolean  @default(false)
+  busy                    Boolean  @default(false)
+  away                    Boolean  @default(false)
+  presenceVisibility      String   @default("everyone")
+  favoriteContactIds      Json     @default("[]")
+  speedDial               Json     @default("[]")
+  recentContacts          Json     @default("[]")
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@unique([tenantId, userId])
+  @@index([tenantId])
+}
+
+model V3UserPreference {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId      String
+  preferences Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tenantId, userId])
+  @@index([tenantId])
+}
+
+model V3DevicePreference {
+  id                     String    @id @default(uuid())
+  tenantId               String
+  tenant                 Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId                 String
+  deviceType             String
+  deviceAlias            String?
+  lastActiveAt           DateTime?
+  preferred              Boolean   @default(false)
+  notificationPreference String    @default("all")
+  ringPreference         String    @default("default")
+  metadata               Json      @default("{}")
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  @@unique([tenantId, userId, deviceType, deviceAlias])
+  @@index([tenantId, userId])
+}
+
+model V3PresenceConfig {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId    String
+  status    String   @default("available")
+  message   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, userId])
+  @@index([tenantId, status])
+}
+
+model V3TenantBackup {
+  id              String    @id @default(uuid())
+  tenantId        String
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  label           String?
+  backupType      String    @default("full")
+  status          String    @default("completed")
+  payload         Json
+  itemCounts      Json      @default("{}")
+  sizeBytes       Int       @default(0)
+  createdByUserId String?
+  removedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, removedAt])
+}
+
+enum V3RuntimeSyncJobStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+  RETRYING
+  DEAD_LETTER
+}
+
+model V3RuntimeSyncJob {
+  id             String                 @id @default(uuid())
+  tenantId       String
+  tenant         Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  entityType     String
+  entityId       String
+  action         String                 @default("sync")
+  status         V3RuntimeSyncJobStatus @default(PENDING)
+  attempts       Int                    @default(0)
+  maxAttempts    Int                    @default(5)
+  lastError      String?
+  payload        Json?
+  result         Json?
+  idempotencyKey String                 @unique
+  scheduledAt    DateTime               @default(now())
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  @@index([tenantId, status, scheduledAt])
+  @@index([tenantId, entityType, entityId])
+}
+
+model V3RuntimeLink {
+  id                String    @id @default(uuid())
+  tenantId          String
+  tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  v3EntityType      String
+  v3EntityId        String
+  runtimeEntityType String
+  runtimeEntityId   String
+  metadata          Json?
+  lastSyncedAt      DateTime?
+  syncHash          String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([tenantId, v3EntityType, v3EntityId])
+  @@index([tenantId, runtimeEntityType, runtimeEntityId])
+}
+
+enum V3MigrationRunStatus {
+  PREVIEW
+  VALIDATED
+  RUNNING
+  SUCCESS
+  FAILED
+  ROLLED_BACK
+}
+
+model V3MigrationRun {
+  id               String               @id @default(uuid())
+  tenantId         String
+  tenant           Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  runType          String               @default("migrate")
+  status           V3MigrationRunStatus @default(PREVIEW)
+  dryRun           Boolean              @default(true)
+  targetTenantIds  Json                 @default("[]")
+  preview          Json?
+  validation       Json?
+  result           Json?
+  report           Json?
+  backupId         String?
+  rollbackBackupId String?
+  startedAt        DateTime?
+  finishedAt       DateTime?
+  createdByUserId  String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  @@index([tenantId, status, createdAt])
+  @@index([tenantId, runType])
+}
+
+enum V3TestLabRunStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+  PARTIAL
+  CLEANED_UP
+}
+
+model V3TestLabRun {
+  id              String             @id @default(uuid())
+  tenantId        String?
+  tenantName      String?
+  status          V3TestLabRunStatus @default(RUNNING)
+  employeeCount   Int                @default(20)
+  simulateNumbers Boolean            @default(true)
+  teardownOnFinish Boolean           @default(true)
+  steps           Json               @default("[]")
+  summary         Json?
+  report          Json?
+  overallPass     Boolean?
+  startedAt       DateTime?
+  finishedAt      DateTime?
+  createdByUserId String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@index([status, createdAt])
+  @@index([tenantId])
 }
 
 model V3FeatureFlag {

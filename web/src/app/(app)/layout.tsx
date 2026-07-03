@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Menu } from 'lucide-react';
 import { Sidebar } from '@/components/sidebar';
-import { CartProvider } from '@/context/cart-context';
 import { getMe, type User } from '@/lib/api';
 import { isBrowserCallingEnabled } from '@/lib/softphone-config';
 
@@ -36,7 +35,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <CartProvider>
+    <>
       {isFullScreenSoftphone ? (
         <div className="h-[100dvh] overflow-hidden bg-[#F5F5F7]">{children}</div>
       ) : (
@@ -68,6 +67,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </main>
         </div>
       )}
-    </CartProvider>
+    </>
   );
 }

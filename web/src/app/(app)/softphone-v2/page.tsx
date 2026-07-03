@@ -29,6 +29,12 @@ import {
 } from '@/lib/telnyx-softphone-session';
 import { logPeerConnectionDiagnostics } from '@/lib/telnyx-debug';
 import {
+  installTelnyxInviteWireTap,
+  traceNewCallPayload,
+  traceNewCallResult,
+  traceTelnyxSdkError,
+} from '@/lib/telnyx-invite-trace';
+import {
   isUnknownInboundCallerLabel,
   logInboundCallerResolution,
   mergeInboundCallerLabel,
@@ -537,6 +543,7 @@ function SoftphoneV2Content() {
   const callerNumberRef = useRef('');
   const displayNumberRef = useRef('');
   const tenantNumbersRef = useRef<string[]>([]);
+  const tenantIdRef = useRef<string | null>(null);
   const saveCallToHistoryRef = useRef<() => void>(() => {});
   const connectedTelemetryRef = useRef<string | null>(null);
   /** Telnyx SDK may emit hangup → destroy/purge for one call; block duplicate history saves. */
@@ -983,6 +990,7 @@ function SoftphoneV2Content() {
           me.id,
         );
         tenantNumbersRef.current = config.numbers.map((entry) => entry.number);
+        tenantIdRef.current = me.tenantId ?? null;
         if (mounted) {
           setTenantNumbers(config.numbers);
           setCallerNumber(initialCallerId);
@@ -1006,6 +1014,7 @@ function SoftphoneV2Content() {
           return;
         }
 
+        installTelnyxInviteWireTap();
         client = new TelnyxRTC(buildTelnyxClientOptions(tokenRes.loginToken));
 
         unbindTokenLifecycle = bindTelnyxTokenLifecycle(client, {
@@ -1372,6 +1381,21 @@ function SoftphoneV2Content() {
                   logTelnyx('history.duplicate-terminal-ignored', { callId, state: normalized });
                 }
 
+                if (
+                  typeof window !== 'undefined'
+                  && window.localStorage?.getItem('VSP_DESK_DESK_TRACE') === '1'
+                ) {
+                  logTelnyx('[TRACE] Call Completed', {
+                    tenantId: tenantIdRef.current,
+                    extension: extensionNumber,
+                    callId,
+                    terminalState: normalized,
+                    hangupCause: callSessionRef.current?.terminationReason ?? null,
+                    direction: callSessionRef.current?.direction ?? null,
+                    destination: callSessionRef.current?.number ?? null,
+                  });
+                }
+
                 resetCallTelemetry();
                 resetCallSideEffects();
                 callSessionRef.current = null;
@@ -1385,6 +1409,7 @@ function SoftphoneV2Content() {
 
         client.on('telnyx.error', (event: unknown) => {
           logTelnyx('telnyx.error', event);
+          traceTelnyxSdkError(event);
           trackSoftphoneEvent('Registration Failed', {
             reason: formatTelnyxErrorMessage(event),
             phase: 'runtime',
@@ -1462,6 +1487,18 @@ function SoftphoneV2Content() {
     const { destinationNumber, isExtension } = resolveOutboundDestination(number);
     logTelnyx('call.click', { destinationNumber, callerNumber, isExtension });
 
+    if (typeof window !== 'undefined' && window.localStorage?.getItem('VSP_DESK_DESK_TRACE') === '1') {
+      logTelnyx('[TRACE] Dial Button Pressed', {
+        tenantId: tenantIdRef.current,
+        extension: extensionNumber,
+        destination: destinationNumber,
+        callerNumber,
+        isExtension,
+        telnyxReady,
+        telnyxSocketConnected,
+      });
+    }
+
     if (!telnyxReady || !telnyxSocketConnected || reconnecting) {
       logTelnyx('call.blocked', 'not registered');
       orchestrator.setConnectionStatus('Softphone not registered — wait for Ready status');
@@ -1504,6 +1541,13 @@ function SoftphoneV2Content() {
         isExtension,
       });
 
+      traceNewCallPayload({
+        destinationNumber,
+        callerNumber: outboundCallerId,
+        audio: true,
+        localStream,
+        remoteElement: audioEl ?? REMOTE_AUDIO_ID,
+      });
       const call = client.newCall({
         destinationNumber,
         callerNumber: outboundCallerId,
@@ -1511,6 +1555,7 @@ function SoftphoneV2Content() {
         localStream,
         remoteElement: audioEl ?? REMOTE_AUDIO_ID,
       });
+      traceNewCallResult(call);
       callRef.current = call;
       const parties = resolveCallLogParties('outbound', destinationNumber, outboundCallerId);
       orchestrator.updateSessionLogParties(parties.from, parties.to);
@@ -1525,6 +1570,17 @@ function SoftphoneV2Content() {
         isExtension,
         keys: Object.keys(call as object),
       });
+      if (typeof window !== 'undefined' && window.localStorage?.getItem('VSP_DESK_DESK_TRACE') === '1') {
+        logTelnyx('[TRACE] client.newCall()', {
+          tenantId: tenantIdRef.current,
+          extension: extensionNumber,
+          destinationNumber,
+          callerNumber: outboundCallerId,
+          isExtension,
+          callId: call.id,
+          state: call.state,
+        });
+      }
       trackSoftphoneEvent('Call Started', {
         callId: call.id,
         number: destinationNumber,
@@ -1532,6 +1588,7 @@ function SoftphoneV2Content() {
       });
     } catch (err) {
       logTelnyx('newCall.error', err);
+      traceNewCallResult(null, err);
       if (isExtension) {
         orchestrator.failDial(err instanceof Error ? err.message : 'newCall.error');
         orchestrator.setConnectionStatus(err instanceof Error ? err.message : 'Internal call failed');

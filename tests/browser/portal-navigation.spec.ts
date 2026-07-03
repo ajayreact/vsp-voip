@@ -3,17 +3,17 @@ import { browserTestsEnabled, loginViaPortal } from './helpers/auth';
 
 const TENANT_ROUTES = [
   { path: '/dashboard', pattern: /dashboard/ },
-  { path: '/calls', pattern: /calls/ },
+  { path: '/employees', pattern: /employees/ },
+  { path: '/numbers', pattern: /numbers/ },
+  { path: '/devices', pattern: /devices/ },
+  { path: '/ring-groups', pattern: /ring-groups/ },
+  { path: '/callflows', pattern: /callflows/ },
   { path: '/voicemail', pattern: /voicemail/ },
-  { path: '/recordings', pattern: /recordings/ },
-  { path: '/sms', pattern: /sms/ },
-  { path: '/settings', pattern: /settings/ },
-  { path: '/my-numbers', pattern: /my-numbers/ },
-  { path: '/phone-system', pattern: /phone-system/ },
-  { path: '/phone-system/extensions', pattern: /extensions/ },
-  { path: '/phone-system/ring-groups', pattern: /ring-groups/ },
-  { path: '/phone-system/call-routing', pattern: /call-routing/ },
-  { path: '/greeting', pattern: /greeting/ },
+  { path: '/reports', pattern: /reports/ },
+  { path: '/billing', pattern: /billing/ },
+  { path: '/profile', pattern: /profile/ },
+  { path: '/health', pattern: /health/ },
+  { path: '/activity', pattern: /activity/ },
 ];
 
 test.describe('Portal navigation', () => {
@@ -30,10 +30,9 @@ test.describe('Portal navigation', () => {
     });
   }
 
-  test('settings profile sub-route', async ({ page }) => {
-    const response = await page.goto('/settings/profile');
-    expect(response?.status()).toBeLessThan(500);
-    await expect(page).toHaveURL(/profile/);
+  test('legacy /v3/dashboard redirects to /dashboard', async ({ page }) => {
+    await page.goto('/v3/dashboard');
+    await expect(page).toHaveURL(/\/dashboard/);
   });
 
   test('softphone v2 loads without 5xx', async ({ page }) => {

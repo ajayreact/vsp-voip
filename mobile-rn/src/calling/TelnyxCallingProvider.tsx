@@ -21,6 +21,7 @@ import {
   stopSoftphonePresenceHeartbeat,
 } from './softphonePresence';
 import { getTelnyxVoipClient } from './telnyxVoip';
+import { initMobileTraceFlag, installMobileConnectionTap } from './mobileInviteTrace';
 import { getTelnyxPushNotificationToken } from '../notifications/pushTokenService';
 import { logger } from '../lib/logger';
 import { friendlySipError } from '../sip/validation';
@@ -46,6 +47,7 @@ function TelnyxRegistrationBridge() {
   const incomingCall = useCallingStore((s) => s.incomingCall);
 
   useEffect(() => {
+    void initMobileTraceFlag();
     const client = getTelnyxVoipClient();
     const connectionSub = client.connectionState$.subscribe((state) => {
       setConnectionState(state as VspConnectionState);
@@ -109,6 +111,8 @@ function TelnyxRegistrationBridge() {
     const callsSub = client.calls$.subscribe(bindCalls);
 
     async function register() {
+      await initMobileTraceFlag();
+
       if (!isAuthenticated) {
         clearContactsCache();
         resetCalls();
@@ -148,6 +152,7 @@ function TelnyxRegistrationBridge() {
             pushNotificationDeviceToken: pushToken,
           }),
         );
+        installMobileConnectionTap(client);
         logger.telemetry('telnyx_registration_success', { hasPushToken: Boolean(pushToken) });
       } catch (error) {
         if (!disposed) {

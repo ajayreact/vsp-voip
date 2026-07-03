@@ -13,6 +13,7 @@ import {
 import { ConnectionBadge } from '../../components/ui/ConnectionBadge';
 import { FadeInView } from '../../components/ui/FadeInView';
 import { placeOutboundCall, getFriendlyCallError } from '../../calling/callingController';
+import { tracePlaceCallError, traceUiDialPressed } from '../../calling/mobileInviteTrace';
 import {
   collectRecentDialNumbers,
   filterDialSuggestions,
@@ -53,6 +54,7 @@ export function DialPadScreen() {
   }, []);
 
   const handlePlaceCall = useCallback(async () => {
+    traceUiDialPressed({ source: 'DialPadScreen', digits, canPlace });
     if (!canPlace || digits.length < 3) {
       if (!canPlace) {
         setCallError('Phone not connected. Wait for registration to finish.');
@@ -65,7 +67,8 @@ export function DialPadScreen() {
       await placeOutboundCall(digits);
       setDigits('');
     } catch (error) {
-      setCallError(getFriendlyCallError(error));
+      tracePlaceCallError(error);
+      setCallError(getFriendlyCallError(error, 'calls'));
     } finally {
       setPlacing(false);
     }

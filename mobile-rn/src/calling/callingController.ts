@@ -27,6 +27,13 @@ import {
   mapTelnyxCallToInboundFields,
 } from './telnyxCallMapping';
 import { normalizeDestination, isExtensionDialInput } from './dialNormalization';
+import {
+  installMobileConnectionTap,
+  startMobileOutboundCallWatch,
+  traceDialButtonPressed,
+  traceNewCallPayload,
+  traceNewCallResult,
+} from './mobileInviteTrace';
 
 let contactsCache: Awaited<ReturnType<typeof fetchContacts>> = [];
 let contactsLoadedAt = 0;
@@ -194,11 +201,20 @@ export async function refreshCallSnapshot(call: Call) {
 }
 
 export async function placeOutboundCall(destination: string): Promise<Call | null> {
+  const store = useCallingStore.getState();
+  const { defaultCallerId, tenantNumbers, connectionState, isRegistering } = store;
+
+  traceDialButtonPressed({
+    destination,
+    canPlace: !isRegistering && canMakeCalls(connectionState),
+    connectionState,
+    isRegistering,
+  });
+
   if (hasLiveCallSession()) {
     throw new CallInProgressError();
   }
 
-  const { defaultCallerId, tenantNumbers, connectionState, isRegistering } = useCallingStore.getState();
   if (isRegistering || !canMakeCalls(connectionState)) {
     throw new CallNotConnectedError();
   }
@@ -207,14 +223,33 @@ export async function placeOutboundCall(destination: string): Promise<Call | nul
   if (!normalized) throw new Error('Enter a valid phone number or extension.');
 
   const client = getTelnyxVoipClient();
+  installMobileConnectionTap(client);
   const callerNumber = defaultCallerId || tenantNumbers[0] || undefined;
   await ensureContacts(true);
 
-  const dialTarget = isExtensionDialInput(destination)
+  const isExtension = isExtensionDialInput(destination);
+  const dialTarget = isExtension
     ? destination.trim().replace(/\D/g, '')
     : normalized;
 
-  const call = await client.newCall(dialTarget, undefined, callerNumber);
+  traceNewCallPayload({
+    dialTarget,
+    callerNumber,
+    isExtension,
+    normalized,
+    rawDestination: destination,
+  });
+
+  let call: Call;
+  try {
+    call = await client.newCall(dialTarget, undefined, callerNumber);
+    traceNewCallResult(call);
+  } catch (error) {
+    traceNewCallResult(null, error);
+    throw error;
+  }
+
+  startMobileOutboundCallWatch(call);
   beginTrackedCall(call, 'outbound', dialTarget);
   await refreshCallSnapshot(call);
   return call;
