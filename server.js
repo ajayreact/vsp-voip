@@ -23,6 +23,7 @@ const { handleCallControlRecordingWebhook } = require('./lib/outboundRecording')
 const { ensureTelnyxRecordingSetup } = require('./lib/telnyxRecordingSetup');
 const { ensureTelnyxMessagingSetup } = require('./lib/telnyxMessagingSetup');
 const { ensureTelnyxCallControlSetup } = require('./lib/telnyxCallControlSetup');
+const { ensureTelnyxProductionSetup } = require('./lib/telnyxProductionSetup');
 const { handleInboundCallControlEvent } = require('./lib/inboundCallControl');
 const { handleTelnyxSmsEvent } = require('./lib/sms');
 const { handleTelnyxVoiceTelemetryEvent, startVoiceTelemetryMonitor } = require('./lib/voiceTelemetry');
@@ -234,6 +235,15 @@ app.get('/webhook/v3/call-control', (req, res) => {
         endpoint: '/webhook/v3/call-control',
         method: 'POST',
         message: 'V3 telephony ingress gateway (enqueue only). Enable with TELEPHONY_V3_INGRESS_ENABLED=true.',
+    });
+});
+
+app.get('/webhook/call-control', (req, res) => {
+    res.status(200).json({
+        ok: true,
+        endpoint: '/webhook/call-control',
+        method: 'POST',
+        message: 'Legacy Call Control webhook (inbound PSTN + transfers). Telnyx sends POST with Telnyx-Signature-Ed25519.',
     });
 });
 
@@ -769,6 +779,16 @@ const server = app.listen(PORT, async () => {
         const setup = await ensureTelnyxRecordingSetup(prisma);
         const messagingSetup = await ensureTelnyxMessagingSetup(prisma);
         const callControlSetup = await ensureTelnyxCallControlSetup(prisma);
+        const productionSetup = await ensureTelnyxProductionSetup(prisma);
+        if (productionSetup?.v3Webhook?.updated) {
+            console.log(`✅ V3 Call Control webhook set to ${productionSetup.v3Webhook.webhookUrl}`);
+        }
+        if (productionSetup?.credential?.fixed) {
+            console.log('✅ Credential SIP trunk desk settings verified (parking, internal URI, OVP)');
+        }
+        if (productionSetup?.ovp?.fixed) {
+            console.log('✅ Outbound Voice Profile desk settings updated');
+        }
         if (setup.outboundRecording?.updated) {
             console.log('✅ Outbound voice profile auto-recording enabled');
         }
