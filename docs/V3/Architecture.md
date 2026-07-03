@@ -1,103 +1,60 @@
 # Tenant Portal V3 — Architecture
 
-**Version:** v3.0.0-rc1  
-**Last updated:** 2026-07-03
+**RC1:** v3.0.0-rc1
 
----
+## Overview
 
-## System Context
+Tenant Portal V3 is an admin/configuration layer in the VSP Phone monorepo. It manages tenant PBX configuration, health, billing, and optional sync to the telephony-v3 worker without replacing legacy Call Control in RC1.
 
-Tenant Portal V3 is an **administration and configuration layer** inside the existing VSP Phone monorepo. It does not replace legacy Call Control (`lib/inboundCallControl.js`, `lib/telnyxCallControl.js`) or WebRTC softphone V2 in RC1.
+## Layers
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  Browser (Next.js) — /v3/* pages, portal-nav, v3-api.ts         │
-└────────────────────────────┬────────────────────────────────────┘
-                             │ JWT auth
-                             ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  Express API — routes/v3.js @ /api/v3                         │
-│  Gate: V3_PORTAL_ENABLED → requireV3Enabled (404 when off)    │
-└────────────────────────────┬────────────────────────────────────┘
-                             │
-         ┌───────────────────┼───────────────────┐
-         ▼                   ▼                   ▼
-┌─────────────────┐ ┌─────────────────┐ ┌──────────────────────┐
-│ lib/v3/*        │ │ PostgreSQL      │ │ Redis (runtime jobs) │
-│ Services        │ │ Prisma models   │ │ via runtimeEnqueue   │
-└────────┬────────┘ └─────────────────┘ └──────────┬───────────┘
-         │                                           │
-         │ Phase 9 bridge (optional)                 ▼
-         └──────────────────────────────► telephony-v3-worker
-                                          lib/telephony-v3/*
-```
+| Layer | Path | Role |
+|-------|------|------|
+| UI | `web/src/app/(app)/v3/` | 43 Next.js pages |
+| Client | `web/src/lib/v3-api.ts` | Typed API wrappers |
+| Nav | `web/src/lib/portal-nav.ts` | Gated by `NEXT_PUBLIC_V3_PORTAL` |
+| Routes | `routes/v3.js` | 96 HTTP handlers @ `/api/v3` |
+| Services | `lib/v3/*.js` | ~62 service modules |
+| Runtime | `lib/v3/runtime/` | 10 adapters + enqueue |
+| Schema | `prisma/schema.prisma` | 22 `V3*` models |
 
----
+## Request Flow
 
-## Layer Model
+1. JWT auth (`authMiddleware`)
+2. Portal gate (`requireV3Enabled` → 404 if off)
+3. Tenant check (`requireTenant` on mutations)
+4. Role gate (`adminOnly`, `superAdminOnly`)
+5. Service call with `tenantId` scope
+6. Optional audit log (`auditService.log`)
 
-| Layer | Location | Responsibility |
-|-------|----------|----------------|
-| **UI** | `web/src/app/(app)/v3/` | Tenant admin pages, ops dashboards |
-| **API client** | `web/src/lib/v3-api.ts` | Typed fetch wrappers |
-| **Navigation** | `web/src/lib/portal-nav.ts` | V3 nav gated by `NEXT_PUBLIC_V3_PORTAL` |
-| **HTTP routes** | `routes/v3.js` | Auth, rate limits, role checks |
-| **Services** | `lib/v3/*.js` | Business logic, tenant scoping |
-| **Runtime adapters** | `lib/v3/runtime/*.js` | Enqueue sync jobs to telephony worker |
-| **Schema** | `prisma/schema.prisma` + migrations | V3 entities |
-| **Tests** | `tests/v3/` | Unit tests (130 tests) |
+## Phase Map
 
----
-
-## Portal Phases (Logical)
-
-Routes in `routes/v3.js` are grouped by phase:
-
-1. **Employees & PBX health** — core tenant objects
-2. **Number inventory** — Telnyx DID sync, marketplace, assignments
-3. **Desk phones** — devices, templates, provisioning
-4. **Call flows** — builder engine + simulator (config only)
-5. **PBX objects** — ring groups, queues, hours, holidays, voicemail
-6. **Softphone UX** — profiles, presence, directory (management only)
-7. **Operations** — dashboard, analytics, reports, monitoring
-8. **Billing & lifecycle** — subscription, backups, import/export
-9. **Runtime bridge** — sync configuration to telephony-v3
-10. **Production readiness** — migration, diagnostics, production health
-
-**Post-phase additions (RC1):**
-
-- **Test Lab** — `lib/v3/testLabService.js`
-- **Migration Wizard** — `lib/v3/migrationWizardService.js`
-
----
-
-## Security Model
-
-- All routes require JWT (`authMiddleware`) and `V3_PORTAL_ENABLED`
-- Tenant isolation: `req.user.tenantId` scopes queries
-- Role gates:
-  - `TENANT_ADMIN` / `SUPER_ADMIN` for most mutations
-  - `superAdminOnly` for Test Lab, Migration Wizard, subscription PUT, marketplace admin
-- Runtime sync disabled by default (`V3_RUNTIME_SYNC_ENABLED=false`)
-
----
+| Phase | Services | API prefix |
+|-------|----------|------------|
+| 1 | employee, health, repair, provisioning | `/employees`, `/health`, `/repair` |
+| 2 | numberInventory, marketplace, assignment | `/numbers`, marketplace routes |
+| 3 | device, deviceProvisioning, deviceHealth | `/devices` |
+| 4 | callFlow, callFlowNode, simulation | `/callflows` |
+| 5 | ringGroup, queue, businessHours, holiday, voicemail | `/ringgroups`, `/queues`, etc. |
+| 6 | softphoneProfile, presence, directory | `/profile`, `/presence`, `/directory` |
+| 7 | dashboard, analytics, report, monitoring | `/dashboard`, `/analytics` |
+| 8 | billing, subscription, backup, lifecycle | `/billing`, `/backup` |
+| 9 | runtimeSync, runtimeHealth | `/runtime` |
+| 10 | migration, deployment, diagnostics | `/migration`, `/production-health` |
 
 ## Telephony Boundary
 
-| Component | RC1 Status |
-|-----------|------------|
-| Portal config (Phases 1–8) | ✅ Active when flag on |
-| Runtime sync (Phase 9) | ⚠️ Opt-in per environment/tenant |
-| Live call routing via V3 | ❌ Requires worker + executor flags |
-| Legacy Call Control | ✅ Production path unchanged |
+Protected files (`lib/inboundCallControl.js`, `lib/telnyxCallControl.js`, WebRTC stack) are **not modified** by V3 RC1. Runtime sync is opt-in.
 
-Protected telephony files are **not modified** by Portal V3 RC1.
+## Deployment Notes
 
----
+- API must mount `app.use('/api/v3', v3Routes)` — already in `server.js`
+- Migrations before flag enablement
 
-## Related Documentation
+## Rollback
 
-- [Deployment.md](./Deployment.md)
-- [Environment.md](./Environment.md)
-- [RuntimeSync.md](./RuntimeSync.md)
-- Internal: `docs/vsp/deployment/18-v3-production-operations-runbook.md`
+Disable `V3_PORTAL_ENABLED` and rebuild web without `NEXT_PUBLIC_V3_PORTAL`.
+
+## Operations
+
+Monitor `/ready`, tenant health at `/v3/health`, production health at `/v3/production-health`.

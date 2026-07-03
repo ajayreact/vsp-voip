@@ -1,97 +1,52 @@
 # Tenant Portal V3 — Backup & Restore
 
-**Version:** v3.0.0-rc1
+**RC1:** v3.0.0-rc1
 
----
+## Purpose
 
-## Overview
+Phase 8 tenant backup, restore, export, and import with tenant isolation enforcement.
 
-Phase 8 provides tenant-scoped backup, restore, and import/export. All operations are tenant-isolated and require appropriate admin roles.
+## Services
 
-**Services:**
+- `lib/v3/backupService.js`
+- `lib/v3/restoreService.js`
+- `lib/v3/exportImportService.js`
+- `lib/v3/storageService.js`
 
-- `lib/v3/backupService.js` — create and list backups
-- `lib/v3/restoreService.js` — restore from backup
-- `lib/v3/exportImportService.js` — JSON export/import
-- `lib/v3/storageService.js` — artifact storage
+## API
 
-**UI:** `/v3/backups`, `/v3/import-export`
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v3/backup` | List backups |
+| POST | `/api/v3/backup/create` | Create snapshot |
+| POST | `/api/v3/backup/restore-preview` | Preview restore |
+| POST | `/api/v3/backup/restore` | Execute restore |
+| POST | `/api/v3/backup/rollback-preview` | Preview rollback |
+| POST | `/api/v3/backup/rollback` | Execute rollback |
+| POST | `/api/v3/export` | Export JSON bundle |
+| POST | `/api/v3/import` | Import JSON bundle |
 
----
+## UI
 
-## Backup
+- `/v3/backups`
+- `/v3/import-export`
 
-### Create backup
+## Model
 
-- API: `POST /api/v3/backups`
-- Captures tenant configuration snapshot (employees, numbers, devices, PBX objects, etc.)
-- Stored with metadata for restore validation
+`V3TenantBackup` — metadata + storage reference.
 
-### List backups
+## Security (RC1)
 
-- API: `GET /api/v3/backups`
-- UI shows timestamp, size, status
+Import/restore rejects mismatched tenant ID with `TENANT_MISMATCH`.
 
----
+## Deployment
 
-## Restore
+Ensure storage backend configured (local/S3 per `storageService`).
 
-### From backup
+## Rollback
 
-- API: `POST /api/v3/backups/:id/restore`
-- Validates tenant scope before apply
-- **RC1:** rejects restore when backup tenant ≠ current tenant (`TENANT_MISMATCH`)
+Use backup rollback endpoints or restore previous backup. Take pre-migration backup before wizard run.
 
-### Pre-restore checklist
+## Operations
 
-1. Notify tenant of maintenance window
-2. Export current state as safety copy
-3. Disable runtime sync during restore
-4. Run restore
-5. Post-validate via Test Lab or migration post-validation
-
----
-
-## Import / Export
-
-### Export
-
-- API: `GET /api/v3/export`
-- Downloads tenant JSON bundle
-
-### Import
-
-- API: `POST /api/v3/import`
-- **RC1 hardening:** tenant ID in bundle must match authenticated tenant
-
-Use for DR, staging clone (with caution), or migration assistance — not a substitute for Prisma schema migrations.
-
----
-
-## Schema vs Data
-
-| Type | Tool |
-|------|------|
-| Schema | `prisma migrate deploy` |
-| Tenant data | Backup/restore, import/export |
-| Full DB | PostgreSQL pg_dump (ops-level) |
-
-Portal backups do **not** include call recordings, CDR, or Redis session state.
-
----
-
-## Disaster Recovery
-
-1. Restore PostgreSQL from infra backup (if total loss)
-2. Run `npm run migrate:deploy`
-3. Redeploy API + web with V3 flags
-4. Restore tenant data from portal backup or import
-5. Re-run runtime validation before enabling sync
-
----
-
-## Related
-
-- [Migration.md](./Migration.md)
-- [Rollback.md](./Rollback.md)
-- [AdminGuide.md](./AdminGuide.md)
+Schedule backup before Migration Wizard execute. Verify backup size and completeness on staging restore drill.
