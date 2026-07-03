@@ -68,12 +68,7 @@ export function LineTrend({ title, data }: { title: string; data: Array<{ label:
 }
 
 export async function runV3AdminGuard(router: { replace: (path: string) => void }) {
-  const { isV3PortalEnabled } = await import('@/lib/v3-api');
   const { getMe, isUnauthorizedError } = await import('@/lib/api');
-  if (!isV3PortalEnabled()) {
-    router.replace('/dashboard');
-    return false;
-  }
   try {
     const user = await getMe();
     if (user.role !== 'TENANT_ADMIN' && user.role !== 'SUPER_ADMIN') {
@@ -88,12 +83,7 @@ export async function runV3AdminGuard(router: { replace: (path: string) => void 
 }
 
 export async function runV3SuperAdminGuard(router: { replace: (path: string) => void }) {
-  const { isV3PortalEnabled } = await import('@/lib/v3-api');
   const { getMe, isUnauthorizedError } = await import('@/lib/api');
-  if (!isV3PortalEnabled()) {
-    router.replace('/dashboard');
-    return false;
-  }
   try {
     const user = await getMe();
     if (user.role !== 'SUPER_ADMIN') {

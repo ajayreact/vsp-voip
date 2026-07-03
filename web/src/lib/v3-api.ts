@@ -1,9 +1,8 @@
 import { apiFetch } from './api';
 
-/** Frontend V3 feature flag. Inlined at build time by Next from NEXT_PUBLIC_V3_PORTAL. */
+/** Tenant Portal V3 is always enabled (V2 retired). */
 export function isV3PortalEnabled(): boolean {
-  const value = (process.env.NEXT_PUBLIC_V3_PORTAL || '').toLowerCase();
-  return value === 'true' || value === '1' || value === 'yes' || value === 'on';
+  return true;
 }
 
 export type HealthLevel = 'green' | 'yellow' | 'red';

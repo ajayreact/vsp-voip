@@ -11,7 +11,6 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { clearToken, getDashboardStats } from '@/lib/api';
-import { useCart } from '@/context/cart-context';
 import { AdminNav } from '@/components/admin-nav';
 import {
   buildPortalNavSections,
@@ -27,20 +26,17 @@ type SidebarProps = {
 };
 
 function resolveBadge(
-  item: PortalNavItem,
+  item: PortalNavItem & { badgeKey?: 'voicemail' | 'sms' },
   badges: { voicemail: number; sms: number },
-  cartCount: number,
 ): number {
   if (item.badgeKey === 'voicemail') return badges.voicemail;
   if (item.badgeKey === 'sms') return badges.sms;
-  if (item.badgeKey === 'cart') return cartCount;
   return 0;
 }
 
 export function Sidebar({ tenantName, role, mobileOpen = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { count } = useCart();
   const isSuperAdmin = role === 'SUPER_ADMIN';
   const isAdmin = role === 'TENANT_ADMIN' || isSuperAdmin;
   const isAdminRoute = pathname.startsWith('/admin');
@@ -142,7 +138,7 @@ export function Sidebar({ tenantName, role, mobileOpen = false, onClose }: Sideb
                       {items.map((item) => {
                         const active = isPortalNavActive(pathname, item);
                         const Icon = item.icon;
-                        const navBadge = resolveBadge(item, badges, count);
+                        const navBadge = resolveBadge(item, badges);
                         return (
                           <Link
                             key={item.href}
