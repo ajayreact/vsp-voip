@@ -6,14 +6,32 @@ import { v3BusinessHoursApi } from '@/lib/v3-api';
 function toPayload(form: Record<string, unknown>) {
   let weekdays = {};
   let weekends = {};
-  try { weekdays = JSON.parse(String(form.weekdaysJson || '{}')); } catch { /* keep default */ }
-  try { weekends = JSON.parse(String(form.weekendsJson || '{}')); } catch { /* keep default */ }
+  if (form.weekdays && typeof form.weekdays === 'object') {
+    weekdays = form.weekdays;
+  } else {
+    try { weekdays = JSON.parse(String(form.weekdaysJson || '{}')); } catch { /* keep default */ }
+  }
+  if (form.weekends && typeof form.weekends === 'object') {
+    weekends = form.weekends;
+  } else {
+    try { weekends = JSON.parse(String(form.weekendsJson || '{}')); } catch { /* keep default */ }
+  }
   return {
     name: form.name,
     timezone: form.timezone || 'America/New_York',
     weekdays,
     weekends,
     isDefault: Boolean(form.isDefault),
+  };
+}
+
+function mapBusinessHoursToForm(item: Record<string, unknown>) {
+  return {
+    name: item.name || '',
+    timezone: item.timezone || 'America/New_York',
+    weekdaysJson: JSON.stringify(item.weekdays || {}, null, 2),
+    weekendsJson: JSON.stringify(item.weekends || {}, null, 2),
+    isDefault: Boolean(item.isDefault),
   };
 }
 
@@ -37,6 +55,7 @@ export default function BusinessHoursPage() {
       deleteItem={(id) => v3BusinessHoursApi.delete(id)}
       validateItem={(f) => v3BusinessHoursApi.validate(toPayload(f))}
       formatRow={(item) => String(item.timezone)}
+      mapItemToForm={(item) => mapBusinessHoursToForm(item as Record<string, unknown>)}
     />
   );
 }

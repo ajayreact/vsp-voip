@@ -58,6 +58,6 @@ describe('V3 deviceRepairService', () => {
     const prisma = fakePrisma(store);
 
     await deviceRepairService.repairDevices(prisma, 't1', { apply: true });
-    expect(store.devices[0].provisionUrl).toContain('/api/v3/devices/d1/config');
+    expect(store.devices[0].provisionUrl).toContain('/provision/cfgaabb.xml');
   });
 });

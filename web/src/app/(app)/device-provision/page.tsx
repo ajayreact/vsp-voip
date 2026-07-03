@@ -134,6 +134,12 @@ export default function DeviceProvisionPage() {
                 <div><strong>{selected.vendor}</strong> · Ext {selected.extensionNumber}</div>
                 <div className="mt-1 break-all text-xs">URL: {provisionUrl || selected.provisionUrl || '—'}</div>
                 <div className="text-xs">Config v{selected.configVersion} · Provision v{selected.provisionVersion}</div>
+                {selected.vendor === 'grandstream' ? (
+                  <p className="mt-2 text-xs text-slate-500">
+                    On the phone: Maintenance → Provision Server → set base URL to your API host with path <code>/provision/</code>, then reboot.
+                    Grandstream fetches <code>cfg{'{MAC}'}.xml</code> automatically.
+                  </p>
+                ) : null}
               </div>
               <pre className="max-h-96 overflow-auto rounded border bg-slate-50 p-3 text-xs text-slate-800">{configPreview || 'Run Provision to preview config.'}</pre>
             </>

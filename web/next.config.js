@@ -15,7 +15,15 @@ const nextConfig = {
   async redirects() {
     return [
       { source: '/v3/:path*', destination: '/:path*', permanent: true },
+      { source: '/phone-system/devices', destination: '/devices', permanent: true },
+      { source: '/phone-system/device-health', destination: '/device-health', permanent: true },
+      { source: '/phone-system/device-provision', destination: '/device-provision', permanent: true },
+      { source: '/phone-system/ring-groups', destination: '/ring-groups', permanent: true },
+      { source: '/phone-system/queues', destination: '/queues', permanent: true },
+      { source: '/phone-system/callflows', destination: '/callflows', permanent: true },
+      { source: '/phone-system/numbers', destination: '/numbers', permanent: true },
       { source: '/phone-system/:path*', destination: '/employees', permanent: false },
+      { source: '/numbers/buy', destination: '/marketplace', permanent: true },
       { source: '/my-numbers', destination: '/numbers', permanent: true },
       { source: '/phone-numbers', destination: '/numbers', permanent: true },
       { source: '/settings/team', destination: '/employees', permanent: true },

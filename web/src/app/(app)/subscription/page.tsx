@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { PortalPageHeader } from '@/components/portal/page-header';
 import { MetricCard, runV3AdminGuard } from '@/components/v3/ops/ops-ui';
+import { getMe } from '@/lib/api';
 import { getV3Subscription, updateV3Subscription, type V3SubscriptionOverview } from '@/lib/v3-api';
 
 export default function SubscriptionPage() {
@@ -14,6 +15,7 @@ export default function SubscriptionPage() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [sub, setSub] = useState<V3SubscriptionOverview | null>(null);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
   const load = useCallback(async () => {
     const res = await getV3Subscription();
@@ -21,7 +23,12 @@ export default function SubscriptionPage() {
   }, []);
 
   useEffect(() => {
-    runV3AdminGuard(router).then((ok) => (ok ? load() : undefined))
+    runV3AdminGuard(router).then(async (ok) => {
+      if (!ok) return;
+      const user = await getMe();
+      setIsSuperAdmin(user.role === 'SUPER_ADMIN');
+      return load();
+    })
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load subscription'))
       .finally(() => setLoading(false));
   }, [router, load]);
@@ -58,12 +65,14 @@ export default function SubscriptionPage() {
         <MetricCard label="Renewal" value={plan.renewalDate ? new Date(plan.renewalDate).toLocaleDateString() : '—'} />
       </div>
       <div className="flex flex-wrap gap-2">
-        {(sub?.availableTiers || []).map((t) => (
+        {isSuperAdmin ? (sub?.availableTiers || []).map((t) => (
           <button key={t.tier} type="button" disabled={saving || plan.tier === t.tier} onClick={() => changeTier(t.tier)}
             className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50 disabled:opacity-60">
             {plan.tier === t.tier ? `${t.label} (current)` : `Switch to ${t.label}`}
           </button>
-        ))}
+        )) : (
+          <p className="text-sm text-slate-500">Plan changes are managed by your platform administrator.</p>
+        )}
       </div>
       <FeatureMatrix matrix={sub?.featureMatrix || {}} />
     </div>

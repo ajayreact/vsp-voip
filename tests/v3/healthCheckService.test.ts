@@ -43,6 +43,12 @@ describe('V3 healthCheckService.buildEmployeeStatus', () => {
     expect(status.overall).toBe('red');
   });
 
+  it('marks desk phone assignment as device ready', () => {
+    const deskPhoneByEmployee = new Map([['u1', true]]);
+    const status = buildEmployeeStatus(baseUser({ devices: [], sipRegistered: false }), READY, deskPhoneByEmployee);
+    expect(status.checks.device).toBe('green');
+  });
+
   it('marks not-yet-registered / no-device as yellow (not blocking)', () => {
     const status = buildEmployeeStatus(baseUser({ sipRegistered: false, devices: [] }), READY);
     expect(status.checks.registration).toBe('yellow');

@@ -61,8 +61,9 @@ export default function NumbersPage() {
 
   async function onRepair(apply: boolean) {
     setRepairMsg('');
+    if (apply && !window.confirm('Apply number inventory repairs for this tenant?')) return;
     try {
-      const report = await repairV3Numbers(apply, isSuperAdmin);
+      const report = await repairV3Numbers(apply, false);
       setRepairMsg(`${report.mode}: ${report.changes.length} change(s)${apply ? `, ${report.applied.filter((a) => a.ok).length} applied` : ''}`);
       if (apply && ready) await load(isSuperAdmin);
     } catch (err) {

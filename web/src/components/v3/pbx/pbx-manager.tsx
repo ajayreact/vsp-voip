@@ -28,6 +28,7 @@ type Props = {
   validateItem: (data: Record<string, unknown>) => Promise<{ valid: boolean; errors: Array<{ message: string }>; warnings: Array<{ message: string }> }>;
   emptyForm: Record<string, unknown>;
   formatRow?: (item: PbxItem) => string;
+  mapItemToForm?: (item: PbxItem) => Record<string, unknown>;
 };
 
 export function PbxManager({
@@ -42,6 +43,7 @@ export function PbxManager({
   validateItem,
   emptyForm,
   formatRow,
+  mapItemToForm,
 }: Props) {
   const router = useRouter();
   const [guardReady, setGuardReady] = useState(false);
@@ -106,7 +108,7 @@ export function PbxManager({
 
   function openEdit(item: PbxItem) {
     setEditingId(item.id);
-    setForm({ ...emptyForm, ...item });
+    setForm(mapItemToForm ? mapItemToForm(item) : { ...emptyForm, ...item });
     setShowForm(true);
     setValidation('');
   }

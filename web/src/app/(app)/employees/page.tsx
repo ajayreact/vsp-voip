@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { CheckCircle2, Loader2, UserPlus, Wrench, XCircle } from 'lucide-react';
 import { PortalPageHeader } from '@/components/portal/page-header';
 import { getMe, isUnauthorizedError } from '@/lib/api';
-import { applyV3Repair, createV3Employee, inspectV3Repair, type CreateV3EmployeeResult, type RepairApplyReport, type RepairInspectReport } from '@/lib/v3-api';
+import { applyV3Repair, createV3Employee, getV3Health, inspectV3Repair, type CreateV3EmployeeResult, type EmployeeHealth, type RepairApplyReport, type RepairInspectReport } from '@/lib/v3-api';
 
 function ProvisionResult({ result }: { result: CreateV3EmployeeResult }) {
   const provisioned = result.provision?.provisioned;
@@ -46,12 +46,15 @@ export default function EmployeesPage() {
   const [inspectReport, setInspectReport] = useState<RepairInspectReport | null>(null);
   const [applyReport, setApplyReport] = useState<RepairApplyReport | null>(null);
   const [repairError, setRepairError] = useState('');
+  const [employees, setEmployees] = useState<EmployeeHealth[]>([]);
 
   useEffect(() => {getMe()
       .then((user) => {
         if (user.role !== 'TENANT_ADMIN' && user.role !== 'SUPER_ADMIN') {
           router.replace('/dashboard');
+          return;
         }
+        return getV3Health().then((res) => setEmployees(res.employees || []));
       })
       .catch((err) => {
         if (isUnauthorizedError(err)) router.replace('/login');
@@ -69,6 +72,8 @@ export default function EmployeesPage() {
       const result = await createV3Employee(form);
       setCreated(result);
       setForm({ name: '', email: '', password: '' });
+      const health = await getV3Health();
+      setEmployees(health.employees || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create employee');
     } finally {
@@ -116,9 +121,41 @@ export default function EmployeesPage() {
   return (
     <div className="space-y-8">
       <PortalPageHeader
-        title="Employees (V3)"
-        description="Create an employee and its extension, credential, and QR are provisioned automatically."
+        title="Employees"
+        description="Create employees with extensions and view telephony readiness for each team member."
       />
+
+      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 className="text-base font-semibold text-slate-900">Team & extensions</h2>
+        <div className="mt-4 overflow-x-auto">
+          <table className="min-w-full divide-y divide-slate-200 text-sm">
+            <thead className="bg-slate-50 text-left text-slate-600">
+              <tr>
+                <th className="px-3 py-2">Name</th>
+                <th className="px-3 py-2">Ext</th>
+                <th className="px-3 py-2">DID</th>
+                <th className="px-3 py-2">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {employees.map((emp) => (
+                <tr key={emp.employeeId}>
+                  <td className="px-3 py-2">
+                    <div className="font-medium">{emp.name}</div>
+                    <div className="text-xs text-slate-500">{emp.email}</div>
+                  </td>
+                  <td className="px-3 py-2">{emp.extensionNumber || '—'}</td>
+                  <td className="px-3 py-2">{emp.did || '—'}</td>
+                  <td className="px-3 py-2 capitalize">{emp.overall}</td>
+                </tr>
+              ))}
+              {!employees.length ? (
+                <tr><td colSpan={4} className="px-3 py-6 text-center text-slate-500">No employees yet.</td></tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       {error ? (
         <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>

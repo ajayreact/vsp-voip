@@ -61,6 +61,22 @@ export async function getV3Health() {
   }>('/api/v3/health');
 }
 
+export type PbxExtensionRef = {
+  id: string;
+  extensionNumber: string;
+  displayName: string | null;
+  label: string;
+};
+
+export async function getV3PbxReferences() {
+  return apiFetch<{
+    success: boolean;
+    extensions: PbxExtensionRef[];
+    ringGroups: Array<{ id: string; name: string; extensionNumber: string | null }>;
+    queues: Array<{ id: string; name: string; queueNumber: string | null }>;
+  }>('/api/v3/pbx/references');
+}
+
 export type CreateV3EmployeeResult = {
   success: boolean;
   employee: { id: string; email: string; name: string; role: string };

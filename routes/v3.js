@@ -573,15 +573,26 @@ router.get('/pbx/references', adminOnly, async (req, res) => {
     if (!requireTenant(req, res)) return;
     const prisma = await getPrisma();
     const tenantId = req.user.tenantId;
-    const [ringGroups, queues, schedules, holidays, voicemails] = await Promise.all([
+    const [ringGroups, queues, schedules, holidays, voicemails, extensions] = await Promise.all([
       ringGroupService.listRingGroups(prisma, tenantId),
       queueService.listQueues(prisma, tenantId),
       businessHoursService.listSchedules(prisma, tenantId),
       holidayService.listHolidays(prisma, tenantId),
       voicemailService.listVoicemailBoxes(prisma, tenantId),
+      prisma.extension.findMany({
+        where: { tenantId, status: 'ACTIVE' },
+        select: { id: true, extensionNumber: true, displayName: true },
+        orderBy: { extensionNumber: 'asc' },
+      }),
     ]);
     res.json({
       success: true,
+      extensions: extensions.map((e) => ({
+        id: e.id,
+        extensionNumber: e.extensionNumber,
+        displayName: e.displayName,
+        label: `${e.extensionNumber}${e.displayName ? ` — ${e.displayName}` : ''}`,
+      })),
       ringGroups: ringGroups.items.map((r) => ({ id: r.id, name: r.name, extensionNumber: r.extensionNumber })),
       queues: queues.items.map((q) => ({ id: q.id, name: q.name, queueNumber: q.queueNumber })),
       businessHours: schedules.items.map((s) => ({ id: s.id, name: s.name, timezone: s.timezone })),
@@ -1533,7 +1544,7 @@ router.post('/migration/run', adminOnly, v3HeavyMutationLimiter, async (req, res
   try {
     if (!requireTenant(req, res)) return;
     const prisma = await getPrisma();
-    const dryRun = req.body?.dryRun !== false && req.body?.apply !== true;
+    const dryRun = req.body?.apply === true ? false : req.body?.dryRun !== false;
     const result = await migrationService.migrationExecute(prisma, req.user.tenantId, {
       ...req.body,
       dryRun,
@@ -1628,7 +1639,7 @@ router.post('/migration-wizard/run', superAdminOnly, v3HeavyMutationLimiter, asy
       return res.status(400).json({ error: 'tenantId is required for migration wizard' });
     }
     const prisma = await getPrisma();
-    const dryRun = req.body?.dryRun !== false && req.body?.apply !== true;
+    const dryRun = req.body?.apply === true ? false : req.body?.dryRun !== false;
     const result = await migrationWizardService.runMigration(prisma, tenantId, {
       dryRun,
       autoRollback: req.body?.autoRollback !== false,
