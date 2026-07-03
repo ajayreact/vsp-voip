@@ -21,7 +21,7 @@ describe('V3 softphoneHealthService', () => {
       },
     };
 
-    vi.spyOn(softphoneProfileService, 'getOrCreateProfile').mockResolvedValue({
+    vi.spyOn(softphoneProfileService, 'getProfileReadOnly').mockResolvedValue({
       preferredCallerId: '+1', preferredDevice: 'desktop', timezone: 'UTC', language: 'en',
     });
     vi.spyOn(softphoneProfileService, 'isProfileComplete').mockReturnValue(true);
