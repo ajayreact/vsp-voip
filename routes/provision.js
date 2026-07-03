@@ -9,6 +9,9 @@ const deviceProvisioningService = require('../lib/v3/deviceProvisioningService')
 const {
   buildGrandstreamPvalueXml,
   buildGrandstreamProvisionFilename,
+  buildGrandstreamConfigServerPath,
+  isProvisionAccessAllowed,
+  isDeviceProvisionable,
   normalizeMacForFilename,
 } = require('../lib/v3/grandstreamPvalueConfig');
 
@@ -40,16 +43,18 @@ router.get('/:filename', async (req, res) => {
     const prisma = await getPrisma();
     const device = await findDeviceByMac(prisma, macFromPath);
     if (!device) {
-      return res.status(404).type('text/plain').send('Device not registered');
+      return res.status(404).type('text/plain').send('Not found');
     }
 
-    if (!device.extensionId) {
-      return res.status(409).type('text/plain').send('Device not assigned to an extension');
+    if (!isDeviceProvisionable(device)) {
+      if (!device.extensionId) {
+        return res.status(409).type('text/plain').send('Device not assigned to an extension');
+      }
+      return res.status(409).type('text/plain').send('Device not ready for provisioning');
     }
 
     const metadata = device.metadata && typeof device.metadata === 'object' ? device.metadata : {};
-    const provisionKey = metadata.provisionKey || null;
-    if (provisionKey && String(req.query.key || '') !== String(provisionKey)) {
+    if (!isProvisionAccessAllowed(metadata, req.query.key)) {
       return res.status(403).type('text/plain').send('Forbidden');
     }
 

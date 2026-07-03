@@ -132,12 +132,22 @@ export default function DeviceProvisionPage() {
             <>
               <div className="text-sm text-slate-600">
                 <div><strong>{selected.vendor}</strong> · Ext {selected.extensionNumber}</div>
-                <div className="mt-1 break-all text-xs">URL: {provisionUrl || selected.provisionUrl || '—'}</div>
+                {selected.vendor === 'grandstream' ? (
+                  <>
+                    <div className="mt-1 break-all text-xs">
+                      Config Server Path: {provisionUrl || selected.provisionUrl || '—'}
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      Phone fetches <code>cfg{selected.macAddress?.replace(/[^A-F0-9]/gi, '').toLowerCase() || '{mac}'}.xml</code> automatically (no query key).
+                    </div>
+                  </>
+                ) : (
+                  <div className="mt-1 break-all text-xs">URL: {provisionUrl || selected.provisionUrl || '—'}</div>
+                )}
                 <div className="text-xs">Config v{selected.configVersion} · Provision v{selected.provisionVersion}</div>
                 {selected.vendor === 'grandstream' ? (
                   <p className="mt-2 text-xs text-slate-500">
-                    On the phone: Maintenance → Provision Server → set base URL to your API host with path <code>/provision/</code>, then reboot.
-                    Grandstream fetches <code>cfg{'{MAC}'}.xml</code> automatically.
+                    On the phone: Maintenance → Provision Server → paste the Config Server Path above, then reboot.
                   </p>
                 ) : null}
               </div>

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 const {
   buildGrandstreamPvalueXml,
   buildGrandstreamProvisionFilename,
+  buildGrandstreamConfigServerPath,
   buildGrandstreamProvisionUrl,
 } = require('../../lib/v3/grandstreamPvalueConfig.js');
 
@@ -41,10 +42,11 @@ describe('grandstreamPvalueConfig', () => {
     expect(xml).toContain('<P191>2</P191>');
   });
 
-  it('builds MAC-based provision filename and URL', () => {
+  it('builds MAC-based provision filename and optional manual URL', () => {
+    process.env.API_PUBLIC_URL = 'https://api.vspphone.com';
     expect(buildGrandstreamProvisionFilename('EC:74:D7:51:E3:E7')).toBe('cfgec74d751e3e7.xml');
+    expect(buildGrandstreamConfigServerPath()).toBe('https://api.vspphone.com/provision/');
     const url = buildGrandstreamProvisionUrl('EC74D751E3E7', 'abc123');
-    expect(url).toContain('/provision/cfgec74d751e3e7.xml');
-    expect(url).toContain('key=abc123');
+    expect(url).toBe('https://api.vspphone.com/provision/cfgec74d751e3e7.xml?key=abc123');
   });
 });
