@@ -4,14 +4,15 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Search, ShoppingCart } from 'lucide-react';
 import { PortalPageHeader } from '@/components/portal/page-header';
-import { getMe, isUnauthorizedError } from '@/lib/api';
 import { isV3PortalEnabled, purchaseV3Number, searchV3Marketplace } from '@/lib/v3-api';
+import { runV3SuperAdminGuard } from '@/components/v3/ops/ops-ui';
 
 type SearchResult = { phoneNumber: string; locality: string; state: string; monthlyCost: string | null };
 
 export default function V3MarketplacePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [authorized, setAuthorized] = useState(false);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState('');
   const [areaCode, setAreaCode] = useState('');
@@ -23,14 +24,12 @@ export default function V3MarketplacePage() {
       router.replace('/dashboard');
       return;
     }
-    getMe()
+    runV3SuperAdminGuard(router)
       .then((user) => {
-        if (user.role !== 'SUPER_ADMIN') router.replace('/dashboard');
+        if (user) setAuthorized(true);
+        else router.replace('/dashboard');
       })
-      .catch((err) => {
-        if (isUnauthorizedError(err)) router.replace('/login');
-        else setError(err instanceof Error ? err.message : 'Failed to load');
-      })
+      .catch(() => router.replace('/dashboard'))
       .finally(() => setLoading(false));
   }, [router]);
 
@@ -71,6 +70,8 @@ export default function V3MarketplacePage() {
       </div>
     );
   }
+
+  if (!authorized) return null;
 
   return (
     <div className="space-y-6">

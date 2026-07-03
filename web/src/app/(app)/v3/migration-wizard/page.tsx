@@ -43,6 +43,7 @@ function levelClass(level: HealthLevel | string | undefined) {
 export default function V3MigrationWizardPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [authorized, setAuthorized] = useState(false);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [step, setStep] = useState<WizardStep>('discovery');
@@ -57,6 +58,10 @@ export default function V3MigrationWizardPage() {
 
   useEffect(() => {
     runV3SuperAdminGuard(router)
+      .then((user) => {
+        if (user) setAuthorized(true);
+        else router.replace('/dashboard');
+      })
       .catch(() => router.replace('/dashboard'))
       .finally(() => setLoading(false));
   }, [router]);
@@ -156,6 +161,8 @@ export default function V3MigrationWizardPage() {
       </div>
     );
   }
+
+  if (!authorized) return null;
 
   const counts = (discovery?.counts || preview?.inventory) as Record<string, number> | undefined;
   const previewValidation = preview?.validation as { overall?: string } | undefined;

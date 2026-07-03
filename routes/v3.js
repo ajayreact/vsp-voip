@@ -1155,7 +1155,7 @@ router.get('/subscription', adminOnly, async (req, res) => {
   }
 });
 
-router.put('/subscription', adminOnly, async (req, res) => {
+router.put('/subscription', superAdminOnly, async (req, res) => {
   try {
     if (!requireTenant(req, res)) return;
     const prisma = await getPrisma();

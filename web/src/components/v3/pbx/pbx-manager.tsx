@@ -84,6 +84,7 @@ export function PbxManager({
   }, [guardReady, listItems, search]);
 
   if (!guardReady) {
+    if (!loading) return null;
     return (
       <div className="flex h-64 items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin" />

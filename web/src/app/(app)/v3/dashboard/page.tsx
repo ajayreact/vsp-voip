@@ -39,7 +39,7 @@ export default function V3DashboardPage() {
     setCards(res.dashboard.cards);
     setHealthIssues(res.dashboard.healthIssues.total);
     setRepairTotal(res.dashboard.repairRecommendations.total);
-    setHealthScore(res.dashboard.charts.healthScore.overall);
+    setHealthScore(res.dashboard.charts?.healthScore?.overall ?? null);
   }, []);
 
   useEffect(() => {

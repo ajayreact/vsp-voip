@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Play, Trash2, FlaskConical } from 'lucide-react';
 import { PortalPageHeader } from '@/components/portal/page-header';
-import { MetricCard, runV3AdminGuard } from '@/components/v3/ops/ops-ui';
+import { MetricCard, runV3SuperAdminGuard } from '@/components/v3/ops/ops-ui';
 import {
   getV3TestLabRun,
   getV3TestLabStatus,
@@ -32,6 +32,7 @@ const MANUAL_CHECKLIST = [
 export default function V3TestLabPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [authorized, setAuthorized] = useState(false);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -51,16 +52,13 @@ export default function V3TestLabPage() {
   }, []);
 
   useEffect(() => {
-    runV3AdminGuard(router)
-      .then(async (ok) => {
-        if (!ok) return;
-        const { getMe } = await import('@/lib/api');
-        const user = await getMe();
-        if (user.role !== 'SUPER_ADMIN') {
-          router.replace('/dashboard');
-          return;
+    runV3SuperAdminGuard(router)
+      .then((user) => {
+        if (user) {
+          setAuthorized(true);
+          return load();
         }
-        await load();
+        router.replace('/dashboard');
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load test lab'))
       .finally(() => setLoading(false));
@@ -125,6 +123,8 @@ export default function V3TestLabPage() {
       </div>
     );
   }
+
+  if (!authorized) return null;
 
   const steps = report?.steps || [];
   const summary = report?.summary || {};
