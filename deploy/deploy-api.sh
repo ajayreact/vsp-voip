@@ -140,3 +140,7 @@ if [[ "${V3_ENABLED}" == "true" ]]; then
 else
   echo "==> When V3 is enabled, set TELEPHONY_V3_* in .env and run: bash deploy/deploy-v3-worker.sh"
 fi
+
+echo ""
+echo "==> Running post-deploy healthcheck (informational — does not affect this script's exit code)"
+bash "${REPO_ROOT}/scripts/post-deploy-healthcheck.sh" || true

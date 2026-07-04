@@ -229,8 +229,8 @@ async function testDuplicateAssignmentPrevented() {
   const fs = require('fs');
   const path = require('path');
   const schema = fs.readFileSync(path.join(__dirname, '../prisma/schema.prisma'), 'utf8');
-  assert(schema.includes('number                   String   @unique'), 'DID number is globally unique (one row per DID)');
-  assert(schema.includes('tenantId                 String?'), 'PhoneNumber.tenantId is single nullable owner field');
+  assert(/number\s+String\s+@unique/.test(schema), 'DID number is globally unique (one row per DID)');
+  assert(/tenantId\s+String\?/.test(schema), 'PhoneNumber.tenantId is single nullable owner field');
 
   const source = fs.readFileSync(path.join(__dirname, '../lib/adminDidManagement.js'), 'utf8');
   assert(source.includes('prisma.$transaction'), 'DID assign/reassign uses database transaction');

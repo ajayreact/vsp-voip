@@ -3,7 +3,7 @@
  * Maps to docs/vsp/git/05-merge-checklist.md and deployment/14-telephony-validation.md
  */
 import { describe, it, expect, beforeAll } from 'vitest';
-import { apiRequest, loginOrSkip, skipIfUnreachable } from '../lib/api-client';
+import { apiRequest, authMeTenantId, loginOrSkip, skipIfUnreachable, type AuthMeResponse } from '../lib/api-client';
 import { config } from '../lib/config';
 
 async function fetchWeb(path: string) {
@@ -72,9 +72,9 @@ describe('regression / deploy gate', () => {
 
   it('✓ Tenant isolation — /api/auth/me tenantId', async () => {
     if (!token) return;
-    const res = await apiRequest<{ user?: { tenantId?: string } }>('/api/auth/me', { token });
+    const res = await apiRequest<AuthMeResponse>('/api/auth/me', { token });
     expect(res.status).toBe(200);
-    expect(res.data.user?.tenantId).toBeTruthy();
+    expect(authMeTenantId(res.data)).toBeTruthy();
   });
 
   it('✓ Extension routing — extensions list', async () => {

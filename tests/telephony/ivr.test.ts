@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { apiRequest, loginOrSkip } from '../lib/api-client';
+import { apiRequest, authMeTenantId, loginOrSkip, type AuthMeResponse } from '../lib/api-client';
 
 describe('telephony / IVR', () => {
   let token: string | undefined;
@@ -9,8 +9,8 @@ describe('telephony / IVR', () => {
     const session = await loginOrSkip();
     token = session?.token;
     if (token) {
-      const me = await apiRequest<{ user?: { tenantId?: string } }>('/api/auth/me', { token });
-      tenantId = me.data.user?.tenantId;
+      const me = await apiRequest<AuthMeResponse>('/api/auth/me', { token });
+      tenantId = authMeTenantId(me.data);
     }
   });
 

@@ -58,8 +58,15 @@ router.patch('/:key', async (req, res) => {
 });
 
 router.get('/:key/health', async (req, res) => {
-  const health = await ProviderManager.checkHealth(req.params.key);
-  res.json({ success: true, health });
+  try {
+    const health = await ProviderManager.checkHealth(req.params.key);
+    res.json({ success: true, health });
+  } catch (error) {
+    // ProviderManager.checkHealth() already fails open, but guard here too
+    // so a health probe can never throw an unhandled rejection into the
+    // shared API process (which would also take down Telnyx traffic).
+    res.status(500).json({ error: error.message || 'Failed to check provider health' });
+  }
 });
 
 router.get('/:key/logs', async (req, res) => {
@@ -112,8 +119,12 @@ router.put('/credentials', async (req, res) => {
 });
 
 router.get('/default', async (req, res) => {
-  const provider = await ProviderManager.getDefaultProvider();
-  res.json({ success: true, provider });
+  try {
+    const provider = await ProviderManager.getDefaultProvider();
+    res.json({ success: true, provider });
+  } catch (error) {
+    res.status(500).json({ error: error.message || 'Failed to load default provider' });
+  }
 });
 
 router.put('/default', async (req, res) => {
@@ -135,8 +146,12 @@ router.put('/default', async (req, res) => {
 });
 
 router.get('/tenant/:tenantId', async (req, res) => {
-  const tenantProvider = await ProviderManager.getTenantProvider(req.params.tenantId);
-  res.json({ success: true, tenantProvider });
+  try {
+    const tenantProvider = await ProviderManager.getTenantProvider(req.params.tenantId);
+    res.json({ success: true, tenantProvider });
+  } catch (error) {
+    res.status(500).json({ error: error.message || 'Failed to load tenant provider mapping' });
+  }
 });
 
 router.put('/tenant/:tenantId', async (req, res) => {

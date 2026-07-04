@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { apiRequest, login, loginOrSkip } from '../lib/api-client';
+import { apiRequest, authMeTenantId, login, loginOrSkip, type AuthMeResponse } from '../lib/api-client';
 
 describe('telephony / tenant routing', () => {
   let token: string | undefined;
@@ -18,10 +18,10 @@ describe('telephony / tenant routing', () => {
 
   it('JWT /api/auth/me includes tenantId', async () => {
     if (!token) return;
-    const res = await apiRequest<{ user?: { tenantId?: string } }>('/api/auth/me', { token });
+    const res = await apiRequest<AuthMeResponse>('/api/auth/me', { token });
     expect(res.status).toBe(200);
-    expect(res.data.user?.tenantId).toBeTruthy();
-    tenantId = res.data.user?.tenantId;
+    expect(authMeTenantId(res.data)).toBeTruthy();
+    tenantId = authMeTenantId(res.data);
   });
 
   it('tenant cannot access another tenant calls via missing tenant header', async () => {

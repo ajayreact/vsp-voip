@@ -19,6 +19,7 @@
     "qa:perf:messaging-smoke": "k6 run tests/performance/k6-messaging-smoke.js",
     "qa": "node scripts/run-qa-suite.js",
     "qa:full": "node scripts/run-qa-suite.js --full-telephony",
+    "healthcheck:post-deploy": "bash scripts/post-deploy-healthcheck.sh",
     "qa:perf:100": "k6 run tests/performance/k6-100-users.js",
     "qa:perf:500": "k6 run tests/performance/k6-500-users.js",
     "validate:tests-framework": "node scripts/validate-tests-framework.js",

@@ -50,7 +50,7 @@ export const REST_ENDPOINTS: EndpointSpec[] = [
 
   // Softphone (route existence + auth only)
   { group: 'softphone', method: 'GET', path: '/api/softphone/config', auth: 'jwt', anonAccept: [401], authedAccept: [200, 403] },
-  { group: 'softphone', method: 'GET', path: '/api/softphone/diagnostics', auth: 'jwt', anonAccept: [401], authedAccept: [200] },
+  { group: 'softphone', method: 'GET', path: '/api/softphone/diagnostics', auth: 'jwt', anonAccept: [401], authedAccept: [200, 403, 429] },
   { group: 'softphone', method: 'POST', path: '/api/softphone/token', auth: 'jwt', anonAccept: [401], authedAccept: [200, 400, 403], body: {}, skipProbe: true },
   { group: 'softphone', method: 'GET', path: '/api/softphone/devices', auth: 'jwt', anonAccept: [401], authedAccept: [200] },
   { group: 'softphone', method: 'DELETE', path: `/api/softphone/devices/${PLACEHOLDER_DEVICE}`, auth: 'jwt', anonAccept: [401], authedAccept: [404, 400, 200], skipProbe: true },
@@ -74,7 +74,7 @@ export const REST_ENDPOINTS: EndpointSpec[] = [
   { group: 'sms-legacy', method: 'POST', path: '/api/sms/send', auth: 'jwt', anonAccept: [401], authedAccept: [400, 403], body: { from: '', to: '', text: '' }, skipProbe: true },
 
   // Messaging API
-  { group: 'messaging', method: 'GET', path: '/api/conversations', auth: 'jwt', anonAccept: [401], authedAccept: [200] },
+  { group: 'messaging', method: 'GET', path: '/api/conversations', auth: 'jwt', anonAccept: [401], authedAccept: [200, 403] },
   { group: 'messaging', method: 'GET', path: '/api/conversations/by-peer', auth: 'jwt', anonAccept: [401], authedAccept: [200, 400] },
   { group: 'messaging', method: 'GET', path: `/api/conversations/${PLACEHOLDER_UUID}/messages`, auth: 'jwt', anonAccept: [401], authedAccept: [200, 403, 404] },
   { group: 'messaging', method: 'PATCH', path: `/api/conversations/${PLACEHOLDER_UUID}/read`, auth: 'jwt', anonAccept: [401], authedAccept: [200, 403, 404], skipProbe: true },

@@ -15,7 +15,7 @@ describe('telephony / outbound call', () => {
     const res = await apiRequest('/api/softphone/token', { method: 'POST', token });
     expect([200, 503]).toContain(res.status);
     if (res.status === 200) {
-      expect(res.data).toHaveProperty('login_token');
+      expect(res.data).toHaveProperty('loginToken');
     }
   });
 
