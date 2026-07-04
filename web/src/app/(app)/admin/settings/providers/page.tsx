@@ -178,17 +178,31 @@ export default function AdminSettingsProvidersPage() {
       <AdminSectionNav tabs={adminSettingsTabs} />
 
       <KpiSection title="Providers" description="Enable/disable a provider and check live credential health.">
-        {providers.map((provider) => (
-          <KpiCard
-            key={provider.id}
-            title={provider.displayName}
-            value={health[provider.key]?.ok ? 'Healthy' : 'Needs attention'}
-            subtitle={health[provider.key]?.message || (provider.isActive ? 'Enabled' : 'Disabled')}
-            icon={provider.key === 'telnyx' ? Plug : Activity}
-            tone={health[provider.key]?.ok ? 'emerald' : 'amber'}
-            badge={defaultProviderKey === provider.key ? 'Default' : undefined}
-          />
-        ))}
+        {providers.map((provider) => {
+          const isDefault = defaultProviderKey === provider.key;
+          const statusLabel = provider.isActive ? 'Active' : 'Inactive';
+          const badge = isDefault ? 'Default' : statusLabel;
+          return (
+            <KpiCard
+              key={provider.id}
+              title={provider.displayName}
+              value={health[provider.key]?.ok ? 'Healthy' : 'Needs attention'}
+              subtitle={
+                health[provider.key]?.message ||
+                `${statusLabel}${isDefault ? ' · platform default' : ''}`
+              }
+              icon={provider.key === 'telnyx' ? Plug : Activity}
+              tone={
+                !provider.isActive
+                  ? 'slate'
+                  : health[provider.key]?.ok
+                    ? 'emerald'
+                    : 'amber'
+              }
+              badge={badge}
+            />
+          );
+        })}
       </KpiSection>
 
       <div className="panel-card space-y-4 p-6">

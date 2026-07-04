@@ -13,6 +13,7 @@ import {
   LifeBuoy,
   Settings2,
   Radio,
+  Plug,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -82,7 +83,8 @@ export const superAdminSections: NavSection[] = [
     title: 'Settings',
     items: [
       { href: '/admin/settings/platform', label: 'Platform', icon: Settings2 },
-      { href: '/admin/settings/carrier', label: 'Carrier', icon: Settings2 },
+      { href: '/admin/settings/providers', label: 'Providers', icon: Plug },
+      { href: '/admin/settings/carrier', label: 'Telnyx Configuration', icon: Settings2 },
       { href: '/admin/settings/billing', label: 'Billing', icon: Settings2 },
       { href: '/admin/settings/security', label: 'Security', icon: Settings2 },
     ],

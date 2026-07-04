@@ -31,8 +31,8 @@ export function AdminSectionNav({ tabs }: { tabs: Tab[] }) {
 
 export const adminSettingsTabs = [
   { href: '/admin/settings/platform', label: 'Platform' },
-  { href: '/admin/settings/carrier', label: 'Carrier' },
   { href: '/admin/settings/providers', label: 'Providers' },
+  { href: '/admin/settings/carrier', label: 'Telnyx Configuration' },
   { href: '/admin/settings/billing', label: 'Billing' },
   { href: '/admin/settings/security', label: 'Security' },
 ];

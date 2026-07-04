@@ -99,7 +99,7 @@ export default function LiveOperationsPage() {
           subtitle={telnyxStatus?.message || 'Voice trunk status'}
           icon={Signal}
           tone={telnyxConnected ? 'emerald' : 'amber'}
-          href="/admin/settings/carrier"
+          href="/admin/settings/providers"
         />
       </KpiSection>
 
@@ -146,8 +146,8 @@ export default function LiveOperationsPage() {
         <Link href="/admin/monitoring/registrations" className="btn-secondary px-4 py-2 text-sm">
           Registration status
         </Link>
-        <Link href="/admin/settings/carrier" className="btn-secondary px-4 py-2 text-sm">
-          Carrier settings
+        <Link href="/admin/settings/providers" className="btn-secondary px-4 py-2 text-sm">
+          Telephony providers
         </Link>
       </div>
 

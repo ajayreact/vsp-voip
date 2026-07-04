@@ -28,6 +28,20 @@ const TELNYX_CAPABILITIES = {
   messaging: true,
 };
 
+async function ensureTwilioProvider(prisma) {
+  return prisma.provider.upsert({
+    where: { key: 'twilio' },
+    update: {},
+    create: {
+      id: 'twilio',
+      key: 'twilio',
+      displayName: 'Twilio',
+      isActive: false,
+      capabilities: {},
+    },
+  });
+}
+
 async function ensureTelnyxProvider(prisma) {
   const provider = await prisma.provider.upsert({
     where: { key: TELNYX_PROVIDER_KEY },
@@ -82,6 +96,10 @@ async function main() {
   console.log('[seed-provider-tables] Ensuring telnyx Provider row exists...');
   const provider = await ensureTelnyxProvider(prisma);
   console.log(`[seed-provider-tables] Provider ready: id=${provider.id} key=${provider.key}`);
+
+  console.log('[seed-provider-tables] Ensuring twilio Provider row exists (inactive by default)...');
+  const twilio = await ensureTwilioProvider(prisma);
+  console.log(`[seed-provider-tables] Provider ready: id=${twilio.id} key=${twilio.key} isActive=${twilio.isActive}`);
 
   console.log('[seed-provider-tables] Backfilling TenantProvider rows for existing tenants...');
   const result = await backfillTenantProviders(prisma, provider);

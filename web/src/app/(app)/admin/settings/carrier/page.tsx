@@ -1,9 +1,10 @@
 'use client';
 
 import 'sweetalert2/dist/sweetalert2.min.css';
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { GitBranch, Loader2, Save } from 'lucide-react';
+import { GitBranch, Loader2, Plug, Save } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { AdminPageHeader } from '@/components/admin-page-header';
 import { AdminSectionNav, adminSettingsTabs } from '@/components/admin-section-nav';
@@ -72,10 +73,20 @@ export default function AdminSettingsCarrierPage() {
     <div className="mx-auto max-w-3xl space-y-8">
       <AdminPageHeader
         section="Settings"
-        title="Carrier settings"
-        subtitle="Telnyx connections, messaging profile, call control, and trunk routing."
+        title="Telnyx Configuration"
+        subtitle="Advanced Telnyx settings: TeXML, credential connection, messaging profile, call control, and trunk routing (LCR)."
       />
       <AdminSectionNav tabs={adminSettingsTabs} />
+
+      <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-4 text-sm text-indigo-900">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <p>For multi-provider management, use Settings → Providers.</p>
+          <Link href="/admin/settings/providers" className="btn-primary inline-flex shrink-0 items-center gap-2 px-3 py-1.5 text-sm">
+            <Plug className="h-4 w-4" />
+            Open Providers
+          </Link>
+        </div>
+      </div>
 
       <AdminPlatformSettingsForm sections={['telnyx']} saveLabel="Save Telnyx settings" />
 
