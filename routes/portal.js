@@ -409,6 +409,30 @@ router.get('/tenant/profile', authMiddleware, async (req, res) => {
   }
 });
 
+// VSP Phone V3 Multi-Provider Architecture (Phase 6): read-only indicator
+// only — tenants cannot change their provider from the portal yet. Sourced
+// from TenantProvider.isPrimary; defaults to "telnyx" when no row exists
+// (every tenant that existed before this initiative), matching
+// ProviderResolver's default-to-Telnyx guarantee.
+router.get('/tenant/telephony-provider', authMiddleware, async (req, res) => {
+  try {
+    if (!req.user.tenantId) {
+      return res.status(403).json({ error: 'No organization linked to this account' });
+    }
+    const ProviderManager = require('../lib/providers/ProviderManager');
+    const tenantProvider = await ProviderManager.getTenantProvider(req.user.tenantId);
+    res.json({
+      success: true,
+      provider: {
+        key: tenantProvider?.provider?.key || 'telnyx',
+        displayName: tenantProvider?.provider?.displayName || 'Telnyx',
+      },
+    });
+  } catch (error) {
+    res.json({ success: true, provider: { key: 'telnyx', displayName: 'Telnyx' } });
+  }
+});
+
 router.put('/tenant/profile', authMiddleware, requireRole('TENANT_ADMIN'), async (req, res) => {
   try {
     if (!req.user.tenantId) {

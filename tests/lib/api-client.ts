@@ -71,19 +71,48 @@ export function skipIfUnreachable(res: ApiResponse): boolean {
   return false;
 }
 
-export async function login(): Promise<{ token: string; tenantId?: string; role?: string }> {
-  const res = await apiRequest<{ accessToken?: string; user?: { tenantId?: string; role?: string } }>(
-    '/api/auth/login',
-    { method: 'POST', body: { email: config.email, password: config.password } },
-  );
-  if (res.status !== 200 || !res.data.accessToken) {
-    throw new Error(`Login failed: ${res.status} ${res.raw.slice(0, 200)}`);
+export type AuthMeResponse = {
+  tenantId?: string;
+  role?: string;
+  /** Legacy nested shape — login returns this; /api/auth/me does not. */
+  user?: { tenantId?: string; role?: string };
+};
+
+/** `/api/auth/me` returns a flat profile; login wraps user under `user`. */
+export function authMeTenantId(data: AuthMeResponse): string | undefined {
+  return data.tenantId ?? data.user?.tenantId;
+}
+
+type LoginSession = { token: string; tenantId?: string; role?: string };
+
+let cachedLogin: LoginSession | null = null;
+let loginInFlight: Promise<LoginSession> | null = null;
+
+export async function login(): Promise<LoginSession> {
+  if (cachedLogin) return cachedLogin;
+  if (loginInFlight) return loginInFlight;
+
+  loginInFlight = (async () => {
+    const res = await apiRequest<{ accessToken?: string; user?: { tenantId?: string; role?: string } }>(
+      '/api/auth/login',
+      { method: 'POST', body: { email: config.email, password: config.password } },
+    );
+    if (res.status !== 200 || !res.data.accessToken) {
+      throw new Error(`Login failed: ${res.status} ${res.raw.slice(0, 200)}`);
+    }
+    cachedLogin = {
+      token: res.data.accessToken,
+      tenantId: res.data.user?.tenantId,
+      role: res.data.user?.role,
+    };
+    return cachedLogin;
+  })();
+
+  try {
+    return await loginInFlight;
+  } finally {
+    loginInFlight = null;
   }
-  return {
-    token: res.data.accessToken,
-    tenantId: res.data.user?.tenantId,
-    role: res.data.user?.role,
-  };
 }
 
 export async function loginOrSkip(): Promise<{ token: string } | null> {

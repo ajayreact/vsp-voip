@@ -26,6 +26,10 @@ describe('telephony / extension routing', () => {
     if (!token) return;
     const res = await apiRequest('/api/softphone/diagnostics', { token });
     if (skipIfUnreachable(res)) return;
+    if (res.status === 429) {
+      console.warn('[skip] softphone diagnostics rate-limited during QA');
+      return;
+    }
     expect([200, 403, 404]).toContain(res.status);
   });
 });

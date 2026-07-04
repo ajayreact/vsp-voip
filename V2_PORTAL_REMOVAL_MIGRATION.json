@@ -1,0 +1,220 @@
+{
+  "migratedRoutes": [
+    {
+      "from": "/v3/activity",
+      "to": "/activity"
+    },
+    {
+      "from": "/v3/analytics",
+      "to": "/analytics"
+    },
+    {
+      "from": "/v3/assignments",
+      "to": "/assignments"
+    },
+    {
+      "from": "/v3/backups",
+      "to": "/backups"
+    },
+    {
+      "from": "/v3/billing",
+      "to": "/billing"
+    },
+    {
+      "from": "/v3/business-hours",
+      "to": "/business-hours"
+    },
+    {
+      "from": "/v3/callflows/builder",
+      "to": "/callflows/builder"
+    },
+    {
+      "from": "/v3/callflows",
+      "to": "/callflows"
+    },
+    {
+      "from": "/v3/callflows/simulator",
+      "to": "/callflows/simulator"
+    },
+    {
+      "from": "/v3/dashboard",
+      "to": "/dashboard"
+    },
+    {
+      "from": "/v3/device-health",
+      "to": "/device-health"
+    },
+    {
+      "from": "/v3/device-provision",
+      "to": "/device-provision"
+    },
+    {
+      "from": "/v3/devices",
+      "to": "/devices"
+    },
+    {
+      "from": "/v3/diagnostics",
+      "to": "/diagnostics"
+    },
+    {
+      "from": "/v3/directory",
+      "to": "/directory"
+    },
+    {
+      "from": "/v3/employees",
+      "to": "/employees"
+    },
+    {
+      "from": "/v3/health",
+      "to": "/health"
+    },
+    {
+      "from": "/v3/holidays",
+      "to": "/holidays"
+    },
+    {
+      "from": "/v3/import-export",
+      "to": "/import-export"
+    },
+    {
+      "from": "/v3/license",
+      "to": "/license"
+    },
+    {
+      "from": "/v3/lifecycle",
+      "to": "/lifecycle"
+    },
+    {
+      "from": "/v3/marketplace",
+      "to": "/marketplace"
+    },
+    {
+      "from": "/v3/metrics",
+      "to": "/metrics"
+    },
+    {
+      "from": "/v3/migration",
+      "to": "/migration"
+    },
+    {
+      "from": "/v3/migration-wizard",
+      "to": "/migration-wizard"
+    },
+    {
+      "from": "/v3/monitoring",
+      "to": "/monitoring"
+    },
+    {
+      "from": "/v3/notifications",
+      "to": "/notifications"
+    },
+    {
+      "from": "/v3/numbers",
+      "to": "/numbers"
+    },
+    {
+      "from": "/v3/preferences",
+      "to": "/preferences"
+    },
+    {
+      "from": "/v3/presence",
+      "to": "/presence"
+    },
+    {
+      "from": "/v3/production-health",
+      "to": "/production-health"
+    },
+    {
+      "from": "/v3/profile",
+      "to": "/profile"
+    },
+    {
+      "from": "/v3/queues",
+      "to": "/queues"
+    },
+    {
+      "from": "/v3/reports",
+      "to": "/reports"
+    },
+    {
+      "from": "/v3/ring-groups",
+      "to": "/ring-groups"
+    },
+    {
+      "from": "/v3/runtime/health",
+      "to": "/runtime/health"
+    },
+    {
+      "from": "/v3/runtime/jobs",
+      "to": "/runtime/jobs"
+    },
+    {
+      "from": "/v3/runtime",
+      "to": "/runtime"
+    },
+    {
+      "from": "/v3/runtime-validation",
+      "to": "/runtime-validation"
+    },
+    {
+      "from": "/v3/subscription",
+      "to": "/subscription"
+    },
+    {
+      "from": "/v3/system-health",
+      "to": "/system-health"
+    },
+    {
+      "from": "/v3/test-lab",
+      "to": "/test-lab"
+    },
+    {
+      "from": "/v3/voicemail",
+      "to": "/voicemail"
+    }
+  ],
+  "removedV2Paths": [
+    "/dashboard",
+    "/employees",
+    "/extensions",
+    "/phone-numbers",
+    "/devices",
+    "/ring-groups",
+    "/ring-groups/new",
+    "/ring-groups/[id]",
+    "/calls",
+    "/recordings",
+    "/voicemail",
+    "/sms",
+    "/assistant",
+    "/reports",
+    "/billing",
+    "/settings",
+    "/settings/profile",
+    "/settings/subscription",
+    "/settings/payment-methods",
+    "/settings/advanced",
+    "/settings/advanced/danger-zone",
+    "/settings/orders/[id]",
+    "/settings/team",
+    "/numbers",
+    "/cart",
+    "/cart/success",
+    "/cart/order-placed",
+    "/greeting",
+    "/my-numbers",
+    "/phone-system",
+    "/phone-system/extensions",
+    "/phone-system/extensions/new",
+    "/phone-system/extensions/[id]",
+    "/phone-system/devices",
+    "/phone-system/ring-groups",
+    "/phone-system/ring-groups/new",
+    "/phone-system/ring-groups/[id]",
+    "/phone-system/registration",
+    "/phone-system/security",
+    "/phone-system/call-routing",
+    "/phone-system/voicemail"
+  ],
+  "timestamp": "2026-07-03T07:32:39.451Z"
+}

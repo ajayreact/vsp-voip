@@ -87,7 +87,15 @@ describe('V3 CallManager hardening (Phase 2.6)', () => {
         to: '+2',
         connectionId: 'conn-1',
         correlationId: 'c1',
-        raw: {},
+        raw: {
+          body: {
+            data: {
+              payload: {
+                client_state: JSON.stringify({ tenantId: 't1' }),
+              },
+            },
+          },
+        },
       },
       workerId: 'worker-1',
       ingressId: 'ingress-1',
@@ -162,7 +170,15 @@ describe('V3 CallManager hardening (Phase 2.6)', () => {
         to: null,
         connectionId: null,
         correlationId: 'c1',
-        raw: {},
+        raw: {
+          body: {
+            data: {
+              payload: {
+                client_state: JSON.stringify({ tenantId: 't1' }),
+              },
+            },
+          },
+        },
       },
       workerId: 'worker-1',
       ingressId: 'ingress-dup',

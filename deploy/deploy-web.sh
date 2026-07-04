@@ -18,8 +18,11 @@ fi
 echo "Node $(node -v) | npm $(npm -v)"
 
 cd "${REPO_ROOT}"
-echo "==> git pull"
-git pull origin main
+BRANCH="${DEPLOY_BRANCH:-main}"
+echo "==> git fetch/checkout ${BRANCH}"
+git fetch origin "${BRANCH}"
+git checkout "${BRANCH}"
+git pull origin "${BRANCH}"
 
 if [[ -n "${DEPLOY_COMMIT:-}" ]]; then
   echo "==> Checking out deploy pin: ${DEPLOY_COMMIT}"

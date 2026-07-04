@@ -175,6 +175,20 @@ describe('V3 deskRouter', () => {
     expect(result.reason).toBe('already_routed');
   });
 
+  it('routes when routeSnapshot only contains desk outbound bootstrap', async () => {
+    mockDeskContext();
+    mockFindUnique.mockResolvedValue({
+      routeSnapshot: {
+        callKind: 'DESK_OUTBOUND',
+        deskBootstrap: { extensionNumber: '100', sipUsername: 'user100' },
+      },
+    });
+
+    const result = await deskRouter.routeDeskSession(baseEvent());
+    expect(result.ok).toBe(true);
+    expect(commandBus.enqueueIntents).toHaveBeenCalled();
+  });
+
   it('does not enqueue commands in observe mode', async () => {
     vi.spyOn(featureFlags, 'getTenantFlags').mockResolvedValue({
       deskEnabled: true,

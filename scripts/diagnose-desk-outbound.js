@@ -3,8 +3,8 @@
  * Diagnose Grandstream / desk phone outbound (Park Outbound Pattern 1).
  *
  * Usage:
- *   node scripts/diagnose-desk-outbound.js
- *   node scripts/diagnose-desk-outbound.js --extension 101
+ *   npx tsx scripts/diagnose-desk-outbound.js --extension 100 --tenant-name="VSP Internal"
+ *   npx tsx scripts/diagnose-desk-outbound.js --extension 100 --tenant-id=8bbcdbdf-6377-44a0-bd84-ac6a34d5de96
  *
  * On the server while placing a failing desk call:
  *   docker compose logs api --tail=100 -f | grep -E "parked outbound|extension.initiated|Parked WebRTC|caller not resolved|connection_id_mismatch"
@@ -16,13 +16,20 @@ async function main() {
   const extensionNumber = process.argv.includes('--extension')
     ? process.argv[process.argv.indexOf('--extension') + 1]
     : '101';
+  const tenantIdArg = process.argv.includes('--tenant-id')
+    ? process.argv[process.argv.indexOf('--tenant-id') + 1]
+    : null;
+  const tenantNameArg = process.argv.includes('--tenant-name')
+    ? process.argv[process.argv.indexOf('--tenant-name') + 1]
+    : null;
 
   const { PrismaClient } = require('../generated/prisma/client');
   const { PrismaPg } = require('@prisma/adapter-pg');
   const { loadPlatformSettings } = require('../lib/platformSettings');
   const { getCredentialConnectionId } = require('../lib/telnyxConfig');
-  const { getCallControlApplicationId } = require('../lib/telnyxCallControlSetup');
+  const { getCallControlApplicationId, getV3CallControlApplicationId } = require('../lib/telnyxCallControlSetup');
   const { getCredentialConnection } = require('../lib/telnyxRecordingSetup');
+  const { telnyxApiRequest } = require('../lib/telnyxCallControl');
 
   const prisma = new PrismaClient({
     adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
@@ -32,14 +39,17 @@ async function main() {
     const platform = await loadPlatformSettings(prisma);
     const credentialConnectionId = getCredentialConnectionId(platform);
     const callControlApplicationId = getCallControlApplicationId(platform);
+    const v3CallControlApplicationId = getV3CallControlApplicationId();
     const apiPublic = process.env.API_PUBLIC_URL?.replace(/\/$/, '') || '(not set)';
 
     console.log('=== Desk outbound diagnostics ===\n');
     console.log('API_PUBLIC_URL:', apiPublic);
     console.log('Credential connection ID (platform):', credentialConnectionId || 'MISSING');
-    console.log('Call Control application ID:', callControlApplicationId || 'MISSING');
+    console.log('Legacy Call Control application ID:', callControlApplicationId || 'MISSING');
+    console.log('V3 Call Control application ID (desk parked outbound):', v3CallControlApplicationId || 'MISSING');
     console.log('Expected voice webhook:', apiPublic !== '(not set)' ? `${apiPublic}/webhook/voice` : '—');
     console.log('Expected call-control webhook:', apiPublic !== '(not set)' ? `${apiPublic}/webhook/call-control` : '—');
+    console.log('Expected V3 call-control webhook:', apiPublic !== '(not set)' ? `${apiPublic}/webhook/v3/call-control` : '—');
     console.log('');
 
     if (credentialConnectionId) {
@@ -50,23 +60,63 @@ async function main() {
       console.log('  outbound_voice_profile_id:', connection?.outbound?.outbound_voice_profile_id || 'MISSING');
       console.log('  sip_uri_calling_preference:', connection?.sip_uri_calling_preference || '—');
       console.log('');
+
+      const profileId = connection?.outbound?.outbound_voice_profile_id;
+      if (profileId) {
+        try {
+          const profile = await telnyxApiRequest('get', `/outbound_voice_profiles/${encodeURIComponent(profileId)}`);
+          console.log('Telnyx outbound voice profile:');
+          console.log('  id:', profileId);
+          console.log('  name:', profile?.name || '—');
+          console.log('  connection_id (Call Control app for parked outbound):', profile?.connection_id || 'MISSING');
+          if (v3CallControlApplicationId && profile?.connection_id) {
+            const matchesV3 = String(profile.connection_id) === String(v3CallControlApplicationId);
+            const matchesLegacy = callControlApplicationId
+              && String(profile.connection_id) === String(callControlApplicationId);
+            console.log('  matches TELNYX_V3_CALL_CONTROL_APP_ID:', matchesV3 ? 'YES' : 'no');
+            console.log('  matches legacy TELNYX_CALL_CONTROL_APP_ID:', matchesLegacy ? 'YES' : 'no');
+            if (!matchesV3 && !matchesLegacy) {
+              console.log('  ⚠️  Outbound profile Call Control app does not match env — webhooks may go elsewhere');
+            }
+          }
+          console.log('');
+        } catch (error) {
+          console.warn('  Could not load outbound voice profile:', error.message);
+          console.log('');
+        }
+      }
+    }
+
+    const extensionWhere = {
+      extensionNumber: String(extensionNumber),
+      status: 'ACTIVE',
+    };
+    if (tenantIdArg) {
+      extensionWhere.tenantId = tenantIdArg;
+    } else if (tenantNameArg) {
+      extensionWhere.tenant = { name: { contains: tenantNameArg, mode: 'insensitive' } };
     }
 
     const extension = await prisma.extension.findFirst({
-      where: { extensionNumber: String(extensionNumber), status: 'ACTIVE' },
+      where: extensionWhere,
       include: {
         user: true,
         security: true,
         primaryPhoneNumber: true,
+        tenant: { select: { id: true, name: true } },
       },
     });
 
     if (!extension) {
-      console.error(`Extension ${extensionNumber} not found`);
+      console.error(`Extension ${extensionNumber} not found${tenantNameArg ? ` for tenant "${tenantNameArg}"` : ''}${tenantIdArg ? ` for tenant id ${tenantIdArg}` : ''}`);
+      console.error('Tip: multiple tenants may share the same extension number — pass --tenant-name or --tenant-id');
       process.exit(1);
     }
 
+    const v3Flags = await prisma.v3FeatureFlag.findUnique({ where: { tenantId: extension.tenantId } });
+
     console.log(`Extension ${extension.extensionNumber} (${extension.displayName})`);
+    console.log('  tenant:', extension.tenant?.name || extension.tenantId);
     console.log('  tenantId:', extension.tenantId);
     console.log('  userId:', extension.userId || 'UNASSIGNED');
     console.log('  user.telnyxSipUsername:', extension.user?.telnyxSipUsername || 'MISSING');
@@ -74,12 +124,14 @@ async function main() {
     console.log('  legacy ext.telnyxSipUsername:', extension.telnyxSipUsername || '—');
     console.log('  outboundCallerId:', extension.security?.outboundCallerId || '—');
     console.log('  primary DID:', extension.primaryPhoneNumber?.number || '—');
+    console.log('  V3FeatureFlag:', v3Flags || '(defaults: all false)');
     console.log('');
     console.log('Grandstream MUST use SIP User ID = user.telnyxSipUsername (not extension number).');
     console.log('');
     console.log('While placing a desk outbound call, watch API logs for:');
     console.log('  [INTERNAL CALL] parked outbound payload');
-    console.log('  [INTERNAL CALL] extension.initiated { callerResolved: true }');
+    console.log('  [CALL CONTROL] V3 app outbound bridged to ingress');
+    console.log('  ingress.enqueued');
     console.log('  OR: Parked WebRTC outbound skipped: { reason: ... }');
   } finally {
     await prisma.$disconnect();

@@ -31,6 +31,12 @@ import {
   wireWebCallAudio,
 } from '@/lib/webrtc-audio';
 import {
+  installTelnyxInviteWireTap,
+  traceNewCallPayload,
+  traceNewCallResult,
+  traceTelnyxSdkError,
+} from '@/lib/telnyx-invite-trace';
+import {
   errorSoftphone,
   formatCallFailureReason,
   isTerminalCallState,
@@ -428,6 +434,7 @@ function SoftphoneContent() {
         setStatus('Preparing audio and WebRTC session…');
         const remoteAudioEl = await waitForRemoteAudioElement(remoteAudioRef);
 
+        installTelnyxInviteWireTap();
         const clientOptions = buildTelnyxClientOptions(tokenRes.loginToken);
         client = new TelnyxRTC(clientOptions);
         bindRemoteAudioTarget(client, remoteAudioEl);
@@ -693,6 +700,7 @@ function SoftphoneContent() {
         });
 
         client.on('telnyx.error', (event: unknown) => {
+          traceTelnyxSdkError(event);
           if (!mounted || generation !== bootGenerationRef.current || tearingDownRef.current) return;
           logTelnyxError(event);
           clientReadyRef.current = false;
@@ -850,6 +858,15 @@ function SoftphoneContent() {
 
     let call: Call;
     try {
+      const finalDestination = isExtension ? extensionDigits : normalizedDest;
+      traceNewCallPayload({
+        destinationNumber: finalDestination,
+        callerNumber: normalizedCallerId,
+        audio: true,
+        localStream: null,
+        remoteElement: callOptions.remoteElement,
+      });
+
       call = isExtension
         ? client.newCall({
           ...callOptions,
@@ -860,6 +877,7 @@ function SoftphoneContent() {
           destinationNumber: normalizedDest,
         });
 
+      traceNewCallResult(call);
       logSoftphone('[SOFTPHONE] Call object returned from newCall', describeCallObject(call));
 
       const validationError = validateOutboundCallObject(call);
@@ -869,6 +887,7 @@ function SoftphoneContent() {
     } catch (err) {
       console.error('CALL CREATION FAILED', err);
       errorSoftphone('CALL CREATION FAILED', err);
+      traceNewCallResult(null, err);
       resetOutboundCallUi(
         'Connected — ready for inbound and outbound calls',
         err instanceof Error ? err.message : 'Failed to start call',

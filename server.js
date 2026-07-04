@@ -23,6 +23,7 @@ const { handleCallControlRecordingWebhook } = require('./lib/outboundRecording')
 const { ensureTelnyxRecordingSetup } = require('./lib/telnyxRecordingSetup');
 const { ensureTelnyxMessagingSetup } = require('./lib/telnyxMessagingSetup');
 const { ensureTelnyxCallControlSetup } = require('./lib/telnyxCallControlSetup');
+const { ensureTelnyxProductionSetup } = require('./lib/telnyxProductionSetup');
 const { handleInboundCallControlEvent } = require('./lib/inboundCallControl');
 const { handleTelnyxSmsEvent } = require('./lib/sms');
 const { handleTelnyxVoiceTelemetryEvent, startVoiceTelemetryMonitor } = require('./lib/voiceTelemetry');
@@ -39,6 +40,8 @@ const aiTranscriptRoutes = require('./routes/aiTranscripts');
 const aiAssistantRoutes = require('./routes/aiAssistant');
 const portalRoutes = require('./routes/portal');
 const adminRoutes = require('./routes/admin');
+const v3Routes = require('./routes/v3');
+const provisionRoutes = require('./routes/provision');
 const { handleStripeWebhook } = require('./lib/billing');
 const { handleRazorpayWebhook } = require('./lib/razorpayBilling');
 const {
@@ -235,6 +238,15 @@ app.get('/webhook/v3/call-control', (req, res) => {
     });
 });
 
+app.get('/webhook/call-control', (req, res) => {
+    res.status(200).json({
+        ok: true,
+        endpoint: '/webhook/call-control',
+        method: 'POST',
+        message: 'Legacy Call Control webhook (inbound PSTN + transfers). Telnyx sends POST with Telnyx-Signature-Ed25519.',
+    });
+});
+
 app.post('/webhook/call-control', ...voiceWebhookMiddleware, (req, res) => {
     handleTelnyxCallControlWebhook(req, res).catch((error) => {
         console.error('❌ Call Control webhook error:', error.message);
@@ -279,6 +291,8 @@ app.use('/api', aiTranscriptRoutes);
 app.use('/api', aiAssistantRoutes);
 app.use('/api', portalRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/v3', v3Routes);
+app.use('/provision', provisionRoutes);
 
 function getPublicWebhookBase(req) {
     if (process.env.API_PUBLIC_URL) {
@@ -765,6 +779,16 @@ const server = app.listen(PORT, async () => {
         const setup = await ensureTelnyxRecordingSetup(prisma);
         const messagingSetup = await ensureTelnyxMessagingSetup(prisma);
         const callControlSetup = await ensureTelnyxCallControlSetup(prisma);
+        const productionSetup = await ensureTelnyxProductionSetup(prisma);
+        if (productionSetup?.v3Webhook?.updated) {
+            console.log(`✅ V3 Call Control webhook set to ${productionSetup.v3Webhook.webhookUrl}`);
+        }
+        if (productionSetup?.credential?.fixed) {
+            console.log('✅ Credential SIP trunk desk settings verified (parking, internal URI, OVP)');
+        }
+        if (productionSetup?.ovp?.fixed) {
+            console.log('✅ Outbound Voice Profile desk settings updated');
+        }
         if (setup.outboundRecording?.updated) {
             console.log('✅ Outbound voice profile auto-recording enabled');
         }
