@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Save } from 'lucide-react';
+import { Loader2, Radio, Save } from 'lucide-react';
 import { PortalPageHeader } from '@/components/portal/page-header';
-import { getMe, isUnauthorizedError } from '@/lib/api';
+import { getMe, getTenantTelephonyProvider, isUnauthorizedError } from '@/lib/api';
 import { getV3Profile, updateV3Profile, type SoftphoneProfile } from '@/lib/v3-api';
 
 const DEVICE_OPTIONS = [
@@ -36,10 +36,16 @@ export default function ProfilePage() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [form, setForm] = useState<Partial<SoftphoneProfile>>({});
+  const [telephonyProvider, setTelephonyProvider] = useState<{ key: string; displayName: string } | null>(null);
 
   const load = useCallback(async () => {
     const res = await getV3Profile();
     setForm(res.profile);
+    // Read-only indicator (VSP Phone V3 Multi-Provider Architecture, Phase 6).
+    // Never blocks the rest of the profile page from loading if it fails.
+    getTenantTelephonyProvider()
+      .then((r) => setTelephonyProvider(r.provider))
+      .catch(() => setTelephonyProvider(null));
   }, []);
 
   useEffect(() => {getMe()
@@ -91,6 +97,15 @@ export default function ProfilePage() {
       ) : null}
       {message ? (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{message}</div>
+      ) : null}
+
+      {telephonyProvider ? (
+        <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+          <Radio className="h-4 w-4 text-indigo-500" />
+          <span className="text-sm text-slate-600">
+            Telephony provider: <span className="font-medium text-slate-900">{telephonyProvider.displayName}</span>
+          </span>
+        </div>
       ) : null}
 
       <form onSubmit={onSave} className="space-y-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">

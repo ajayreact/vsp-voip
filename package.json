@@ -26,6 +26,8 @@
     "migrate:deploy": "prisma migrate deploy",
     "start": "tsx server.js",
     "seed": "tsx seed.ts",
+    "seed:providers": "node scripts/seed-provider-tables.js",
+    "verify:twilio-provider": "tsx scripts/verify-twilio-provider-e2e.js",
     "cleanup:tenants": "tsx scripts/cleanup-duplicate-tenants.ts",
     "reset:tenant-pbx": "node scripts/reset-tenant-pbx-data.js",
     "dev:api": "tsx server.js",
