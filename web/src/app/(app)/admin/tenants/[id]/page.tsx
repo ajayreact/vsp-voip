@@ -9,11 +9,15 @@ import Swal from 'sweetalert2';
 import { DataTable } from '@/components/data-table';
 import {
   createTenantUser,
+  getAdminProviders,
   getAdminTenant,
+  getAdminTenantProvider,
   getMe,
+  setAdminTenantProvider,
   updateAdminTenant,
   updateTenantBilling,
   updateTenantStatus,
+  type ProviderRecord,
 } from '@/lib/api';
 import { formatPrice } from '@/lib/pricing';
 import { SWAL_THEME } from '@/lib/swal-theme';
@@ -31,6 +35,24 @@ export default function AdminTenantDetailPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
+
+  const [providers, setProviders] = useState<ProviderRecord[]>([]);
+  const [tenantProviderKey, setTenantProviderKey] = useState('telnyx');
+  const [savingProvider, setSavingProvider] = useState(false);
+
+  async function reloadTelephonyProvider() {
+    try {
+      const [providersRes, tenantProviderRes] = await Promise.all([
+        getAdminProviders(),
+        getAdminTenantProvider(id),
+      ]);
+      setProviders(providersRes.providers);
+      setTenantProviderKey(tenantProviderRes.tenantProvider?.provider?.key || 'telnyx');
+    } catch {
+      // Non-fatal — the rest of the tenant detail page still works if the
+      // multi-provider tables aren't reachable for some reason.
+    }
+  }
 
   async function reload() {
     const res = await getAdminTenant(id);
@@ -52,11 +74,36 @@ export default function AdminTenantDetailPage() {
           router.replace('/dashboard');
           return;
         }
-        return reload();
+        return Promise.all([reload(), reloadTelephonyProvider()]);
       })
       .catch(() => router.replace('/admin/tenants'))
       .finally(() => setLoading(false));
   }, [id, router]);
+
+  async function onSaveTelephonyProvider(providerKey: string) {
+    setSavingProvider(true);
+    try {
+      await setAdminTenantProvider(id, providerKey, true);
+      setTenantProviderKey(providerKey);
+      await Swal.fire({
+        title: 'Telephony provider updated',
+        text: 'Existing calls are unaffected. New calls for this tenant will route through the selected provider.',
+        icon: 'success',
+        timer: 2000,
+        showConfirmButton: false,
+        ...SWAL_THEME,
+      });
+    } catch (err) {
+      await Swal.fire({
+        title: 'Could not update telephony provider',
+        text: err instanceof Error ? err.message : 'Unknown error',
+        icon: 'error',
+        ...SWAL_THEME,
+      });
+    } finally {
+      setSavingProvider(false);
+    }
+  }
 
   async function onSaveName() {
     if (!tenantName.trim()) return;
@@ -275,6 +322,28 @@ export default function AdminTenantDetailPage() {
           Save name
         </button>
       </div>
+
+      {providers.length > 0 ? (
+        <div className="panel-card p-6 space-y-4">
+          <h3 className="font-medium text-slate-900">Telephony provider</h3>
+          <p className="text-sm text-slate-400">
+            Which carrier this tenant&apos;s calls, numbers, and SIP registrations route through. Defaults to Telnyx.
+          </p>
+          <label className="block max-w-xs">
+            <span className="mb-1.5 block text-sm text-slate-700">Provider</span>
+            <select
+              value={tenantProviderKey}
+              onChange={(e) => onSaveTelephonyProvider(e.target.value)}
+              disabled={savingProvider}
+              className="w-full rounded-lg input-field"
+            >
+              {providers.map((p) => (
+                <option key={p.key} value={p.key}>{p.displayName}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+      ) : null}
 
       <div className="panel-card p-6 space-y-5">
         <h3 className="font-medium text-slate-900">Platform fees (per phone number)</h3>

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Phase 3B Sprint 2.1 — Telnyx P0 production fixes validation
+ * Phase 3B Sprint 2.1 — mobile-rn Telnyx P0 production fixes validation
  */
 require('dotenv').config();
 
@@ -28,98 +28,79 @@ function exists(rel) {
   return fs.existsSync(path.join(ROOT, rel));
 }
 
-function testIosAudioReliability() {
-  console.log('\n=== P0 iOS audio reliability ===');
-  const appDelegate = read('mobile/ios/Runner/AppDelegate.swift');
+function testMobileRnNativeVoice() {
+  console.log('\n=== mobile-rn native voice / push ===');
 
-  if (appDelegate.includes('CallkitIncomingAppDelegate')) {
-    pass('AppDelegate implements CallkitIncomingAppDelegate');
-  } else fail('AppDelegate implements CallkitIncomingAppDelegate');
+  if (!exists('mobile-rn/plugins/withTelnyxVoice.js')) {
+    fail('withTelnyxVoice config plugin');
+    return;
+  }
+  pass('withTelnyxVoice config plugin');
 
-  if (appDelegate.includes('useManualAudio = true') && appDelegate.includes('isAudioEnabled = false')) {
-    pass('RTCAudioSession manual audio at launch');
-  } else fail('RTCAudioSession manual audio at launch');
+  const plugin = read('mobile-rn/plugins/withTelnyxVoice.js');
+  if (plugin.includes('Telnyx') || plugin.includes('telnyx')) {
+    pass('Telnyx native plugin references Telnyx SDK');
+  } else fail('Telnyx native plugin content');
 
-  if (appDelegate.includes('audioSessionDidActivate') && appDelegate.includes('audioSessionDidDeactivate')) {
-    pass('CallKit audio session activate/deactivate delegates');
-  } else fail('CallKit audio session delegates');
+  if (exists('mobile-rn/plugins/ios/VoicePnBridge.m')) {
+    pass('iOS VoIP push bridge present');
+  } else fail('iOS VoIP push bridge missing');
 
-  if (appDelegate.includes('import WebRTC')) {
-    pass('WebRTC framework imported');
-  } else fail('WebRTC framework imported');
+  const appConfig = read('mobile-rn/app.config.ts');
+  if (appConfig.includes('remote-notification') && appConfig.includes('voip')) {
+    pass('iOS background modes for VoIP + push');
+  } else fail('iOS background modes');
 
-  if (appDelegate.includes('completion: completion') || appDelegate.includes('completion:completion')) {
-    pass('VoIP push completion passed to CallKit show');
-  } else fail('VoIP push completion callback');
-
-  const native = read('mobile/lib/core/push/native_incoming_call_ui.dart');
-  if (native.includes('startOutboundCallKit')) {
-    pass('iOS outbound CallKit startCall helper');
-  } else fail('iOS outbound CallKit startCall helper');
+  const firebaseMerger = read('mobile-rn/plugins/withFirebaseNotificationMerger.js');
+  if (firebaseMerger.includes('Firebase') || firebaseMerger.includes('firebase')) {
+    pass('Firebase notification merger plugin');
+  } else fail('Firebase notification merger plugin');
 }
 
-function testAndroidFcmReliability() {
-  console.log('\n=== P0 Android FCM reliability ===');
-  const manifest = read('mobile/android/app/src/main/AndroidManifest.xml');
-  const gradle = read('mobile/android/app/build.gradle.kts');
-  const telnyxNotif = read('mobile/lib/core/push/telnyx_android_notifications.dart');
-  const bootstrap = read('mobile/lib/core/push/push_bootstrap.dart');
+function testMobileRnCallHandling() {
+  console.log('\n=== mobile-rn call handling ===');
 
-  if (telnyxNotif.includes("channelId = 'telnyx_call_channel'") && telnyxNotif.includes('Importance.max')) {
-    pass('telnyx_call_channel with max importance');
-  } else fail('telnyx_call_channel configuration');
+  const controller = read('mobile-rn/src/calling/callingController.ts');
+  if (controller.includes('Telnyx') || controller.includes('telnyx')) {
+    pass('Calling controller uses Telnyx integration');
+  } else fail('Calling controller Telnyx integration');
 
-  if (manifest.includes('com.google.firebase.messaging.default_notification_channel_id') &&
-      manifest.includes('telnyx_call_channel')) {
-    pass('Manifest default FCM notification channel');
-  } else fail('Manifest default FCM notification channel');
+  const voip = read('mobile-rn/src/calling/telnyxVoip.ts');
+  if (voip.includes('createTelnyxVoipClient') || voip.includes('TelnyxVoipClient')) {
+    pass('Telnyx VoIP client factory');
+  } else fail('Telnyx VoIP helpers');
 
-  if (gradle.includes('isCoreLibraryDesugaringEnabled = true') && gradle.includes('desugar_jdk_libs')) {
-    pass('Core library desugaring enabled');
-  } else fail('Core library desugaring');
+  if (exists('mobile-rn/src/notifications/nativeBridge.ts')) {
+    pass('Native notification bridge module');
+  } else fail('Native notification bridge');
 
-  if (telnyxNotif.includes('Permission.notification')) {
-    pass('Android 13+ notification permission request');
-  } else fail('Android 13+ notification permission request');
-
-  if (bootstrap.includes('TelnyxAndroidNotifications.initialize')) {
-    pass('Bootstrap initializes Telnyx Android notifications');
-  } else fail('Bootstrap initializes Telnyx Android notifications');
+  const nativeBridge = read('mobile-rn/src/notifications/nativeBridge.ts');
+  if (nativeBridge.includes('push') || nativeBridge.includes('Push') || nativeBridge.includes('notification')) {
+    pass('Push notification bridge wired');
+  } else fail('Push notification bridge content');
 }
 
-function testBackgroundCallHandling() {
-  console.log('\n=== P0 background call handling ===');
-  const lifecycle = read('mobile/lib/core/push/app_lifecycle_bridge.dart');
-  const coordinator = read('mobile/lib/core/push/push_call_coordinator.dart');
-  const controller = read('mobile/lib/features/softphone/providers/softphone_controller.dart');
-  const native = read('mobile/lib/core/push/native_incoming_call_ui.dart');
+function testDeprecatedFlutterRemoved() {
+  console.log('\n=== Deprecated Flutter cleanup ===');
 
-  if (lifecycle.includes('AppLifecycleState.paused') && lifecycle.includes('notifyAppBackground')) {
-    pass('Lifecycle bridge notifies background');
-  } else fail('Lifecycle bridge background detection');
+  if (exists('mobile/pubspec.yaml')) {
+    fail('Flutter mobile/ still present');
+  } else {
+    pass('Flutter mobile/ removed');
+  }
 
-  if (coordinator.includes('suppressBackgroundDisconnect') && coordinator.includes('beginIncomingCallUi')) {
-    pass('Incoming UI suppresses background disconnect');
-  } else fail('Incoming UI suppress guard');
-
-  if (controller.includes('disconnectSocketForBackground') && controller.includes('PushCallAction.appBackground')) {
-    pass('Softphone disconnects socket on background');
-  } else fail('Softphone background disconnect');
-
-  if (controller.includes('_socketDisconnectedForBackground')) {
-    pass('Background disconnect allows foreground reconnect');
-  } else fail('Foreground reconnect after background flag');
-
-  if (native.includes('beginIncomingCallUi')) {
-    pass('Native incoming UI uses suppress guard');
-  } else fail('Native incoming UI suppress guard');
+  if (exists('scripts/build-mobile-android.ps1') || exists('scripts/build-mobile-ios.sh')) {
+    fail('Flutter build scripts still present');
+  } else {
+    pass('Flutter build scripts removed');
+  }
 }
 
 function main() {
-  console.log('Phase 3B Sprint 2.1 — Telnyx P0 fixes validation\n');
-  testIosAudioReliability();
-  testAndroidFcmReliability();
-  testBackgroundCallHandling();
+  console.log('Phase 3B Sprint 2.1 — mobile-rn P0 fixes validation\n');
+  testMobileRnNativeVoice();
+  testMobileRnCallHandling();
+  testDeprecatedFlutterRemoved();
 
   const failed = results.filter((r) => r.ok === false).length;
   const passed = results.filter((r) => r.ok === true).length;

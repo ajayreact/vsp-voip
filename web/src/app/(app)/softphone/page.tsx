@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { isSoftphoneV2Enabled } from '@/lib/softphone-config';
+import { isSoftphoneV2Enabled, isBrowserCallingEnabled } from '@/lib/softphone-config';
 import { TelnyxRTC } from '@telnyx/webrtc';
 import type { Call } from '@telnyx/webrtc';
 import {
@@ -17,6 +17,7 @@ import {
 } from '@/lib/api';
 import type { SoftphoneConfig, SoftphoneDiagnostics } from '@/lib/api';
 import { TenantOnlyGate } from '@/components/tenant-only-gate';
+import { BrowserCallingDisabledPanel } from '@/components/browser-calling-disabled';
 import {
   playOutboundRingback,
   primeCallAudio,
@@ -29,6 +30,12 @@ import {
   detachRemoteCallAudio,
   wireWebCallAudio,
 } from '@/lib/webrtc-audio';
+import {
+  installTelnyxInviteWireTap,
+  traceNewCallPayload,
+  traceNewCallResult,
+  traceTelnyxSdkError,
+} from '@/lib/telnyx-invite-trace';
 import {
   errorSoftphone,
   formatCallFailureReason,
@@ -143,10 +150,15 @@ function SoftphoneLegacyGate() {
   const router = useRouter();
 
   useEffect(() => {
+    if (!isBrowserCallingEnabled()) return;
     if (isSoftphoneV2Enabled()) {
       router.replace('/softphone-v2');
     }
   }, [router]);
+
+  if (!isBrowserCallingEnabled()) {
+    return <BrowserCallingDisabledPanel />;
+  }
 
   if (isSoftphoneV2Enabled()) {
     return (
@@ -422,6 +434,7 @@ function SoftphoneContent() {
         setStatus('Preparing audio and WebRTC session…');
         const remoteAudioEl = await waitForRemoteAudioElement(remoteAudioRef);
 
+        installTelnyxInviteWireTap();
         const clientOptions = buildTelnyxClientOptions(tokenRes.loginToken);
         client = new TelnyxRTC(clientOptions);
         bindRemoteAudioTarget(client, remoteAudioEl);
@@ -687,6 +700,7 @@ function SoftphoneContent() {
         });
 
         client.on('telnyx.error', (event: unknown) => {
+          traceTelnyxSdkError(event);
           if (!mounted || generation !== bootGenerationRef.current || tearingDownRef.current) return;
           logTelnyxError(event);
           clientReadyRef.current = false;
@@ -844,6 +858,15 @@ function SoftphoneContent() {
 
     let call: Call;
     try {
+      const finalDestination = isExtension ? extensionDigits : normalizedDest;
+      traceNewCallPayload({
+        destinationNumber: finalDestination,
+        callerNumber: normalizedCallerId,
+        audio: true,
+        localStream: null,
+        remoteElement: callOptions.remoteElement,
+      });
+
       call = isExtension
         ? client.newCall({
           ...callOptions,
@@ -854,6 +877,7 @@ function SoftphoneContent() {
           destinationNumber: normalizedDest,
         });
 
+      traceNewCallResult(call);
       logSoftphone('[SOFTPHONE] Call object returned from newCall', describeCallObject(call));
 
       const validationError = validateOutboundCallObject(call);
@@ -863,6 +887,7 @@ function SoftphoneContent() {
     } catch (err) {
       console.error('CALL CREATION FAILED', err);
       errorSoftphone('CALL CREATION FAILED', err);
+      traceNewCallResult(null, err);
       resetOutboundCallUi(
         'Connected — ready for inbound and outbound calls',
         err instanceof Error ? err.message : 'Failed to start call',

@@ -226,6 +226,9 @@ export function WebRtcDiagnosticsPanel({
                 <div className="mt-2">
                   <MetricRow label="packetsSent" value={report.rtp.outbound?.packetsSent} />
                   <MetricRow label="bytesSent" value={report.rtp.outbound?.bytesSent} />
+                  <MetricRow label="audioLevel" value={report.rtp.outbound?.audioLevel} />
+                  <MetricRow label="totalAudioEnergy" value={report.rtp.outbound?.totalAudioEnergy} />
+                  <MetricRow label="totalSamplesDuration" value={report.rtp.outbound?.totalSamplesDuration} />
                   <MetricRow label="roundTripTime" value={report.rtp.outbound?.roundTripTime} />
                 </div>
               </div>
@@ -294,6 +297,52 @@ export function WebRtcDiagnosticsPanel({
                   }
                 />
               </div>
+            </section>
+
+            <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">
+              <h2 className="text-sm font-semibold text-slate-900">SDP Audio (local / remote)</h2>
+              {report.sdpAudio ? (
+                <div className="mt-3 space-y-4 text-xs text-slate-700">
+                  <div>
+                    <p className="font-medium text-slate-900">
+                      Local ({report.sdpAudio.localDescriptionType ?? '—'})
+                    </p>
+                    {report.sdpAudio.localOffer?.present ? (
+                      <>
+                        <p className="mt-1 font-mono">
+                          direction={report.sdpAudio.localOffer.direction ?? 'implicit'} · ssrc=
+                          {report.sdpAudio.localOffer.ssrc ?? '—'}
+                        </p>
+                        <pre className="mt-2 max-h-40 overflow-auto rounded-lg bg-slate-50 p-3">
+                          {report.sdpAudio.localOffer.section}
+                        </pre>
+                      </>
+                    ) : (
+                      <p className="mt-1 text-slate-500">No audio m-line in local description.</p>
+                    )}
+                  </div>
+                  <div>
+                    <p className="font-medium text-slate-900">
+                      Remote ({report.sdpAudio.remoteDescriptionType ?? '—'})
+                    </p>
+                    {report.sdpAudio.remoteAnswer?.present ? (
+                      <>
+                        <p className="mt-1 font-mono">
+                          direction={report.sdpAudio.remoteAnswer.direction ?? 'implicit'} · ssrc=
+                          {report.sdpAudio.remoteAnswer.ssrc ?? '—'}
+                        </p>
+                        <pre className="mt-2 max-h-40 overflow-auto rounded-lg bg-slate-50 p-3">
+                          {report.sdpAudio.remoteAnswer.section}
+                        </pre>
+                      </>
+                    ) : (
+                      <p className="mt-1 text-slate-500">No audio m-line in remote description.</p>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-slate-500">SDP not available yet.</p>
+              )}
             </section>
 
             <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/5">

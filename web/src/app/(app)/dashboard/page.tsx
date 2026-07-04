@@ -1,176 +1,102 @@
 'use client';
 
-import Link from 'next/link';
-import { useEffect, useState } from 'react';
-import { StatCard } from '@/components/stat-card';
-import { DataTable } from '@/components/data-table';
-import { getDashboardStats, getMe, type NumberOrder, type User } from '@/lib/api';
-import { formatPrice } from '@/lib/pricing';
-import { orderStatusBadgeClass, orderStatusLabel, orderStatusTone } from '@/lib/orderStatus';
-import { getSoftphoneHref } from '@/lib/softphone-config';
+import { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Loader2, RefreshCw } from 'lucide-react';
+import { PortalPageHeader } from '@/components/portal/page-header';
+import { MetricCard, runV3AdminGuard } from '@/components/v3/ops/ops-ui';
+import { getV3Dashboard, type DashboardCards } from '@/lib/v3-api';
+
+const CARD_LABELS: Array<{ key: keyof DashboardCards; label: string }> = [
+  { key: 'employees', label: 'Employees' },
+  { key: 'extensions', label: 'Extensions' },
+  { key: 'activeDevices', label: 'Active Devices' },
+  { key: 'registeredDevices', label: 'Registered Devices' },
+  { key: 'availableNumbers', label: 'Available Numbers' },
+  { key: 'assignedNumbers', label: 'Assigned Numbers' },
+  { key: 'deskPhones', label: 'Desk Phones' },
+  { key: 'ringGroups', label: 'Ring Groups' },
+  { key: 'queues', label: 'Queues' },
+  { key: 'businessHours', label: 'Business Hours' },
+  { key: 'holidays', label: 'Holidays' },
+  { key: 'voicemailBoxes', label: 'Voicemail Boxes' },
+  { key: 'callFlows', label: 'Call Flows' },
+  { key: 'softphoneProfiles', label: 'Softphone Profiles' },
+];
 
 export default function DashboardPage() {
-  const [stats, setStats] = useState<Awaited<ReturnType<typeof getDashboardStats>> | null>(null);
-  const [user, setUser] = useState<User | null>(null);
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState('');
+  const [cards, setCards] = useState<DashboardCards | null>(null);
+  const [healthIssues, setHealthIssues] = useState(0);
+  const [repairTotal, setRepairTotal] = useState(0);
+  const [healthScore, setHealthScore] = useState<number | null>(null);
+
+  const load = useCallback(async () => {
+    const res = await getV3Dashboard();
+    setCards(res.dashboard.cards);
+    setHealthIssues(res.dashboard.healthIssues.total);
+    setRepairTotal(res.dashboard.repairRecommendations.total);
+    setHealthScore(res.dashboard.charts?.healthScore?.overall ?? null);
+  }, []);
 
   useEffect(() => {
-    Promise.all([getDashboardStats(), getMe()])
-      .then(([dashboardStats, me]) => {
-        setStats(dashboardStats);
-        setUser(me);
-      })
-      .catch(console.error);
-  }, []);
+    runV3AdminGuard(router)
+      .then((ok) => (ok ? load() : undefined))
+      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load dashboard'))
+      .finally(() => setLoading(false));
+  }, [router, load]);
+
+  async function onRefresh() {
+    setRefreshing(true);
+    setError('');
+    try {
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Refresh failed');
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex h-64 items-center justify-center text-slate-500">
+        <Loader2 className="h-6 w-6 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <div className="hero-banner overflow-hidden p-6">
-        <div className="flex flex-wrap items-start justify-between gap-6">
-          <div className="space-y-4">
-            <div>
-              <p className="text-sm text-indigo-50">Dashboard</p>
-              <h2 className="text-2xl font-semibold text-white">
-                Welcome back, {user?.name?.split(' ')[0] || 'there'}
-              </h2>
-              <p className="mt-1 text-sm text-indigo-50">
-                Your cloud phone activity at a glance
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <div className="rounded-xl bg-white/15 px-4 py-3 backdrop-blur-sm">
-                <p className="text-xs text-indigo-100">Total Calls</p>
-                <p className="text-2xl font-semibold text-indigo-200">{stats?.callCount ?? '—'}</p>
-              </div>
-              <div className="rounded-xl bg-white/15 px-4 py-3 backdrop-blur-sm">
-                <p className="text-xs text-indigo-100">Numbers</p>
-                <p className="text-2xl font-semibold text-sky-200">{stats?.numberCount ?? '—'}</p>
-              </div>
-              <div className="rounded-xl bg-white/15 px-4 py-3 backdrop-blur-sm">
-                <p className="text-xs text-indigo-100">Open Orders</p>
-                <p className="text-2xl font-semibold text-amber-200">{stats?.pendingOrdersCount ?? '—'}</p>
-              </div>
-              <div className="rounded-xl bg-white/15 px-4 py-3 backdrop-blur-sm">
-                <p className="text-xs text-indigo-100">Unread SMS</p>
-                <p className="text-2xl font-semibold text-rose-200">{stats?.unreadSmsCount ?? '—'}</p>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <Link href="/my-numbers" className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-50">
-                My numbers
-              </Link>
-              <Link href={getSoftphoneHref()} className="rounded-lg border border-white/40 px-4 py-2 text-sm font-medium text-white hover:bg-white/10">
-                Open softphone
-              </Link>
-            </div>
-          </div>
-          <div className="hidden h-28 w-28 items-center justify-center rounded-full bg-white/10 text-5xl lg:flex">
-            📞
-          </div>
-        </div>
+      <PortalPageHeader
+        title="Operations Dashboard"
+        description="Tenant-wide inventory, health, and readiness — read-only, sourced from existing database records."
+        actions={
+          <button type="button" onClick={onRefresh} disabled={refreshing} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60">
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+        }
+      />
+
+      {error ? <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
+        <MetricCard label="Health Score" value={healthScore ?? '—'} accent="text-emerald-600" />
+        <MetricCard label="Health Issues" value={healthIssues} accent={healthIssues ? 'text-amber-600' : undefined} />
+        <MetricCard label="Repair Recommendations" value={repairTotal} accent={repairTotal ? 'text-amber-600' : undefined} />
       </div>
 
-      {(stats?.pendingOrdersCount ?? 0) > 0 ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4">
-          <p className="text-sm text-amber-900">
-            You have {stats?.pendingOrdersCount} order{(stats?.pendingOrdersCount ?? 0) === 1 ? '' : 's'} awaiting payment or fulfillment.
-          </p>
-          <Link href="/settings" className="mt-2 inline-block text-sm font-medium text-indigo-600 hover:text-indigo-500">
-            View orders in Settings →
-          </Link>
+      {cards ? (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          {CARD_LABELS.map(({ key, label }) => (
+            <MetricCard key={key} label={label} value={cards[key]} />
+          ))}
         </div>
       ) : null}
-
-      <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
-        <StatCard label="Total Calls" value={stats?.callCount ?? '—'} accent="green" />
-        <StatCard label="Phone Numbers" value={stats?.numberCount ?? '—'} accent="blue" />
-        <StatCard label="Open Orders" value={stats?.pendingOrdersCount ?? '—'} accent="orange" />
-        <StatCard label="Unread Voicemail" value={stats?.unreadVoicemailCount ?? '—'} accent="red" />
-        <StatCard label="Unread SMS" value={stats?.unreadSmsCount ?? '—'} accent="indigo" />
-        <StatCard label="Platform" value="Live" accent="green" hint="Voice platform connected" />
-      </div>
-
-      <div className="flex flex-wrap gap-3">
-        <Link href="/numbers" className="btn-secondary px-4 py-2 text-sm">
-          Buy numbers
-        </Link>
-        <Link href="/sms" className="btn-secondary px-4 py-2 text-sm">
-          SMS inbox
-        </Link>
-        <Link href="/voicemail" className="btn-secondary px-4 py-2 text-sm">
-          Voicemail
-        </Link>
-        <Link href="/recordings" className="btn-secondary px-4 py-2 text-sm">
-          Recordings
-        </Link>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <DataTable
-          title="Recent orders"
-          data={stats?.recentOrders || []}
-          getRowId={(order) => order.id}
-          defaultPageSize={5}
-          pageSizeOptions={[5, 10, 25]}
-          emptyMessage="No orders yet"
-          columns={[
-            {
-              key: 'createdAt',
-              header: 'Date',
-              sortable: true,
-              sortValue: (order) => new Date(order.createdAt),
-              render: (order) => new Date(order.createdAt).toLocaleDateString(),
-            },
-            {
-              key: 'status',
-              header: 'Status',
-              sortable: true,
-              render: (order) => {
-                const tone = orderStatusTone(order.status);
-                return (
-                  <span className={`rounded-full px-2 py-1 text-xs ${orderStatusBadgeClass(tone)}`}>
-                    {orderStatusLabel(order)}
-                  </span>
-                );
-              },
-            },
-            {
-              key: 'totalCharged',
-              header: 'Total',
-              sortable: true,
-              sortValue: (order) => order.totalCharged,
-              render: (order) => formatPrice(order.totalCharged),
-            },
-          ]}
-        />
-
-        <DataTable
-          title="Recent calls"
-          data={stats?.recentCalls || []}
-          getRowId={(call) => call.id}
-          defaultPageSize={5}
-          pageSizeOptions={[5, 10, 25]}
-          emptyMessage="No calls yet — place a test call to your number"
-          columns={[
-            { key: 'from', header: 'From', sortable: true },
-            { key: 'to', header: 'To', sortable: true },
-            {
-              key: 'status',
-              header: 'Status',
-              sortable: true,
-              render: (call) => (
-                <span className="rounded-full bg-indigo-50 px-2 py-1 text-xs text-indigo-700">{call.status}</span>
-              ),
-            },
-            {
-              key: 'createdAt',
-              header: 'Time',
-              sortable: true,
-              sortValue: (call) => new Date(call.createdAt),
-              render: (call) => new Date(call.createdAt).toLocaleString(),
-            },
-          ]}
-        />
-      </div>
     </div>
   );
 }

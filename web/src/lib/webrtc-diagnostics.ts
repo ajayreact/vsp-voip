@@ -24,6 +24,33 @@ export type RtpDirectionStats = {
   bytesReceived?: number;
   jitter?: number | null;
   roundTripTime?: number | null;
+  audioLevel?: number | null;
+  totalAudioEnergy?: number | null;
+  totalSamplesDuration?: number | null;
+};
+
+export type AudioRtpStats = {
+  outbound: RtpDirectionStats | null;
+  mediaSource: {
+    audioLevel?: number | null;
+    totalAudioEnergy?: number | null;
+    totalSamplesDuration?: number | null;
+  } | null;
+};
+
+export type SdpAudioSectionSummary = {
+  present: boolean;
+  direction: string | null;
+  codecs: Array<{ payloadType: string; codec: string }>;
+  ssrc: string | null;
+  section: string | null;
+};
+
+export type SdpAudioCapture = {
+  localOffer: SdpAudioSectionSummary | null;
+  remoteAnswer: SdpAudioSectionSummary | null;
+  localDescriptionType: RTCSdpType | null;
+  remoteDescriptionType: RTCSdpType | null;
 };
 
 export type AudioTrackSummary = {
@@ -69,10 +96,124 @@ export type WebRtcDiagnosticsReport = {
   localAudioTracks: AudioTrackSummary[];
   remoteAudioTracks: AudioTrackSummary[];
   localAudioSenders: LocalAudioSenderStatus | null;
+  sdpAudio: SdpAudioCapture | null;
   network: BrowserNetworkInfo;
   alerts: string[];
   failureHints: string[];
 };
+
+export function extractAudioMediaSection(sdp: string): string | null {
+  const lines = sdp.split(/\r?\n/);
+  let start = -1;
+  for (let i = 0; i < lines.length; i += 1) {
+    if (lines[i].startsWith('m=audio')) {
+      start = i;
+      break;
+    }
+  }
+  if (start === -1) return null;
+
+  let end = lines.length;
+  for (let i = start + 1; i < lines.length; i += 1) {
+    if (lines[i].startsWith('m=')) {
+      end = i;
+      break;
+    }
+  }
+
+  return lines.slice(start, end).join('\n');
+}
+
+function summarizeAudioMediaSection(sdp: string | null | undefined): SdpAudioSectionSummary | null {
+  if (!sdp) return null;
+  const section = extractAudioMediaSection(sdp);
+  if (!section) {
+    return { present: false, direction: null, codecs: [], ssrc: null, section: null };
+  }
+
+  const codecs = [...section.matchAll(/^a=rtpmap:(\d+)\s+([^\r\n]+)/gm)].map((match) => ({
+    payloadType: match[1],
+    codec: match[2],
+  }));
+  const direction = section.match(/^a=(sendrecv|sendonly|recvonly|inactive)/m)?.[1] ?? null;
+  const ssrc = section.match(/^a=ssrc:(\d+)/m)?.[1] ?? null;
+
+  return {
+    present: true,
+    direction,
+    codecs,
+    ssrc,
+    section,
+  };
+}
+
+export function summarizeSdpAudioFromPeerConnection(
+  peerConnection: RTCPeerConnection,
+): SdpAudioCapture {
+  const local = peerConnection.localDescription;
+  const remote = peerConnection.remoteDescription;
+
+  return {
+    localOffer: summarizeAudioMediaSection(local?.sdp),
+    remoteAnswer: summarizeAudioMediaSection(remote?.sdp),
+    localDescriptionType: local?.type ?? null,
+    remoteDescriptionType: remote?.type ?? null,
+  };
+}
+
+export function extractAudioRtpStats(stats: RTCStatsReport): AudioRtpStats {
+  let outboundRtp: RtpDirectionStats | undefined;
+  let mediaSource: NonNullable<AudioRtpStats['mediaSource']> | undefined;
+
+  stats.forEach((report) => {
+    if (report.type === 'outbound-rtp' && (report as RTCRtpStreamStats).kind === 'audio') {
+      const rtp = report as RTCRtpStreamStats & {
+        packetsSent?: number;
+        bytesSent?: number;
+        roundTripTime?: number;
+        audioLevel?: number;
+      };
+      outboundRtp = {
+        packetsSent: rtp.packetsSent,
+        bytesSent: rtp.bytesSent,
+        roundTripTime: typeof rtp.roundTripTime === 'number' ? rtp.roundTripTime : null,
+        audioLevel: typeof rtp.audioLevel === 'number' ? rtp.audioLevel : null,
+      };
+    }
+
+    if (report.type === 'media-source' && (report as RTCStats & { kind?: string }).kind === 'audio') {
+      const source = report as RTCStats & {
+        audioLevel?: number;
+        totalAudioEnergy?: number;
+        totalSamplesDuration?: number;
+      };
+      mediaSource = {
+        audioLevel: typeof source.audioLevel === 'number' ? source.audioLevel : null,
+        totalAudioEnergy: typeof source.totalAudioEnergy === 'number' ? source.totalAudioEnergy : null,
+        totalSamplesDuration: typeof source.totalSamplesDuration === 'number'
+          ? source.totalSamplesDuration
+          : null,
+      };
+    }
+  });
+
+  if (outboundRtp && mediaSource) {
+    return {
+      outbound: {
+        ...outboundRtp,
+        audioLevel: outboundRtp.audioLevel ?? mediaSource.audioLevel ?? null,
+        totalAudioEnergy: mediaSource.totalAudioEnergy ?? null,
+        totalSamplesDuration: mediaSource.totalSamplesDuration ?? null,
+      },
+      mediaSource,
+    };
+  }
+
+  return {
+    outbound: outboundRtp ?? null,
+    mediaSource: mediaSource ?? null,
+  };
+}
 
 type ConnectionLike = Navigator & {
   connection?: {
@@ -222,6 +363,7 @@ export async function collectWebRtcDiagnostics(
       localAudioTracks: [],
       remoteAudioTracks: [],
       localAudioSenders: null,
+      sdpAudio: null,
       network: collectBrowserNetworkInfo([]),
       alerts: ['No active WebRTC peer connection. Place or receive a call on Softphone V2, then refresh.'],
       failureHints: [],
@@ -233,6 +375,13 @@ export async function collectWebRtcDiagnostics(
   let selectedCandidatePair: SelectedCandidatePairSummary | null = null;
   let outboundRtp: RtpDirectionStats | null = null;
   let inboundRtp: RtpDirectionStats | null = null;
+  let sdpAudio: SdpAudioCapture | null = null;
+
+  try {
+    sdpAudio = summarizeSdpAudioFromPeerConnection(peerConnection);
+  } catch {
+    sdpAudio = null;
+  }
 
   try {
     const stats = await peerConnection.getStats();
@@ -269,19 +418,6 @@ export async function collectWebRtcDiagnostics(
         }
       }
 
-      if (report.type === 'outbound-rtp' && (report as RTCRtpStreamStats).kind === 'audio') {
-        const rtp = report as RTCRtpStreamStats & {
-          packetsSent?: number;
-          bytesSent?: number;
-          roundTripTime?: number;
-        };
-        outboundRtp = {
-          packetsSent: rtp.packetsSent,
-          bytesSent: rtp.bytesSent,
-          roundTripTime: typeof rtp.roundTripTime === 'number' ? rtp.roundTripTime : null,
-        };
-      }
-
       if (report.type === 'inbound-rtp' && (report as RTCRtpStreamStats).kind === 'audio') {
         const rtp = report as RTCRtpStreamStats & {
           packetsReceived?: number;
@@ -295,6 +431,9 @@ export async function collectWebRtcDiagnostics(
         };
       }
     });
+
+    const audioStats = extractAudioRtpStats(stats);
+    outboundRtp = audioStats.outbound;
   } catch {
     // getStats may fail while connection is torn down
   }
@@ -350,6 +489,7 @@ export async function collectWebRtcDiagnostics(
     localAudioTracks,
     remoteAudioTracks,
     localAudioSenders,
+    sdpAudio,
     network: collectBrowserNetworkInfo(srflxAddresses),
     alerts,
     failureHints,

@@ -1,0 +1,31 @@
+# VSP Phone V3 — integration test infrastructure (B3)
+# Real PostgreSQL + Redis for production-style validation.
+#
+# Usage:
+#   docker compose -f docker-compose.integration.yml up -d
+#   npm run test:v3:integration
+
+services:
+  postgres-integration:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: vsp
+      POSTGRES_PASSWORD: vsp
+      POSTGRES_DB: vsp_voip_integration
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vsp -d vsp_voip_integration"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis-integration:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10

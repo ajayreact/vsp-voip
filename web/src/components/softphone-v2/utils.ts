@@ -1,11 +1,16 @@
 import type { CallHistoryRecord, CallHistoryStatus, ContactEntry } from '@/components/softphone-v2/types';
+import { isRestrictedCallerDisplayLabel } from '@/lib/inbound-caller-display';
 
 export function normalizePhoneKey(value: string) {
   return value.replace(/\D/g, '');
 }
 
 export function formatPhoneDisplay(value: string) {
-  if (/^\d{2,6}$/.test(value.trim())) {
+  const trimmed = value.trim();
+  if (isRestrictedCallerDisplayLabel(trimmed)) {
+    return trimmed;
+  }
+  if (/^\d{2,6}$/.test(trimmed)) {
     return `Ext ${value.trim()}`;
   }
   const digits = value.replace(/\D/g, '');
@@ -58,6 +63,7 @@ export function callerInitials(number: string) {
 export function resolveCallerIdentity(
   value: string,
   contacts: ContactEntry[] = [],
+  options: { nameHint?: string } = {},
 ) {
   const trimmed = value.trim();
   const key = normalizePhoneKey(trimmed);
@@ -69,25 +75,50 @@ export function resolveCallerIdentity(
       && (
         key === extKey
         || key === numberKey
-        || (key.length >= 10 && numberKey.endsWith(key.slice(-10)))
-        || (numberKey.length >= 10 && key.endsWith(numberKey.slice(-10)))
+        || (key.length >= 10 && numberKey.length >= 10 && key.slice(-10) === numberKey.slice(-10))
+        || (numberKey.length >= 10 && key.length >= 10 && key.slice(-10) === numberKey.slice(-10))
       ),
     );
   });
 
+  const resolvedNumber = trimmed ? formatPhoneDisplay(trimmed) : 'Unknown Caller';
+
   if (match) {
     return {
       name: match.name || `Ext ${match.extensionNumber}`,
-      number: match.number || `Ext ${match.extensionNumber}`,
+      number: resolvedNumber,
       initials: callerInitials(match.name || match.extensionNumber),
     };
   }
 
+  const nameHint = options.nameHint?.trim();
+  if (
+    nameHint
+    && nameHint !== 'Unknown Caller'
+    && !looksLikePhoneNumber(nameHint)
+    && nameHint.toLowerCase() !== trimmed.toLowerCase()
+    && normalizePhoneKey(nameHint) !== key
+  ) {
+    return {
+      name: nameHint,
+      number: resolvedNumber,
+      initials: callerInitials(nameHint),
+    };
+  }
+
   return {
-    name: trimmed ? formatPhoneDisplay(trimmed) : 'Unknown Caller',
-    number: trimmed ? formatPhoneDisplay(trimmed) : 'Unknown Caller',
+    name: resolvedNumber,
+    number: resolvedNumber,
     initials: callerInitials(trimmed),
   };
+}
+
+function looksLikePhoneNumber(value: string): boolean {
+  const digits = normalizePhoneKey(value);
+  if (digits.length >= 10) return true;
+  if (/^\+\d/.test(value.trim())) return true;
+  if (/^\d{2,6}$/.test(value.trim())) return true;
+  return false;
 }
 
 export function callStatusLabel(state: string) {
@@ -97,6 +128,7 @@ export function callStatusLabel(state: string) {
     case 'held':
       return 'On Hold';
     case 'ringing':
+      return 'Ringing…';
     case 'trying':
     case 'early':
     case 'answering':

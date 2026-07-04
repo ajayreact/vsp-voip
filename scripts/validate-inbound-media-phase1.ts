@@ -76,13 +76,41 @@ if (webrtc.includes('verifyLocalAudioSenders(call, pc')) {
   fail('wireWebCallAudio sender verification');
 }
 
-// Outbound path unchanged
-const outboundIdx = page.indexOf('client.newCall({');
-const outboundSlice = page.slice(outboundIdx, outboundIdx + 200);
-if (outboundSlice.includes('destinationNumber') && !outboundSlice.includes('postCallAccepted')) {
-  pass('outbound newCall path unchanged (no postCallAccepted)');
+// Outbound media — align with Telnyx ICallOptions (audio, localStream, remoteElement)
+const outboundIdx = page.indexOf('const onCallWithDestination = async');
+const outboundEnd = page.indexOf('const onAnswer = async', outboundIdx);
+const outboundBlock = page.slice(outboundIdx, outboundEnd);
+
+if (outboundBlock.includes('await acquireMicrophoneStream()')) {
+  pass('outbound acquires microphone before newCall');
 } else {
-  fail('outbound newCall path');
+  fail('outbound microphone acquisition before newCall');
+}
+
+if (outboundBlock.includes('audio: true') && outboundBlock.includes('localStream')) {
+  pass('outbound newCall passes audio:true and localStream');
+} else {
+  fail('outbound newCall media options');
+}
+
+if (outboundBlock.includes('remoteElement:')) {
+  pass('outbound newCall passes remoteElement');
+} else {
+  fail('outbound newCall remoteElement');
+}
+
+const gumIdx = outboundBlock.indexOf('await acquireMicrophoneStream()');
+const newCallIdx = outboundBlock.indexOf('client.newCall({');
+if (gumIdx !== -1 && newCallIdx !== -1 && gumIdx < newCallIdx) {
+  pass('localStream acquired before newCall');
+} else {
+  fail('localStream ordering before newCall');
+}
+
+if (!outboundBlock.includes('postCallAccepted')) {
+  pass('outbound newCall path does not call postCallAccepted');
+} else {
+  fail('postCallAccepted must not be in outbound path');
 }
 
 // Mock verifyLocalAudioSenders behavior

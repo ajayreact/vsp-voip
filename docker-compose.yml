@@ -23,6 +23,35 @@ services:
       timeout: 5s
       retries: 3
       start_period: 30s
+    restart: unless-stopped
+
+  telephony-v3-worker:
+    build:
+      context: .
+      args:
+        GIT_COMMIT: ${GIT_COMMIT:-unknown}
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://vsp:vsp@postgres:5432/vsp_voip
+      REDIS_URL: redis://redis:6379
+      V3_WORKER_ID: ${V3_WORKER_ID:-worker-compose-1}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      api:
+        condition: service_healthy
+    entrypoint: []
+    command: ["node", "scripts/telephony-v3-worker.js"]
+    healthcheck:
+      test: ["CMD", "node", "scripts/v3-worker-healthcheck.js"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 45s
+    restart: unless-stopped
 
   postgres:
     image: postgres:16-alpine
@@ -30,8 +59,9 @@ services:
       POSTGRES_USER: vsp
       POSTGRES_PASSWORD: vsp
       POSTGRES_DB: vsp_voip
+    # Localhost-only on host; containers reach postgres via service name `postgres`.
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -42,8 +72,9 @@ services:
 
   redis:
     image: redis:7-alpine
+    # Localhost-only on host; containers reach redis via service name `redis`.
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redisdata:/data
 

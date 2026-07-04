@@ -124,7 +124,10 @@ export function KeypadTab({
         <button
           type="button"
           disabled={!canPlaceCall}
-          onClick={() => onCall()}
+          onClick={() => {
+            console.log('DialPad Call button clicked', { canPlaceCall, destination });
+            onCall();
+          }}
           className={cn(
             'mx-auto flex h-[var(--keypad-action-size)] w-[var(--keypad-action-size)] items-center justify-center rounded-full bg-[#34C759] text-white shadow-[0_8px_24px_rgba(52,199,89,0.45)] transition-transform hover:scale-105 active:scale-95',
             !canPlaceCall && 'cursor-not-allowed opacity-60 hover:scale-100',

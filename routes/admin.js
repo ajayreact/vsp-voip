@@ -64,6 +64,10 @@ const router = express.Router();
 
 router.use(authMiddleware, requireRole('SUPER_ADMIN'));
 
+// VSP Phone V3 Multi-Provider Architecture (Phase 5): additive-only surface,
+// does not touch any existing route in this file.
+router.use('/providers', require('./adminProviders'));
+
 router.get('/dashboard/executive', async (req, res) => {
   try {
     const prisma = await getPrisma();

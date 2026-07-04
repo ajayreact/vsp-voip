@@ -1,0 +1,20 @@
+---
+description: Extra guardrails when editing protected WebRTC and Call Control files
+globs: web/src/lib/webrtc-audio.ts,web/src/lib/telnyx-softphone-session.ts,web/src/app/(app)/softphone-v2/page.tsx,lib/inboundCallControl.js,lib/telnyxCallControl.js,lib/callControlSessionStore.js
+alwaysApply: false
+---
+
+# Protected Telephony Component — Active File
+
+This file is protected. See `.cursor/rules/vsp-phone-development.mdc` for the full workflow.
+
+Before editing:
+
+1. Explain why the change is required
+2. Identify regression risk
+3. Compare against the last stable implementation
+4. Search `docs/vsp/` then `docs/telnyx/`
+
+If the change touches microphone, localStream, RTCPeerConnection, ICE, TURN, SDP, RTP, or media tracks — **regression analysis required before code**.
+
+Prefer the smallest targeted fix. Ask for confirmation if uncertain.

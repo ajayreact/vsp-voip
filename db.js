@@ -59,4 +59,11 @@ async function getPrisma() {
   return prisma;
 }
 
-module.exports = { getPrisma, loadPrismaClientClass };
+async function disconnectPrisma() {
+  if (prisma) {
+    await prisma.$disconnect();
+    prisma = null;
+  }
+}
+
+module.exports = { getPrisma, loadPrismaClientClass, disconnectPrisma };

@@ -1,0 +1,46 @@
+---
+description: Git branching and release workflow — protect main and stable telephony
+alwaysApply: true
+---
+
+# Git Workflow
+
+## Hard rules
+
+- **Never modify `main` directly** — no feature development, no experimental commits
+- **Always create a feature branch** — `feature/*` from `development`, `hotfix/*` from `main`
+- **Never deploy production from** `feature/*` or `development` — **only `main`**
+- **Always compare against the last stable tag** before merging telephony changes
+- **Always run validation before merging** — see merge checklist
+
+## Branch flow
+
+```
+feature/* → development → release/vX.Y.Z → main → Production (EC2)
+hotfix/* → main → back-merge development
+```
+
+## Before merging
+
+1. Read `docs/vsp/git/05-merge-checklist.md`
+2. Run `bash scripts/git-pre-merge-check.sh` (or applicable `npm run validate:*`)
+3. For protected telephony files — regression analysis required
+
+## Before production deploy
+
+1. Tag on `main` (SemVer: `vX.Y.Z`)
+2. Complete `docs/vsp/git/06-release-checklist.md`
+3. Deploy via `deploy/deploy-api.sh` and `deploy/deploy-web.sh` on EC2
+
+## Quick references
+
+- Branch strategy: `docs/vsp/git/01-branch-strategy.md`
+- Release workflow: `docs/vsp/git/03-release-workflow.md`
+- Rollback: `docs/vsp/git/07-rollback-strategy.md`
+- Deployment safety: `.cursor/rules/deployment-safety.mdc`
+
+## New feature
+
+```bash
+bash scripts/git-new-feature.sh my-feature-name
+```

@@ -12,6 +12,7 @@ const { parseDurationSeconds, classifyCallType } = require('./lib/callLogMeta');
 const { applyNumberRoutingToGreeting } = require('./lib/numberRouting');
 const { getCachedTenant, refreshTenantCache, setCachedTenant, getTenantCacheSize } = require('./lib/tenantCache');
 const { claimGreetingSession, clearGreetingSession } = require('./lib/greetingDedup');
+const { evaluateTelnyxWebhookDedup } = require('./lib/telnyxWebhookDedup');
 const { isTenantOperational } = require('./lib/tenantGuard');
 const { buildGreetingTexml, buildSayAndHangupTexml } = require('./lib/texml');
 const { buildInboundCallTexml } = require('./lib/callRouting');
@@ -22,6 +23,7 @@ const { handleCallControlRecordingWebhook } = require('./lib/outboundRecording')
 const { ensureTelnyxRecordingSetup } = require('./lib/telnyxRecordingSetup');
 const { ensureTelnyxMessagingSetup } = require('./lib/telnyxMessagingSetup');
 const { ensureTelnyxCallControlSetup } = require('./lib/telnyxCallControlSetup');
+const { ensureTelnyxProductionSetup } = require('./lib/telnyxProductionSetup');
 const { handleInboundCallControlEvent } = require('./lib/inboundCallControl');
 const { handleTelnyxSmsEvent } = require('./lib/sms');
 const { handleTelnyxVoiceTelemetryEvent, startVoiceTelemetryMonitor } = require('./lib/voiceTelemetry');
@@ -31,8 +33,15 @@ const { expireBillingGracePeriods } = require('./lib/billingGrace');
 const { startBillingIntegrityScheduler } = require('./lib/billingIntegrityJob');
 const { webhookLimiter } = require('./lib/rateLimit');
 const { logger } = require('./lib/logger');
+const messagingRoutes = require('./routes/messaging');
+const aiRoutes = require('./routes/ai');
+const aiSummaryRoutes = require('./routes/aiSummaries');
+const aiTranscriptRoutes = require('./routes/aiTranscripts');
+const aiAssistantRoutes = require('./routes/aiAssistant');
 const portalRoutes = require('./routes/portal');
 const adminRoutes = require('./routes/admin');
+const v3Routes = require('./routes/v3');
+const provisionRoutes = require('./routes/provision');
 const { handleStripeWebhook } = require('./lib/billing');
 const { handleRazorpayWebhook } = require('./lib/razorpayBilling');
 const {
@@ -165,6 +174,79 @@ app.post('/webhook/sms', ...smsWebhookMiddleware, (req, res) => {
 const voiceWebhookMiddleware = [parseTelnyxJsonBody, verifyTelnyxWebhookMiddleware];
 const recordingWebhookMiddleware = [parseTelnyxWebhookBody, verifyTelnyxWebhookMiddleware];
 
+const { handleV3WebhookIngress, getV3ReadinessStatus, metrics: v3Metrics } = require('./lib/telephony-v3');
+
+app.get('/ready/v3', async (req, res) => {
+    try {
+        const status = await getV3ReadinessStatus();
+        res.status(status.ready ? 200 : 503).json(status);
+    } catch (error) {
+        res.status(503).json({ ready: false, error: error.message });
+    }
+});
+
+app.get('/metrics/v3', async (req, res) => {
+    try {
+        res.set('Content-Type', 'text/plain; version=0.0.4');
+        res.send(await v3Metrics.renderPrometheus());
+    } catch (error) {
+        res.status(500).send(`# metrics error: ${error.message}\n`);
+    }
+});
+
+async function handleV3CallControlWebhook(req, res) {
+    try {
+        const result = await handleV3WebhookIngress(req.body, { source: 'v3-call-control' });
+        if (!result.accepted && result.reason === 'ingress_disabled') {
+            res.status(503).json({ received: false, reason: result.reason });
+            return;
+        }
+        if (!result.accepted) {
+            res.status(422).json({
+                received: false,
+                reason: result.reason || 'rejected',
+                traceId: result.traceId || null,
+            });
+            return;
+        }
+        res.status(200).json({
+            received: true,
+            duplicate: result.duplicate || false,
+            ingressId: result.ingressId || null,
+            correlationId: result.correlationId || null,
+            traceId: result.traceId || null,
+        });
+    } catch (error) {
+        logger.error('v3_webhook_gateway_error', { error: error.message });
+        res.status(500).json({ error: 'V3 webhook gateway failed' });
+    }
+}
+
+app.post('/webhook/v3/call-control', ...voiceWebhookMiddleware, (req, res) => {
+    handleV3CallControlWebhook(req, res).catch((error) => {
+        logger.error('v3_call_control_webhook_error', { error: error.message });
+        res.status(500).json({ error: 'V3 call control webhook failed' });
+    });
+});
+
+app.get('/webhook/v3/call-control', (req, res) => {
+    res.status(200).json({
+        ok: true,
+        endpoint: '/webhook/v3/call-control',
+        method: 'POST',
+        message: 'V3 telephony ingress gateway (enqueue only). Enable with TELEPHONY_V3_INGRESS_ENABLED=true.',
+    });
+});
+
+app.get('/webhook/call-control', (req, res) => {
+    res.status(200).json({
+        ok: true,
+        endpoint: '/webhook/call-control',
+        method: 'POST',
+        message: 'Legacy Call Control webhook (inbound PSTN + transfers). Telnyx sends POST with Telnyx-Signature-Ed25519.',
+    });
+});
+
 app.post('/webhook/call-control', ...voiceWebhookMiddleware, (req, res) => {
     handleTelnyxCallControlWebhook(req, res).catch((error) => {
         console.error('❌ Call Control webhook error:', error.message);
@@ -195,11 +277,22 @@ app.post('/webhook/call-recording', ...recordingWebhookMiddleware, (req, res) =>
     });
 });
 
-app.use(express.json());
+app.use((req, res, next) => {
+  const isAttachmentUpload = req.method === 'POST' && req.path === '/api/messages/attachments';
+  const parser = express.json({ limit: isAttachmentUpload ? '8mb' : '100kb' });
+  return parser(req, res, next);
+});
 app.use('/uploads/greetings', express.static(path.join(__dirname, 'uploads', 'greetings')));
 app.use('/uploads/payment-proofs', express.static(path.join(__dirname, 'uploads', 'payment-proofs')));
+app.use('/api', messagingRoutes);
+app.use('/api', aiRoutes);
+app.use('/api', aiSummaryRoutes);
+app.use('/api', aiTranscriptRoutes);
+app.use('/api', aiAssistantRoutes);
 app.use('/api', portalRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/v3', v3Routes);
+app.use('/provision', provisionRoutes);
 
 function getPublicWebhookBase(req) {
     if (process.env.API_PUBLIC_URL) {
@@ -544,8 +637,13 @@ async function handleTelnyxCallRecordingWebhook(req, res) {
 }
 
 async function handleTelnyxCallControlWebhook(req, res) {
-    const eventType = req.body?.data?.event_type || '(unknown)';
+    const dedup = await evaluateTelnyxWebhookDedup(req.body, { source: 'call-control' });
+    const eventType = dedup.eventType;
     console.log('📲 Call Control webhook:', eventType);
+
+    if (!dedup.process) {
+        return res.status(200).json({ received: true, duplicate: true });
+    }
 
     res.status(200).json({ received: true });
 
@@ -556,7 +654,7 @@ async function handleTelnyxCallControlWebhook(req, res) {
                 await handleCallControlRecordingWebhook(prisma, req.body);
                 return;
             }
-            await handleInboundCallControlEvent(prisma, req.body);
+            await handleInboundCallControlEvent(prisma, req.body, { webhookSource: 'call-control' });
         } catch (error) {
             const telnyxDetail = error.telnyx?.errors?.[0]?.detail;
             console.error('❌ Call Control handler error:', telnyxDetail || error.message);
@@ -565,8 +663,13 @@ async function handleTelnyxCallControlWebhook(req, res) {
 }
 
 async function handleTelnyxVoiceWebhook(req, res) {
-    const eventType = req.body?.data?.event_type || '(unknown)';
+    const dedup = await evaluateTelnyxWebhookDedup(req.body, { source: 'voice' });
+    const eventType = dedup.eventType;
     console.log('📡 Telnyx voice event:', eventType);
+
+    if (!dedup.process) {
+        return res.status(200).json({ received: true, duplicate: true });
+    }
 
     res.status(200).json({ received: true });
 
@@ -579,6 +682,13 @@ async function handleTelnyxVoiceWebhook(req, res) {
                     console.log('   ↳ Call recording saved:', saved.id, `(${saved.direction})`);
                 }
                 return;
+            }
+            if (
+                typeof eventType === 'string'
+                && eventType.startsWith('call.')
+                && eventType !== 'call.recording.saved'
+            ) {
+                await handleInboundCallControlEvent(prisma, req.body, { webhookSource: 'voice' });
             }
             const quality = await handleTelnyxVoiceTelemetryEvent(prisma, req.body);
             if (quality) {
@@ -669,6 +779,16 @@ const server = app.listen(PORT, async () => {
         const setup = await ensureTelnyxRecordingSetup(prisma);
         const messagingSetup = await ensureTelnyxMessagingSetup(prisma);
         const callControlSetup = await ensureTelnyxCallControlSetup(prisma);
+        const productionSetup = await ensureTelnyxProductionSetup(prisma);
+        if (productionSetup?.v3Webhook?.updated) {
+            console.log(`✅ V3 Call Control webhook set to ${productionSetup.v3Webhook.webhookUrl}`);
+        }
+        if (productionSetup?.credential?.fixed) {
+            console.log('✅ Credential SIP trunk desk settings verified (parking, internal URI, OVP)');
+        }
+        if (productionSetup?.ovp?.fixed) {
+            console.log('✅ Outbound Voice Profile desk settings updated');
+        }
         if (setup.outboundRecording?.updated) {
             console.log('✅ Outbound voice profile auto-recording enabled');
         }

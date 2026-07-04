@@ -41,7 +41,7 @@ export function isUnauthorizedError(err: unknown) {
   return err instanceof ApiError && err.status === 401;
 }
 
-async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+export async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken();
   let res: Response;
   try {
@@ -236,6 +236,8 @@ export async function saveCallRouting(
 export type VoicemailRecord = {
   id: string;
   tenantId: string;
+  extensionId?: string | null;
+  ringGroupId?: string | null;
   callSid: string | null;
   recordingSid: string | null;
   from: string;
@@ -1204,6 +1206,38 @@ export async function getTenantProfile() {
 export async function updateTenantProfile(data: { contactEmail?: string; timezone?: string }) {
   return apiFetch<{ profile: TenantProfile }>('/api/tenant/profile', {
     method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export type TenantPbxResetChecklist = {
+  tenantAdminLoginReady: boolean;
+  zeroEmployees: boolean;
+  zeroExtensions: boolean;
+  zeroRingGroups: boolean;
+  zeroRegisteredDevices: boolean;
+  zeroQrTokens: boolean;
+  zeroSipRegistrations: boolean;
+  purchasedDidsAvailable: boolean;
+  noOrphanRecords: boolean;
+  superAdminPreserved: boolean;
+};
+
+export async function resetTenantPbxConfiguration(data: {
+  password: string;
+  confirmationPhrase: string;
+  clearCallHistory?: boolean;
+}) {
+  return apiFetch<{
+    success: boolean;
+    message: string;
+    report: {
+      checklist: TenantPbxResetChecklist;
+      counts: Record<string, number>;
+      deleted: Record<string, number>;
+    };
+  }>('/api/tenant/pbx/reset', {
+    method: 'POST',
     body: JSON.stringify(data),
   });
 }
@@ -2344,6 +2378,15 @@ export type ExtensionSipCredentials = {
   employeeEmail: string | null;
   extensionNumber: string;
   displayName: string;
+  tenantId?: string | null;
+  tenantName?: string | null;
+  assignedDid?: string | null;
+  registrationExpirySec?: number;
+  symmetricRtp?: boolean;
+  srtp?: string;
+  codecs?: Array<{ id: string; label: string; enabled: boolean }>;
+  configExport?: Record<string, unknown>;
+  provisioningProfile?: Record<string, unknown>;
 };
 
 export async function getExtensionSipCredentials(extensionId: string) {
@@ -2594,6 +2637,13 @@ export async function removeRingGroupMember(ringGroupId: string, memberId: strin
   );
 }
 
+export async function reorderRingGroupMembers(ringGroupId: string, memberIds: string[]) {
+  return apiFetch<{ success: boolean; ringGroup: RingGroupRecord }>(
+    `/api/tenant/ring-groups/${ringGroupId}/members/reorder`,
+    { method: 'PATCH', body: JSON.stringify({ memberIds }) },
+  );
+}
+
 export async function getRingGroupAnalytics(id: string) {
   return apiFetch<{ success: boolean; analytics: RingGroupAnalytics }>(
     `/api/tenant/ring-groups/${id}/analytics`,
@@ -2616,4 +2666,108 @@ export async function getRingGroupRoutingPreview(id: string) {
       targets: { type: string; label: string; extensionId?: string; sipUsername: string | null }[];
     };
   }>(`/api/tenant/ring-groups/${id}/routing-preview`);
+}
+
+// --- Multi-provider telephony (VSP Phone V3 Multi-Provider Architecture) ---
+
+export type ProviderRecord = {
+  id: string;
+  key: string;
+  displayName: string;
+  isActive: boolean;
+  capabilities: Record<string, boolean>;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ProviderCredentialRecord = {
+  id: string;
+  tenantId: string | null;
+  providerKey: string;
+  scope: 'VOICE' | 'MESSAGING' | 'SIP';
+  externalAccountId: string | null;
+  secret: string | null;
+  authToken: string | null;
+  updatedAt: string;
+};
+
+export type ProviderHealth = { ok: boolean; message?: string; checkedAt: string };
+
+export type ProviderTenantMapping = {
+  id: string;
+  tenantId: string;
+  providerId: string;
+  isPrimary: boolean;
+  isActive: boolean;
+  provider: ProviderRecord;
+} | null;
+
+export async function getAdminProviders() {
+  return apiFetch<{ success: boolean; providers: ProviderRecord[]; defaultProviderKey: string | null; registeredKeys: string[] }>(
+    '/api/admin/providers',
+  );
+}
+
+export async function setAdminProviderActive(key: string, isActive: boolean) {
+  return apiFetch<{ success: boolean; provider: ProviderRecord }>(`/api/admin/providers/${key}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ isActive }),
+  });
+}
+
+export async function getAdminProviderHealth(key: string) {
+  return apiFetch<{ success: boolean; health: ProviderHealth }>(`/api/admin/providers/${key}/health`);
+}
+
+export async function getAdminProviderLogs(key: string, limit = 50) {
+  return apiFetch<{ success: boolean; events: Record<string, unknown>[]; note: string | null }>(
+    `/api/admin/providers/${key}/logs?limit=${limit}`,
+  );
+}
+
+export async function getAdminProviderCredentials(providerKey?: string) {
+  const qs = providerKey ? `?providerKey=${encodeURIComponent(providerKey)}` : '';
+  return apiFetch<{ success: boolean; credentials: ProviderCredentialRecord[] }>(`/api/admin/providers/credentials${qs}`);
+}
+
+export async function saveAdminProviderCredential(data: {
+  tenantId?: string | null;
+  providerKey: string;
+  scope: 'VOICE' | 'MESSAGING' | 'SIP';
+  externalAccountId?: string;
+  secret?: string;
+  authToken?: string;
+}) {
+  return apiFetch<{ success: boolean; credential: ProviderCredentialRecord }>('/api/admin/providers/credentials', {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getAdminDefaultProvider() {
+  return apiFetch<{ success: boolean; provider: ProviderRecord | null }>('/api/admin/providers/default');
+}
+
+export async function setAdminDefaultProvider(providerKey: string) {
+  return apiFetch<{ success: boolean; provider: ProviderRecord | null }>('/api/admin/providers/default', {
+    method: 'PUT',
+    body: JSON.stringify({ providerKey }),
+  });
+}
+
+export async function getAdminTenantProvider(tenantId: string) {
+  return apiFetch<{ success: boolean; tenantProvider: ProviderTenantMapping }>(`/api/admin/providers/tenant/${tenantId}`);
+}
+
+export async function setAdminTenantProvider(tenantId: string, providerKey: string, isPrimary = true) {
+  return apiFetch<{ success: boolean; tenantProvider: ProviderTenantMapping }>(`/api/admin/providers/tenant/${tenantId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ providerKey, isPrimary }),
+  });
+}
+
+export async function getTenantTelephonyProvider() {
+  return apiFetch<{ success: boolean; provider: { key: string; displayName: string } }>(
+    '/api/tenant/telephony-provider',
+  );
 }

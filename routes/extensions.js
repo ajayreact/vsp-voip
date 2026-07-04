@@ -589,6 +589,9 @@ router.post(
     } catch (error) {
       if (error.status === 404) return res.status(404).json({ error: error.message });
       if (error.status === 400) return res.status(400).json({ error: error.message });
+      if (error.code === 'P2002') {
+        return res.status(409).json({ error: 'Phone number or extension assignment conflict' });
+      }
       res.status(500).json({ error: error.message || 'Failed to reassign employee' });
     }
   },
