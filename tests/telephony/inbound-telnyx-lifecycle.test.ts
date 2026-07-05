@@ -11,10 +11,34 @@ describe('telephony / inbound ring-first desk SIP (Telnyx Find Me pattern)', () 
     __resetMemoryClaimStateForTests();
   });
 
-  it('defers PSTN answer for sip-only desk targets without media preambles', async () => {
+  it('defers PSTN answer for DESK_FIRST targets without media preambles', async () => {
     const { shouldDeferPstnAnswerUntilDesk } = await import('../../lib/inboundCallControl.js');
     expect(shouldDeferPstnAnswerUntilDesk({
-      targets: [{ type: 'sip', sipUsername: 'gencred-desk-1' }],
+      targets: [{
+        type: 'sip',
+        endpointType: 'desk',
+        deviceRingStrategy: 'DESK_ONLY',
+        sipUsername: 'gencred-desk-1',
+        endpoints: [{ endpointType: 'desk', source: 'legacy_sip_target', registered: true }],
+      }],
+      greeting: {
+        playGreetingBeforeConnect: false,
+        playCallRecordingNotice: false,
+        callRecordingEnabled: true,
+      },
+      extPolicy: { action: 'ring' },
+    })).toBe(true);
+    expect(shouldDeferPstnAnswerUntilDesk({
+      targets: [{
+        type: 'app',
+        endpointType: 'desk',
+        deviceRingStrategy: 'DESK_FIRST',
+        user: { id: 'u1', telnyxSipUsername: 'gencred-desk-1', pushDeviceToken: 'push' },
+        endpoints: [
+          { endpointType: 'desk', source: 'v3_desk_device', registered: true },
+          { endpointType: 'mobile', source: 'push_token', registered: false },
+        ],
+      }],
       greeting: {
         playGreetingBeforeConnect: false,
         playCallRecordingNotice: false,
@@ -24,10 +48,16 @@ describe('telephony / inbound ring-first desk SIP (Telnyx Find Me pattern)', () 
     })).toBe(true);
   });
 
-  it('does not defer for mobile app ring targets', async () => {
+  it('does not defer when ring strategy selects Option A (active mobile)', async () => {
     const { shouldDeferPstnAnswerUntilDesk } = await import('../../lib/inboundCallControl.js');
     expect(shouldDeferPstnAnswerUntilDesk({
-      targets: [{ type: 'app', user: { id: 'u1' } }],
+      targets: [{
+        type: 'app',
+        endpointType: 'mobile',
+        deviceRingStrategy: 'SIMULTANEOUS',
+        user: { id: 'u1', telnyxSipUsername: 'cred' },
+        endpoints: [],
+      }],
       ringsMobileApp: true,
       extPolicy: { action: 'ring' },
     })).toBe(false);
@@ -36,10 +66,15 @@ describe('telephony / inbound ring-first desk SIP (Telnyx Find Me pattern)', () 
   it('does not defer when IVR would run', async () => {
     const { shouldDeferPstnAnswerUntilDesk } = await import('../../lib/inboundCallControl.js');
     expect(shouldDeferPstnAnswerUntilDesk({
-      targets: [{ type: 'sip', sipUsername: 'gencred-desk-1' }],
+      targets: [{ type: 'app', endpointType: 'desk', user: { id: 'u1' } }],
       ivrWouldRun: true,
       extPolicy: { action: 'ring' },
     })).toBe(false);
+  });
+
+  it('shouldDeferPstnAnswerUntilDesk uses usesRingFirstPath not target.type', () => {
+    expect(source).toMatch(/if \(!usesRingFirstPath\(targets\)\) return false;/);
+    expect(source).toMatch(/endpointType: target\?\.endpointType/);
   });
 
   it('resolveDialBridgeOnAnswer is false when PSTN answer is deferred', async () => {

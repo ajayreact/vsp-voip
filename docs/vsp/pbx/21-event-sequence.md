@@ -6,7 +6,9 @@ Telnyx Call Control webhook events and VSP handler order for a typical inbound �
 
 ## Inbound PSTN → desk SIP (ring-first — Telnyx Find Me pattern)
 
-Official Telnyx pattern for commercial PBX ring-first: leave inbound PSTN **parked**, dial agent with `link_to`, **`bridge_on_answer: false`**, then on agent `call.answered` issue **`bridge`** from the answered agent leg to the parked PSTN leg. **Do not** call `answer` on the parked leg before bridge (Find Me accept path). `answer` is required only before `speak` / voicemail (Find Me reject path).
+Official Telnyx pattern for commercial PBX ring-first: leave inbound PSTN **parked**, dial agent with `link_to`, **`bridge_on_answer: false`**, then on agent `call.answered` issue **`bridge`** from the answered agent leg to the parked PSTN leg.
+
+**Defer gate:** `endpointType === 'desk'` on all ring targets (not `target.type === 'sip'`). Employee-assigned Grandstream phones keep `type: app` + `endpointType: desk`.
 
 | # | Telnyx event | VSP handler | Session stage |
 |---|--------------|-------------|---------------|

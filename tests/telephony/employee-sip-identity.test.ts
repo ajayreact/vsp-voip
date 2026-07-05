@@ -19,6 +19,7 @@ describe('Phase 2.4a / employee SIP identity', () => {
     const resolution = await resolveExtensionRingTargets({}, extension, 'conn-1');
     expect(resolution?.targets).toHaveLength(1);
     expect(resolution?.targets[0].type).toBe('sip');
+    expect(resolution?.targets[0].endpointType).toBe('desk');
     expect(resolution?.targets[0].sipUsername).toBe('gencred-desk-102');
     expect(resolution?.appTargets).toEqual([]);
     expect(resolution?.sipTargets).toHaveLength(1);
@@ -26,6 +27,9 @@ describe('Phase 2.4a / employee SIP identity', () => {
 
   it('resolveExtensionRingTargets returns one app target (no duplicate desk sip target)', async () => {
     const prisma = {
+      extensionDevice: { findMany: vi.fn().mockResolvedValue([]) },
+      v3DeskDevice: { findMany: vi.fn().mockResolvedValue([]) },
+      userDevice: { findMany: vi.fn().mockResolvedValue([]) },
       user: {
         findUnique: vi.fn().mockResolvedValue({
           id: 'user-1',
@@ -54,6 +58,7 @@ describe('Phase 2.4a / employee SIP identity', () => {
     const resolution = await resolveExtensionRingTargets(prisma, extension, 'conn-1');
     expect(resolution?.targets).toHaveLength(1);
     expect(resolution?.targets[0].type).toBe('app');
+    expect(resolution?.targets[0].endpointType).toBe('mobile');
     expect(resolution?.targets[0].user.telnyxSipUsername).toBe('gencred-alice');
     expect(resolution?.sipTargets).toEqual([]);
     expect(resolution?.strategy).toBe('sequential');

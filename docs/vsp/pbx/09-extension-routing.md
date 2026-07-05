@@ -40,9 +40,10 @@ flowchart TD
 
 `resolveExtensionRingTargets` (`lib/inboundRouting.js`):
 
-- Desk SIP credentials on extension
-- App user WebRTC: `sip:{telnyxSipUsername}@sip.telnyx.com`
-- Simultaneous dial when multiple devices
+- **Routing model** (`target.type`): `app` (employee `User.telnyxSipUsername`), `sip` (legacy extension credential), `phone` (PSTN forward) — unchanged.
+- **Endpoint classification** (`target.endpointType`): `desk`, `mobile`, `webrtc`, or `mixed` — from `lib/ringTargetEndpoints.js` using `ExtensionDevice`, `V3DeskDevice`, `UserDevice`, push token, and WebRTC online state.
+- Grandstream and other desk phones provisioned on the employee credential keep `type: app` but receive `endpointType: desk`.
+- Ring-first PSTN deferral uses `endpointType === desk` (all targets desk-only), not `target.type === sip`.
 
 ---
 
