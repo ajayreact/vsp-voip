@@ -92,3 +92,73 @@ describe('telephony / inbound agent dial leg guard', () => {
     );
   });
 });
+
+describe('telephony / inbound agent credential ring guard (voice webhook)', () => {
+  const CREDENTIAL_USER = 'gencrededqqicfmgxkrbg09cwmesz6kpur5ukcrglzygHy1lr'.toLowerCase();
+
+  afterEach(async () => {
+    const { __resetMemoryClaimStateForTests } = await import('../../lib/callControlSession.js');
+    __resetMemoryClaimStateForTests();
+  });
+
+  it('indexes credential incoming leg when pending agent ring exists', async () => {
+    const {
+      saveSession,
+      indexPendingAgentRing,
+      resolveInboundIdFromLeg,
+    } = await import('../../lib/callControlSession.js');
+    const { handleInboundAgentCredentialRingInitiated } = await import('../../lib/inboundCallControl.js');
+
+    await saveSession('inbound-cc-voice-1', {
+      callControlId: 'inbound-cc-voice-1',
+      stage: 'ringing',
+      tenantId: 'tenant-1',
+      from: '+19724301252',
+    });
+    await indexPendingAgentRing('inbound-cc-voice-1', CREDENTIAL_USER, '+19724301252');
+
+    const handled = await handleInboundAgentCredentialRingInitiated({
+      call_control_id: 'credential-incoming-leg-1',
+      direction: 'incoming',
+      to: 'gencredeDqQICfmgxKrBg09CwMeSz6KPur5ukCrGlzYgHy1LR',
+      from: '+19724301252',
+    });
+
+    expect(handled).toBe(true);
+    expect(await resolveInboundIdFromLeg('credential-incoming-leg-1')).toBe('inbound-cc-voice-1');
+  });
+
+  it('returns false for incoming PSTN DID (real inbound call)', async () => {
+    const { handleInboundAgentCredentialRingInitiated } = await import('../../lib/inboundCallControl.js');
+
+    const handled = await handleInboundAgentCredentialRingInitiated({
+      call_control_id: 'inbound-pstn-leg',
+      direction: 'incoming',
+      to: '+13139215654',
+      from: '+19724301252',
+    });
+
+    expect(handled).toBe(false);
+  });
+
+  it('returns false for credential incoming without parent inbound session', async () => {
+    const { handleInboundAgentCredentialRingInitiated } = await import('../../lib/inboundCallControl.js');
+
+    const handled = await handleInboundAgentCredentialRingInitiated({
+      call_control_id: 'credential-orphan-leg',
+      direction: 'incoming',
+      to: 'gencredeDqQICfmgxKrBg09CwMeSz6KPur5ukCrGlzYgHy1LR',
+      from: '+19724301252',
+    });
+
+    expect(handled).toBe(false);
+  });
+
+  it('handleInboundCallControlEvent wires credential guard before handleCallInitiated', () => {
+    const source = readFileSync(join(process.cwd(), 'lib/inboundCallControl.js'), 'utf8');
+    expect(source).toContain('handleInboundAgentCredentialRingInitiated');
+    expect(source).toMatch(
+      /direction[^\n]*incoming[\s\S]*handleInboundAgentCredentialRingInitiated\(payload\)[\s\S]*handleCallInitiated/,
+    );
+  });
+});
