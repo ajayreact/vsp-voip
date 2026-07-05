@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 describe('telephony / inbound agent dial leg guard', () => {
   afterEach(async () => {
@@ -56,6 +56,34 @@ describe('telephony / inbound agent dial leg guard', () => {
     expect(await resolveInboundIdFromLeg('outbound-leg-2')).toBe('inbound-cc-2');
   });
 
+  it('indexes outbound leg when pending agent ring matches sip:gencred URI destination', async () => {
+    const CREDENTIAL_USER = 'gencredpzmztestuser01abc123xyz'.toLowerCase();
+    const {
+      saveSession,
+      indexPendingAgentRing,
+      resolveInboundIdFromLeg,
+    } = await import('../../lib/callControlSession.js');
+    const { handleInboundAgentDialLegInitiated } = await import('../../lib/inboundCallControl.js');
+
+    await saveSession('inbound-cc-3', {
+      callControlId: 'inbound-cc-3',
+      stage: 'ringing',
+      tenantId: 'tenant-3',
+      from: '+19724301252',
+    });
+    await indexPendingAgentRing('inbound-cc-3', CREDENTIAL_USER, '+19724301252');
+
+    const handled = await handleInboundAgentDialLegInitiated({
+      call_control_id: 'outbound-leg-3',
+      direction: 'outgoing',
+      from: '+19724301252',
+      to: `sip:${CREDENTIAL_USER}@sip.telnyx.com`,
+    });
+
+    expect(handled).toBe(true);
+    expect(await resolveInboundIdFromLeg('outbound-leg-3')).toBe('inbound-cc-3');
+  });
+
   it('returns false for real desk outbound legs without inbound parent session', async () => {
     const { handleInboundAgentDialLegInitiated } = await import('../../lib/inboundCallControl.js');
 
@@ -82,6 +110,29 @@ describe('telephony / inbound agent dial leg guard', () => {
     });
 
     expect(handled).toBe(false);
+  });
+
+  it('logs guard diagnostics when credential SIP URI has no parent session', async () => {
+    const { handleInboundAgentDialLegInitiated } = await import('../../lib/inboundCallControl.js');
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    const handled = await handleInboundAgentDialLegInitiated({
+      call_control_id: 'outbound-leg-diag',
+      direction: 'outgoing',
+      from: '+19724301252',
+      to: 'sip:gencredpzmzorphan01abc123xyz@sip.telnyx.com',
+    });
+
+    expect(handled).toBe(false);
+    expect(logSpy).toHaveBeenCalledWith(
+      '[CALL CONTROL] inbound agent dial leg guard: no parent session (falling through to desk outbound handler)',
+      expect.objectContaining({
+        to: 'sip:gencredpzmzorphan01abc123xyz@sip.telnyx.com',
+        credentialUser: 'gencredpzmzorphan01abc123xyz',
+        resolveInboundIdFromLeg: null,
+      }),
+    );
+    logSpy.mockRestore();
   });
 
   it('handleInboundCallControlEvent wires guard before desk outbound handler', () => {
