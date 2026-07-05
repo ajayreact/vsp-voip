@@ -4,9 +4,28 @@ Telnyx Call Control webhook events and VSP handler order for a typical inbound �
 
 ---
 
-## Inbound PSTN → desk SIP / WebRTC agent (happy path — Telnyx Option A)
+## Inbound PSTN → desk SIP (ring-first — Telnyx Find Me pattern)
 
-Official Telnyx lifecycle: answer inbound PSTN, `dial` with `link_to` + `bridge_on_answer: true`, then rely on `call.answered` and `call.bridged` (not `call.dial.answered`).
+Official Telnyx pattern for commercial PBX ring-first: leave inbound PSTN **parked**, dial agent with `link_to`, **`bridge_on_answer: false`**, then on agent `call.answered` issue **`bridge`** from the answered agent leg to the parked PSTN leg. **Do not** call `answer` on the parked leg before bridge (Find Me accept path). `answer` is required only before `speak` / voicemail (Find Me reject path).
+
+| # | Telnyx event | VSP handler | Session stage |
+|---|--------------|-------------|---------------|
+| 1 | `call.initiated` (incoming PSTN, `state=parked`) | `handleCallInitiated` — **no `answerCall`** | `init` |
+| 2 | — | `dialDestination` (`link_to`, `bridge_on_answer: false`) | `ringing` |
+| 3 | `call.initiated` (outgoing dial leg) | `handleInboundAgentDialLegInitiated` → `outboundLegs` | `ringing` |
+| 3b | `call.initiated` (credential incoming, if dual-leg) | `handleInboundAgentCredentialRingInitiated` | `ringing` |
+| 4 | `call.answered` (agent/desk leg) | `handleCallAnswered` → `bridgeParkedInboundToAgentLeg` | `connecting` |
+| 5 | `call.bridged` (×2) | `handleCallBridged` → `markSessionBridged` | `bridged` |
+| 6 | — | `applyAnswerSideEffectsOnce` → `ensureInboundCallLogged`, recording | `bridged` |
+| 7 | `call.hangup` | `handleHangup` | cleanup |
+
+No-answer with voicemail: `ensurePstnAnsweredForMedia` (`answer` parked PSTN) → `startVoicemailCapture`.
+
+---
+
+## Inbound PSTN → mobile app / WebRTC (Option A)
+
+Answer inbound PSTN immediately, `dial` with `link_to` + `bridge_on_answer: true`, rely on `call.answered` and `call.bridged`.
 
 | # | Telnyx event | VSP handler | Session stage |
 |---|--------------|-------------|---------------|
@@ -23,15 +42,17 @@ Official Telnyx lifecycle: answer inbound PSTN, `dial` with `link_to` + `bridge_
 
 `call.dial.answered` is handled only as a best-effort fallback (`handleDialAnswered` normalizes to `call.answered`); production path must not depend on it.
 
-### Runtime log markers (desk SIP inbound)
+### Runtime log markers (desk SIP inbound — ring-first)
 
 | Expected Telnyx step | VSP log / stage |
 |----------------------|-----------------|
-| PSTN answered | `logInboundCallStart` after `answerCall` in `handleCallInitiated` |
+| PSTN parked (no early answer) | `ring-first: deferring PSTN answer until desk SIP answers` |
 | Dial leg created | `↳ Call Control dial sip:` then `inbound agent dial leg indexed` |
 | Credential ring (if dual-leg) | `inbound agent credential ring indexed` |
-| Agent picks up | `CALL_DIAL_ANSWERED` with `awaitingBridge: true`, `stage=connecting` |
-| Bridge complete | `CALL_BRIDGED`, `stage=bridged`, `winnerLeg` set |
+| Agent picks up | `RING_FIRST_BRIDGE` then `CALL_DIAL_ANSWERED` with `awaitingBridge: true` |
+| Bridge complete | `CALL_BRIDGED`, `stage=bridged`, `winnerLeg` set; `ensureInboundCallLogged` on first bridge |
+
+### Runtime log markers (mobile app / WebRTC — Option A)
 
 ---
 

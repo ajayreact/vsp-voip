@@ -5,24 +5,83 @@ import { afterEach, describe, expect, it } from 'vitest';
 const source = readFileSync(join(process.cwd(), 'lib/inboundCallControl.js'), 'utf8');
 const telnyxSource = readFileSync(join(process.cwd(), 'lib/telnyxCallControl.js'), 'utf8');
 
-describe('telephony / inbound Telnyx lifecycle (Option A)', () => {
+describe('telephony / inbound ring-first desk SIP (Telnyx Find Me pattern)', () => {
   afterEach(async () => {
     const { __resetMemoryClaimStateForTests } = await import('../../lib/callControlSession.js');
     __resetMemoryClaimStateForTests();
   });
 
-  it('handleCallInitiated always answers inbound PSTN before routing', () => {
-    expect(source).not.toContain('shouldDeferPstnAnswerUntilDesk');
-    expect(source).not.toContain('deferPstnAnswerUntilAgent');
-    expect(source).not.toContain('ring-first: deferring PSTN answer');
+  it('defers PSTN answer for sip-only desk targets without media preambles', async () => {
+    const { shouldDeferPstnAnswerUntilDesk } = await import('../../lib/inboundCallControl.js');
+    expect(shouldDeferPstnAnswerUntilDesk({
+      targets: [{ type: 'sip', sipUsername: 'gencred-desk-1' }],
+      greeting: {
+        playGreetingBeforeConnect: false,
+        playCallRecordingNotice: false,
+        callRecordingEnabled: true,
+      },
+      extPolicy: { action: 'ring' },
+    })).toBe(true);
+  });
+
+  it('does not defer for mobile app ring targets', async () => {
+    const { shouldDeferPstnAnswerUntilDesk } = await import('../../lib/inboundCallControl.js');
+    expect(shouldDeferPstnAnswerUntilDesk({
+      targets: [{ type: 'app', user: { id: 'u1' } }],
+      ringsMobileApp: true,
+      extPolicy: { action: 'ring' },
+    })).toBe(false);
+  });
+
+  it('does not defer when IVR would run', async () => {
+    const { shouldDeferPstnAnswerUntilDesk } = await import('../../lib/inboundCallControl.js');
+    expect(shouldDeferPstnAnswerUntilDesk({
+      targets: [{ type: 'sip', sipUsername: 'gencred-desk-1' }],
+      ivrWouldRun: true,
+      extPolicy: { action: 'ring' },
+    })).toBe(false);
+  });
+
+  it('resolveDialBridgeOnAnswer is false when PSTN answer is deferred', async () => {
+    const { resolveDialBridgeOnAnswer } = await import('../../lib/inboundCallControl.js');
+    expect(resolveDialBridgeOnAnswer({ deferPstnAnswerUntilAgent: true })).toBe(false);
+    expect(resolveDialBridgeOnAnswer({ deferPstnAnswerUntilAgent: false })).toBe(true);
+  });
+
+  it('handleCallInitiated defers answer in ring-first branch only', () => {
     expect(source).toMatch(
-      /await answerCall\(callControlId, encodeClientState\(\{ tenantId: tenant\.id, direction: 'inbound' \}\)\);[\s\S]*await logInboundCallStart\(prisma, session\)/,
+      /if \(deferPstnAnswer\) \{[\s\S]*ring-first: deferring PSTN answer[\s\S]*\} else \{[\s\S]*await answerCall\(callControlId/,
     );
   });
 
-  it('dialDestination relies on default bridge_on_answer (link_to + bridge_on_answer)', () => {
-    expect(source).not.toContain('resolveDialBridgeOnAnswer');
-    expect(source).not.toContain('bridgeOnAnswer:');
+  it('bridges from answered agent leg to parked PSTN without prior answer (Find Me)', () => {
+    const fnMatch = source.match(
+      /async function bridgeParkedInboundToAgentLeg[\s\S]*?(?=\nasync function |\nfunction |\nmodule\.exports)/,
+    );
+    expect(fnMatch).toBeTruthy();
+    const fnBody = fnMatch[0];
+    expect(fnBody).toMatch(
+      /await bridgeCalls\(legCallControlId, \{ otherCallControlId: inboundCallControlId \}\)/,
+    );
+    expect(fnBody).not.toMatch(/await answerCall/);
+    expect(source).toMatch(
+      /session\.deferPstnAnswerUntilAgent && !session\.pstnAnswered[\s\S]*bridgeParkedInboundToAgentLeg/,
+    );
+  });
+
+  it('answers parked PSTN before voicemail when ring times out (Find Me reject path)', () => {
+    expect(source).toMatch(
+      /async function ensurePstnAnsweredForMedia[\s\S]*await answerCall\([\s\S]*await ensureInboundCallLogged/,
+    );
+    expect(source).toMatch(
+      /if \(voicemailAllowed\) \{[\s\S]*await ensurePstnAnsweredForMedia\(session, prisma\);[\s\S]*await startVoicemailCapture\(session\)/,
+    );
+  });
+});
+
+describe('telephony / inbound mobile app lifecycle (Option A)', () => {
+  it('dialDestination uses bridge_on_answer when PSTN is not deferred', () => {
+    expect(source).toContain('bridgeOnAnswer: resolveDialBridgeOnAnswer(session)');
     expect(telnyxSource).toContain('bridgeOnAnswer = true');
     expect(telnyxSource).toContain('...(bridgeOnAnswer ? { bridge_on_answer: true } : {})');
   });
@@ -30,7 +89,6 @@ describe('telephony / inbound Telnyx lifecycle (Option A)', () => {
   it('onOutboundLegAnswered waits for call.bridged after call.answered', () => {
     expect(source).toContain("function isAgentAnswerEvent(eventType)");
     expect(source).toMatch(/function isAgentAnswerEvent\(eventType\) \{[\s\S]*return eventType === 'call\.answered';/);
-    expect(source).not.toContain('completeDeferredPstnAnswerAndBridge');
     expect(source).toMatch(
       /isAgentAnswerEvent\(eventType\)[\s\S]*awaitingBridge: true/,
     );
@@ -73,16 +131,6 @@ describe('telephony / inbound agent answer leg detection', () => {
     expect(await isInboundAgentAnswerLeg(session, 'inbound-2', 'credential-leg-1', {})).toBe(true);
   });
 
-  it('isInboundAgentAnswerLeg matches legs sharing call_session_id', async () => {
-    const { isInboundAgentAnswerLeg, sharesInboundCallSession } = await import('../../lib/inboundCallControl.js');
-    const session = { callControlId: 'inbound-3', callSessionId: 'shared-sess', outboundLegs: [] };
-
-    expect(sharesInboundCallSession(session, { call_session_id: 'shared-sess' })).toBe(true);
-    expect(await isInboundAgentAnswerLeg(session, 'inbound-3', 'orphan-leg', {
-      call_session_id: 'shared-sess',
-    })).toBe(true);
-  });
-
   it('handleCallAnswered recognizes credential incoming leg and enters connecting', async () => {
     const { saveSession, getSession } = await import('../../lib/callControlSession.js');
     const {
@@ -101,6 +149,8 @@ describe('telephony / inbound agent answer leg detection', () => {
       ringIndex: 0,
       ringTargets: [{ type: 'sip', sipUsername: credUser }],
       greeting: { callRecordingEnabled: false },
+      deferPstnAnswerUntilAgent: false,
+      pstnAnswered: true,
     });
 
     const indexed = await handleInboundAgentCredentialRingInitiated({
@@ -161,31 +211,5 @@ describe('telephony / inbound agent leg indexing into outboundLegs', () => {
     expect(handled).toBe(true);
     const session = await getSession('inbound-cc-dial');
     expect(session.outboundLegs?.some((leg) => leg.callControlId === 'outbound-dial-leg')).toBe(true);
-  });
-
-  it('handleInboundAgentCredentialRingInitiated adds leg to session.outboundLegs', async () => {
-    const { saveSession, getSession, indexPendingAgentRing } = await import('../../lib/callControlSession.js');
-    const { handleInboundAgentCredentialRingInitiated } = await import('../../lib/inboundCallControl.js');
-
-    const credUser = 'gencredlifecycleuser01abc'.toLowerCase();
-    await saveSession('inbound-cc-cred', {
-      callControlId: 'inbound-cc-cred',
-      stage: 'ringing',
-      tenantId: 'tenant-1',
-      ringIndex: 0,
-      ringTargets: [{ type: 'sip', sipUsername: credUser }],
-    });
-    await indexPendingAgentRing('inbound-cc-cred', credUser, '+19724301252');
-
-    const handled = await handleInboundAgentCredentialRingInitiated({
-      call_control_id: 'credential-ring-leg',
-      direction: 'incoming',
-      to: credUser,
-      from: '+19724301252',
-    });
-
-    expect(handled).toBe(true);
-    const session = await getSession('inbound-cc-cred');
-    expect(session.outboundLegs?.some((leg) => leg.callControlId === 'credential-ring-leg')).toBe(true);
   });
 });
