@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * Confirm DESK_FIRST pilot override matches production DID routing.
+ * Confirm DESK_FIRST is configured on the pilot extension via Extension.deviceRingStrategy.
  * Usage: npx tsx scripts/check-desk-first-pilot-tenant.ts
  */
 import 'dotenv/config';
-import { TEMP_DESK_FIRST_OVERRIDES, resolveDeviceRingStrategy } from '../lib/ringTargetPolicy.js';
+import { resolveDeviceRingStrategy } from '../lib/ringTargetPolicy.js';
 
 const PILOT_DID = process.env.DESK_FIRST_PILOT_DID || '+19563961388';
 
@@ -22,6 +22,7 @@ async function main() {
           tenantId: true,
           extensionNumber: true,
           displayName: true,
+          deviceRingStrategy: true,
         },
       },
     },
@@ -33,23 +34,21 @@ async function main() {
   }
 
   const strategy = resolveDeviceRingStrategy(phone.extension);
-  const overrideApplies = strategy === 'DESK_FIRST';
+  const deskFirstConfigured = strategy === 'DESK_FIRST';
 
-  console.log('=== DESK_FIRST pilot tenant check ===\n');
+  console.log('=== DESK_FIRST pilot extension check ===\n');
   console.log(`DID:              ${phone.number}`);
   console.log(`Tenant:           ${phone.tenant?.name || '—'}`);
   console.log(`Tenant ID:        ${phone.tenantId}`);
   console.log(`Extension:        ${phone.extension?.extensionNumber || '—'} (${phone.extension?.displayName || '—'})`);
   console.log(`Extension ID:     ${phone.extension?.id || '—'}`);
   console.log('');
-  console.log('Configured overrides:');
-  console.log(JSON.stringify(TEMP_DESK_FIRST_OVERRIDES, null, 2));
-  console.log('');
+  console.log(`DB field:           ${phone.extension?.deviceRingStrategy || '—'}`);
   console.log(`Resolved strategy:  ${strategy}`);
-  console.log(`Override applies:   ${overrideApplies ? 'YES — safe to deploy' : 'NO — update TEMP_DESK_FIRST_OVERRIDES'}`);
+  console.log(`DESK_FIRST ready:   ${deskFirstConfigured ? 'YES — safe to deploy' : 'NO — set deviceRingStrategy to DESK_FIRST on this extension'}`);
 
   await prisma.$disconnect();
-  process.exit(overrideApplies ? 0 : 1);
+  process.exit(deskFirstConfigured ? 0 : 1);
 }
 
 main().catch((err) => {

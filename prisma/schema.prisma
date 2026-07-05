@@ -80,6 +80,14 @@ enum ExtensionStatus {
   SUSPENDED
 }
 
+enum ExtensionDeviceRingStrategy {
+  SIMULTANEOUS
+  DESK_FIRST
+  MOBILE_FIRST
+  DESK_ONLY
+  MOBILE_ONLY
+}
+
 enum ExtensionDeviceType {
   WEBRTC
   MOBILE
@@ -278,6 +286,7 @@ model Extension {
   sipRegistrationCheckedAt DateTime?
   sipRegistrationSource    String?
   multiDeviceEnabled       Boolean                      @default(true)
+  deviceRingStrategy       ExtensionDeviceRingStrategy  @default(SIMULTANEOUS)
   forwarding               ExtensionForwarding?
   security                 ExtensionSecurity?
   voicemailSettings        ExtensionVoicemailSettings?

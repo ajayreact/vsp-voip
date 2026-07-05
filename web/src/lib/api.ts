@@ -2070,6 +2070,24 @@ export type ExtensionOwnership = {
   };
 };
 
+export type ExtensionDeviceRingStrategy =
+  | 'SIMULTANEOUS'
+  | 'DESK_FIRST'
+  | 'MOBILE_FIRST'
+  | 'DESK_ONLY'
+  | 'MOBILE_ONLY';
+
+export const EXTENSION_DEVICE_RING_STRATEGY_OPTIONS: Array<{
+  value: ExtensionDeviceRingStrategy;
+  label: string;
+}> = [
+  { value: 'DESK_FIRST', label: 'Desk First' },
+  { value: 'MOBILE_FIRST', label: 'Mobile First' },
+  { value: 'SIMULTANEOUS', label: 'Simultaneous' },
+  { value: 'DESK_ONLY', label: 'Desk Only' },
+  { value: 'MOBILE_ONLY', label: 'Mobile Only' },
+];
+
 export type ExtensionRecord = {
   id: string;
   extensionNumber: string;
@@ -2095,6 +2113,7 @@ export type ExtensionRecord = {
     callScreeningEnabled: boolean;
     intercomEnabled: boolean;
   };
+  deviceRingStrategy: ExtensionDeviceRingStrategy;
   registration: {
     webrtcEnabled: boolean;
     sipEnabled: boolean;
@@ -2261,6 +2280,7 @@ export async function createExtension(payload: {
   webrtcEnabled?: boolean;
   sipEnabled?: boolean;
   multiDeviceEnabled?: boolean;
+  deviceRingStrategy?: ExtensionDeviceRingStrategy;
 }) {
   return apiFetch<{ success: boolean; extension: ExtensionRecord }>('/api/tenant/extensions', {
     method: 'POST',
@@ -2282,6 +2302,7 @@ export async function updateExtension(
     webrtcEnabled: boolean;
     sipEnabled: boolean;
     multiDeviceEnabled: boolean;
+    deviceRingStrategy: ExtensionDeviceRingStrategy;
     voicemailSettings: {
       enabled: boolean;
       greetingUrl?: string | null;

@@ -98,6 +98,7 @@ describe('ringTargetEndpoints / resolveExtensionRingTargets integration', () => 
       tenantId: '00000000-0000-4000-8000-000000000001',
       extensionNumber: '101',
       displayName: 'Admin',
+      deviceRingStrategy: 'DESK_FIRST',
       userId: 'user-1',
       user: {
         id: 'user-1',

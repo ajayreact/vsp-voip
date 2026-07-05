@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CheckCircle2, Loader2, UserPlus, Wrench, XCircle } from 'lucide-react';
 import { PortalPageHeader } from '@/components/portal/page-header';
-import { getMe, isUnauthorizedError } from '@/lib/api';
+import { getExtensions, getMe, isUnauthorizedError, updateExtension, type ExtensionDeviceRingStrategy, EXTENSION_DEVICE_RING_STRATEGY_OPTIONS } from '@/lib/api';
 import { applyV3Repair, createV3Employee, getV3Health, inspectV3Repair, type CreateV3EmployeeResult, type EmployeeHealth, type RepairApplyReport, type RepairInspectReport } from '@/lib/v3-api';
 
 function ProvisionResult({ result }: { result: CreateV3EmployeeResult }) {
@@ -47,6 +47,8 @@ export default function EmployeesPage() {
   const [applyReport, setApplyReport] = useState<RepairApplyReport | null>(null);
   const [repairError, setRepairError] = useState('');
   const [employees, setEmployees] = useState<EmployeeHealth[]>([]);
+  const [ringStrategies, setRingStrategies] = useState<Record<string, ExtensionDeviceRingStrategy>>({});
+  const [savingRingStrategy, setSavingRingStrategy] = useState<string | null>(null);
 
   useEffect(() => {getMe()
       .then((user) => {
@@ -54,7 +56,16 @@ export default function EmployeesPage() {
           router.replace('/dashboard');
           return;
         }
-        return getV3Health().then((res) => setEmployees(res.employees || []));
+        return Promise.all([
+          getV3Health().then((res) => setEmployees(res.employees || [])),
+          getExtensions().then((res) => {
+            const map: Record<string, ExtensionDeviceRingStrategy> = {};
+            for (const ext of res.extensions || []) {
+              map[ext.id] = ext.deviceRingStrategy;
+            }
+            setRingStrategies(map);
+          }),
+        ]);
       })
       .catch((err) => {
         if (isUnauthorizedError(err)) router.replace('/login');
@@ -62,6 +73,19 @@ export default function EmployeesPage() {
       })
       .finally(() => setLoading(false));
   }, [router]);
+
+  async function onRingStrategyChange(extensionId: string, strategy: ExtensionDeviceRingStrategy) {
+    setSavingRingStrategy(extensionId);
+    setError('');
+    try {
+      const res = await updateExtension(extensionId, { deviceRingStrategy: strategy });
+      setRingStrategies((prev) => ({ ...prev, [extensionId]: res.extension.deviceRingStrategy }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update ring strategy');
+    } finally {
+      setSavingRingStrategy(null);
+    }
+  }
 
   async function onCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -74,6 +98,12 @@ export default function EmployeesPage() {
       setForm({ name: '', email: '', password: '' });
       const health = await getV3Health();
       setEmployees(health.employees || []);
+      const extRes = await getExtensions();
+      const map: Record<string, ExtensionDeviceRingStrategy> = {};
+      for (const ext of extRes.extensions || []) {
+        map[ext.id] = ext.deviceRingStrategy;
+      }
+      setRingStrategies(map);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create employee');
     } finally {
@@ -134,6 +164,7 @@ export default function EmployeesPage() {
                 <th className="px-3 py-2">Name</th>
                 <th className="px-3 py-2">Ext</th>
                 <th className="px-3 py-2">DID</th>
+                <th className="px-3 py-2">Ring strategy</th>
                 <th className="px-3 py-2">Status</th>
               </tr>
             </thead>
@@ -146,11 +177,30 @@ export default function EmployeesPage() {
                   </td>
                   <td className="px-3 py-2">{emp.extensionNumber || '—'}</td>
                   <td className="px-3 py-2">{emp.did || '—'}</td>
+                  <td className="px-3 py-2">
+                    {emp.extensionId ? (
+                      <select
+                        value={ringStrategies[emp.extensionId] || 'SIMULTANEOUS'}
+                        disabled={savingRingStrategy === emp.extensionId}
+                        onChange={(e) => onRingStrategyChange(
+                          emp.extensionId!,
+                          e.target.value as ExtensionDeviceRingStrategy,
+                        )}
+                        className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 disabled:opacity-60"
+                      >
+                        {EXTENSION_DEVICE_RING_STRATEGY_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="text-xs text-slate-400">—</span>
+                    )}
+                  </td>
                   <td className="px-3 py-2 capitalize">{emp.overall}</td>
                 </tr>
               ))}
               {!employees.length ? (
-                <tr><td colSpan={4} className="px-3 py-6 text-center text-slate-500">No employees yet.</td></tr>
+                <tr><td colSpan={5} className="px-3 py-6 text-center text-slate-500">No employees yet.</td></tr>
               ) : null}
             </tbody>
           </table>

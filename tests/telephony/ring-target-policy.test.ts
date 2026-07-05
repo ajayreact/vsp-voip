@@ -11,9 +11,7 @@ import {
 } from '../../lib/ringTargetPolicy.js';
 import { ENDPOINT_TYPES } from '../../lib/ringTargetEndpoints.js';
 
-describe('ringTargetPolicy / Asuitech ext 101 production override', () => {
-  const PILOT_EXTENSION_ID = 'dda183d4-7cd0-43dc-b395-a0622061dc76';
-
+describe('ringTargetPolicy / extension deviceRingStrategy from DB', () => {
   const ext101DeskTarget = {
     type: 'app',
     endpointType: ENDPOINT_TYPES.DESK,
@@ -38,40 +36,32 @@ describe('ringTargetPolicy / Asuitech ext 101 production override', () => {
     ],
   };
 
-  it('resolves VSP Internal production tenant ext 101 to DESK_FIRST', () => {
+  it('resolves DESK_FIRST from extension.deviceRingStrategy', () => {
     expect(resolveDeviceRingStrategy({
-      id: 'prod-ext-101-uuid',
+      id: 'ext-101',
       tenantId: '8bbcdbdf-6377-44a0-bd84-ac6a34d5de96',
       extensionNumber: '101',
+      deviceRingStrategy: EXTENSION_DEVICE_RING_STRATEGY.DESK_FIRST,
     })).toBe(EXTENSION_DEVICE_RING_STRATEGY.DESK_FIRST);
   });
 
-  it('resolves pilot extension to DESK_FIRST via extensionId override', () => {
+  it('defaults to SIMULTANEOUS when deviceRingStrategy is missing', () => {
     expect(resolveDeviceRingStrategy({
-      id: PILOT_EXTENSION_ID,
-      tenantId: '00000000-0000-4000-8000-000000000001',
-      extensionNumber: '101',
-    })).toBe(EXTENSION_DEVICE_RING_STRATEGY.DESK_FIRST);
-    expect(resolveDeviceRingStrategy({
-      id: 'other-extension-id',
-      tenantId: '00000000-0000-4000-8000-000000000001',
-      extensionNumber: '101',
+      id: 'ext-100',
+      tenantId: '8bbcdbdf-6377-44a0-bd84-ac6a34d5de96',
+      extensionNumber: '100',
     })).toBe(EXTENSION_DEVICE_RING_STRATEGY.SIMULTANEOUS);
-    expect(resolveDeviceRingStrategy({
-      id: PILOT_EXTENSION_ID,
-      tenantId: '00000000-0000-4000-8000-000000000001',
-      extensionNumber: '102',
-    })).toBe(EXTENSION_DEVICE_RING_STRATEGY.DESK_FIRST);
+    expect(resolveDeviceRingStrategy(null)).toBe(EXTENSION_DEVICE_RING_STRATEGY.SIMULTANEOUS);
   });
 
-  it('extension 101 with desk + stale push uses ring-first, not Option A', () => {
+  it('extension with desk + stale push uses ring-first when DESK_FIRST', () => {
     expect(targetUsesOptionA(ext101DeskTarget)).toBe(false);
     expect(targetUsesRingFirst(ext101DeskTarget)).toBe(true);
     expect(usesOptionARingPath([ext101DeskTarget])).toBe(false);
     expect(usesRingFirstPath([ext101DeskTarget])).toBe(true);
   });
 
-  it('extension 101 keeps target.type app while policy selects ring-first', () => {
+  it('extension keeps target.type app while policy selects ring-first', () => {
     expect(ext101DeskTarget.type).toBe('app');
     expect(ext101DeskTarget.endpointType).toBe(ENDPOINT_TYPES.DESK);
   });
@@ -114,7 +104,7 @@ describe('ringTargetPolicy / SIMULTANEOUS legacy behavior', () => {
     ],
   };
 
-  it('SIMULTANEOUS with installed push still uses Option A for non-101 extensions', () => {
+  it('SIMULTANEOUS with installed push still uses Option A', () => {
     expect(targetUsesOptionA(simultaneousDeskPushTarget)).toBe(true);
     expect(usesRingFirstPath([simultaneousDeskPushTarget])).toBe(false);
   });
