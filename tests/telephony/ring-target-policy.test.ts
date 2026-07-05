@@ -38,6 +38,14 @@ describe('ringTargetPolicy / Asuitech ext 101 production override', () => {
     ],
   };
 
+  it('resolves VSP Internal production tenant ext 101 to DESK_FIRST', () => {
+    expect(resolveDeviceRingStrategy({
+      id: 'prod-ext-101-uuid',
+      tenantId: '8bbcdbdf-6377-44a0-bd84-ac6a34d5de96',
+      extensionNumber: '101',
+    })).toBe(EXTENSION_DEVICE_RING_STRATEGY.DESK_FIRST);
+  });
+
   it('resolves pilot extension to DESK_FIRST via extensionId override', () => {
     expect(resolveDeviceRingStrategy({
       id: PILOT_EXTENSION_ID,
