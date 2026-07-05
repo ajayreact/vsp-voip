@@ -94,7 +94,7 @@ describe('ringTargetEndpoints / resolveExtensionRingTargets integration', () => 
 
     const { resolveExtensionRingTargets } = await import('../../lib/inboundRouting.js');
     const extension = {
-      id: 'ext-101',
+      id: 'dda183d4-7cd0-43dc-b395-a0622061dc76',
       tenantId: '00000000-0000-4000-8000-000000000001',
       extensionNumber: '101',
       displayName: 'Admin',
