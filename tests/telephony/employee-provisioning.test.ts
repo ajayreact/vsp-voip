@@ -34,11 +34,30 @@ describe('Phase 2.5 / employee provisioning profile', () => {
     expect(profile.employeeName).toBe('Jane Doe');
     expect(profile.extensionNumber).toBe('101');
     expect(profile.sip.server).toBe('sip.telnyx.com');
-    expect(profile.sip.outboundProxy).toBe('sip.telnyx.com:5061');
-    expect(profile.sip.transport).toBe('TLS');
+    // Desk/Grandstream phones register over UDP on port 5060 (matches
+    // buildSipEndpointProfile's convention) — outboundProxy must use the
+    // same port, not the TLS port, or the phone gets a mismatched proxy.
+    expect(profile.sip.transport).toBe('UDP');
+    expect(profile.sip.outboundProxy).toBe('sip.telnyx.com:5060');
+    expect(profile.sip.port).toBe(5060);
     expect(profile.sip.password).toBeNull();
     expect(profile.sip.registrationExpirySec).toBe(3600);
     expect(profile.sip.symmetricRtp).toBe(true);
+  });
+
+  it('still supports an explicit TLS transport override for callers that need it', () => {
+    const profile = buildEmployeeProvisioningProfile({
+      tenant,
+      extension,
+      user,
+      includeSecrets: false,
+    });
+    // Default stays UDP; explicit override is exercised via buildTelnyxSipBlock directly.
+    const { buildTelnyxSipBlock } = require('../../lib/employeeProvisioningProfile.js');
+    const tlsSip = buildTelnyxSipBlock(user, { transport: 'TLS' });
+    expect(tlsSip.transport).toBe('TLS');
+    expect(tlsSip.outboundProxy).toBe('sip.telnyx.com:5061');
+    expect(profile.sip.transport).toBe('UDP');
   });
 
   it('includes secrets only when explicitly requested (admin API / redeem)', () => {

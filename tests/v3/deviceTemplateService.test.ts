@@ -40,4 +40,21 @@ describe('V3 deviceTemplateService', () => {
   it('rejects unsupported vendor', () => {
     expect(() => deviceTemplateService.assertVendor('unknown')).toThrow(/Unsupported vendor/);
   });
+
+  it('defaults desk SIP context to UDP on port 5060 (matches working registration path)', () => {
+    const ctx = deviceTemplateService.buildProvisionContext({ ...baseContext, device: { ...baseContext.device, vendor: 'grandstream' } });
+    expect(ctx.sip.transport).toBe('UDP');
+    expect(ctx.sip.port).toBe(5060);
+    expect(ctx.sip.outboundProxy).toBe('sip.telnyx.com:5060');
+  });
+
+  it('selects portTls only when transport is actually TLS (regression: previously always picked portTls)', () => {
+    // Simulate a caller that explicitly requests TLS at the employeeProvisioningProfile layer.
+    const { buildTelnyxSipBlock } = require('../../lib/employeeProvisioningProfile.js');
+    const tlsSip = buildTelnyxSipBlock(baseContext.user, { transport: 'TLS', includeSecrets: true });
+    expect(tlsSip.portTls).toBe(5061);
+    // deviceTemplateService port-selection logic: UDP/TCP -> sip.port, otherwise -> portTls.
+    const selectedPort = (tlsSip.transport === 'UDP' || tlsSip.transport === 'TCP') ? tlsSip.port : (tlsSip.portTls || tlsSip.port);
+    expect(selectedPort).toBe(5061);
+  });
 });

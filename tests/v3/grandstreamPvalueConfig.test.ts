@@ -42,6 +42,31 @@ describe('grandstreamPvalueConfig', () => {
     expect(xml).toContain('<P191>2</P191>');
   });
 
+  it('emits UDP transport (P191=0) and matching port 5060 for a default desk profile', () => {
+    // Regression: buildProvisionContext previously defaulted to TLS (P191=2) with
+    // remote/local port forced to 5061, while the platform's desk phones actually
+    // register over UDP on 5060 — producing a phone config with a mismatched
+    // Outbound Proxy/Transport/Port combination that Telnyx's SIP edge would
+    // never accept an INVITE against.
+    const deviceTemplateService = require('../../lib/v3/deviceTemplateService.js');
+    const provisionCtx = deviceTemplateService.buildProvisionContext({
+      tenant: { id: 't1', name: 'Acme', timezone: 'America/New_York' },
+      extension: { id: 'e1', extensionNumber: '101', displayName: 'Jane Doe' },
+      user: { id: 'u1', name: 'Jane Doe', telnyxSipUsername: 'gencred-jane', telnyxSipPassword: 'secret' },
+      device: { id: 'd1', vendor: 'grandstream', macAddress: 'AABBCCDDEEFF', configVersion: 1, provisionVersion: 1 },
+    });
+
+    expect(provisionCtx.sip.transport).toBe('UDP');
+    expect(provisionCtx.sip.port).toBe(5060);
+    expect(provisionCtx.sip.outboundProxy).toBe('sip.telnyx.com:5060');
+
+    const xml = buildGrandstreamPvalueXml(provisionCtx);
+    expect(xml).toContain('<P191>0</P191>'); // 0 = UDP
+    expect(xml).toContain('<P40>5060</P40>'); // remote SIP port
+    expect(xml).toContain('<P130>5060</P130>'); // local SIP port
+    expect(xml).toContain('<P4026>sip.telnyx.com</P4026>'); // outbound proxy host
+  });
+
   it('builds MAC-based provision filename and optional manual URL', () => {
     process.env.API_PUBLIC_URL = 'https://api.vspphone.com';
     expect(buildGrandstreamProvisionFilename('EC:74:D7:51:E3:E7')).toBe('cfgec74d751e3e7.xml');
