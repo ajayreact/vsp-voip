@@ -4,21 +4,34 @@ Telnyx Call Control webhook events and VSP handler order for a typical inbound �
 
 ---
 
-## Inbound PSTN → WebRTC agent (happy path)
+## Inbound PSTN → desk SIP / WebRTC agent (happy path — Telnyx Option A)
+
+Official Telnyx lifecycle: answer inbound PSTN, `dial` with `link_to` + `bridge_on_answer: true`, then rely on `call.answered` and `call.bridged` (not `call.dial.answered`).
 
 | # | Telnyx event | VSP handler | Session stage |
 |---|--------------|-------------|---------------|
-| 1 | `call.initiated` (incoming) | `handleCallInitiated` | `init` |
+| 1 | `call.initiated` (incoming PSTN) | `handleCallInitiated` | `init` |
 | 2 | — | `resolveInboundContext`, `saveSession` | `init` |
-| 3 | — | `answerCall` (PSTN) | `init` |
-| 4 | — | `startConnectFlow` → dial targets | `connect` → `ringing` |
-| 5 | `call.initiated` (outgoing leg) | leg indexed | `ringing` |
-| — | Client: `POST call-accepted` | `markAgentWebRtcAccepted` | `connecting` |
-| 6 | Client: SDK `call.answer()` | — | `connecting` |
-| 7 | `call.dial.answered` | `handleDialAnswered` | `connecting` |
-| 8 | `call.bridged` | `handleCallBridged`, `indexActiveAgentCall` | `bridged` |
-| 9 | — | `applyAnswerSideEffectsOnce` → recording | `bridged` |
-| 10 | `call.hangup` | `handleHangup`, cleanup | `hangup_pending` |
+| 3 | — | `answerCall` (PSTN — always, before dial) | `init` |
+| 4 | — | `dialDestination` (`link_to`, `bridge_on_answer: true`) | `connect` → `ringing` |
+| 5 | `call.initiated` (outgoing dial leg) | `handleInboundAgentDialLegInitiated` → indexed + `outboundLegs` | `ringing` |
+| 5b | `call.initiated` (incoming credential leg, voice webhook) | `handleInboundAgentCredentialRingInitiated` → indexed + `outboundLegs` | `ringing` |
+| 6 | `call.answered` (dial leg **or** credential incoming leg) | `handleCallAnswered` → `onOutboundLegAnswered` | `connecting` |
+| 7 | `call.bridged` (×2, auto via `bridge_on_answer`) | `handleCallBridged` → `markSessionBridged`, `indexActiveAgentCall` | `bridged` |
+| 8 | — | `applyAnswerSideEffectsOnce` → recording | `bridged` |
+| 9 | `call.hangup` | `handleHangup`, cleanup | `hangup_pending` |
+
+`call.dial.answered` is handled only as a best-effort fallback (`handleDialAnswered` normalizes to `call.answered`); production path must not depend on it.
+
+### Runtime log markers (desk SIP inbound)
+
+| Expected Telnyx step | VSP log / stage |
+|----------------------|-----------------|
+| PSTN answered | `logInboundCallStart` after `answerCall` in `handleCallInitiated` |
+| Dial leg created | `↳ Call Control dial sip:` then `inbound agent dial leg indexed` |
+| Credential ring (if dual-leg) | `inbound agent credential ring indexed` |
+| Agent picks up | `CALL_DIAL_ANSWERED` with `awaitingBridge: true`, `stage=connecting` |
+| Bridge complete | `CALL_BRIDGED`, `stage=bridged`, `winnerLeg` set |
 
 ---
 
@@ -26,7 +39,7 @@ Telnyx Call Control webhook events and VSP handler order for a typical inbound �
 
 | Event | Handler | Redis |
 |-------|---------|-------|
-| Multiple `call.dial.answered` | First wins via `claimConnectedLeg` | `ccs:winner:{inboundId}` SET NX |
+| Multiple `call.answered` / `call.bridged` | First wins via `claimConnectedLeg` on `call.bridged` | `ccs:winner:{inboundId}` SET NX |
 | Loser legs | Hung up or ignored | — |
 | Late `call.dial.ended` during `connecting` | Ignored (bridge grace) | stage check |
 
