@@ -163,6 +163,28 @@ describe('telephony / inbound ring-first desk SIP (Telnyx Find Me pattern)', () 
   });
 });
 
+describe('telephony / pre-connect announcement state machine', () => {
+  it('handleSpeakEnded consumes pendingConnect and calls startRinging after recording notice', () => {
+    expect(source).toMatch(
+      /if \(session\.stage === 'preamble' \|\| session\.pendingConnect\) \{[\s\S]*session\.pendingConnect = false;[\s\S]*await startRinging\(session, prisma\);/,
+    );
+    expect(source).not.toMatch(
+      /if \(session\.stage === 'greeting' \|\| session\.stage === 'preamble'\)/,
+    );
+  });
+
+  it('greeting speak.ended still enters startConnectFlow once', () => {
+    expect(source).toMatch(
+      /if \(session\.stage === 'greeting'\) \{[\s\S]*await startConnectFlow\(session, prisma\);/,
+    );
+  });
+
+  it('startConnectFlow does not replay recording notice after it was spoken', () => {
+    expect(source).toMatch(/if \(session\.recordingNoticePlayed\) \{[\s\S]*await startRinging\(session, prisma\);/);
+    expect(source).toMatch(/session\.recordingNoticePlayed = true;/);
+  });
+});
+
 describe('telephony / inbound mobile app lifecycle (Option A)', () => {
   it('dialDestination uses bridge_on_answer when PSTN is not deferred', () => {
     expect(source).toContain('bridgeOnAnswer: resolveDialBridgeOnAnswer(session)');
