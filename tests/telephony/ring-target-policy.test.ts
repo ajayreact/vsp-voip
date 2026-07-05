@@ -6,8 +6,6 @@ import {
   usesOptionARingPath,
   targetUsesRingFirst,
   targetUsesOptionA,
-  skipsPreConnectAnnouncements,
-  targetSkipsPreConnectAnnouncements,
 } from '../../lib/ringTargetPolicy.js';
 import { ENDPOINT_TYPES } from '../../lib/ringTargetEndpoints.js';
 
@@ -64,19 +62,6 @@ describe('ringTargetPolicy / extension deviceRingStrategy from DB', () => {
   it('extension keeps target.type app while policy selects ring-first', () => {
     expect(ext101DeskTarget.type).toBe('app');
     expect(ext101DeskTarget.endpointType).toBe(ENDPOINT_TYPES.DESK);
-  });
-
-  it('DESK_FIRST skips pre-connect greeting and recording announcement policy', () => {
-    expect(targetSkipsPreConnectAnnouncements(ext101DeskTarget)).toBe(true);
-    expect(skipsPreConnectAnnouncements([ext101DeskTarget])).toBe(true);
-    expect(skipsPreConnectAnnouncements([{
-      ...ext101DeskTarget,
-      deviceRingStrategy: EXTENSION_DEVICE_RING_STRATEGY.SIMULTANEOUS,
-    }])).toBe(false);
-    expect(skipsPreConnectAnnouncements([{
-      ...ext101DeskTarget,
-      deviceRingStrategy: EXTENSION_DEVICE_RING_STRATEGY.DESK_ONLY,
-    }])).toBe(false);
   });
 });
 

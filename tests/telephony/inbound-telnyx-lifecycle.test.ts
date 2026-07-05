@@ -11,7 +11,7 @@ describe('telephony / inbound ring-first desk SIP (Telnyx Find Me pattern)', () 
     __resetMemoryClaimStateForTests();
   });
 
-  it('DESK_FIRST defers PSTN answer even when greeting and recording notices are enabled', async () => {
+  it('DESK_FIRST defers PSTN answer when pre-connect media is NONE', async () => {
     const { shouldDeferPstnAnswerUntilDesk } = await import('../../lib/inboundCallControl.js');
     expect(shouldDeferPstnAnswerUntilDesk({
       targets: [{
@@ -21,16 +21,42 @@ describe('telephony / inbound ring-first desk SIP (Telnyx Find Me pattern)', () 
         user: { id: 'u1', telnyxSipUsername: 'gencred-desk-1' },
         endpoints: [{ endpointType: 'desk', source: 'v3_desk_device', registered: true }],
       }],
-      greeting: {
-        playGreetingBeforeConnect: true,
-        playCallRecordingNotice: true,
-        callRecordingEnabled: true,
-      },
+      preConnectMediaPolicy: 'NONE',
       extPolicy: { action: 'ring' },
     })).toBe(true);
   });
 
-  it('SIMULTANEOUS still blocked from ring-first when greeting before connect is enabled', async () => {
+  it('DESK_ONLY defers PSTN answer when pre-connect media is NONE', async () => {
+    const { shouldDeferPstnAnswerUntilDesk } = await import('../../lib/inboundCallControl.js');
+    expect(shouldDeferPstnAnswerUntilDesk({
+      targets: [{
+        type: 'app',
+        endpointType: 'desk',
+        deviceRingStrategy: 'DESK_ONLY',
+        user: { id: 'u1', telnyxSipUsername: 'gencred-desk-1' },
+        endpoints: [{ endpointType: 'desk', source: 'v3_desk_device', registered: true }],
+      }],
+      preConnectMediaPolicy: 'NONE',
+      extPolicy: { action: 'ring' },
+    })).toBe(true);
+  });
+
+  it('ring-first does not defer when pre-connect media requires PSTN answer', async () => {
+    const { shouldDeferPstnAnswerUntilDesk } = await import('../../lib/inboundCallControl.js');
+    expect(shouldDeferPstnAnswerUntilDesk({
+      targets: [{
+        type: 'app',
+        endpointType: 'desk',
+        deviceRingStrategy: 'DESK_FIRST',
+        user: { id: 'u1', telnyxSipUsername: 'gencred-desk-1' },
+        endpoints: [{ endpointType: 'desk', source: 'v3_desk_device', registered: true }],
+      }],
+      preConnectMediaPolicy: 'GREETING_AND_RECORDING',
+      extPolicy: { action: 'ring' },
+    })).toBe(false);
+  });
+
+  it('SIMULTANEOUS does not use ring-first defer path', async () => {
     const { shouldDeferPstnAnswerUntilDesk } = await import('../../lib/inboundCallControl.js');
     expect(shouldDeferPstnAnswerUntilDesk({
       targets: [{
@@ -40,27 +66,23 @@ describe('telephony / inbound ring-first desk SIP (Telnyx Find Me pattern)', () 
         user: { id: 'u1', telnyxSipUsername: 'gencred-desk-1', pushDeviceToken: 'push' },
         endpoints: [{ endpointType: 'desk', source: 'extension_device', registered: true }],
       }],
-      greeting: {
-        playGreetingBeforeConnect: true,
-        playCallRecordingNotice: true,
-        callRecordingEnabled: true,
-      },
+      preConnectMediaPolicy: 'NONE',
       extPolicy: { action: 'ring' },
     })).toBe(false);
   });
 
-  it('startConnectFlow skips preamble when DESK_FIRST policy is active', () => {
-    expect(source).toMatch(/deskFirstSkipAnnouncements = skipsPreConnectAnnouncements/);
-    expect(source).toMatch(/!deskFirstSkipAnnouncements/);
+  it('startConnectFlow uses preConnectMediaPolicy for recording preamble', () => {
+    expect(source).toMatch(/policyPlaysRecordingNotice\(mediaPolicy\)/);
+    expect(source).not.toMatch(/deskFirstSkipAnnouncements/);
   });
 
-  it('handleCallInitiated skips greeting-before-connect for DESK_FIRST targets', () => {
-    expect(source).toMatch(
-      /playGreetingBeforeConnect !== false && !skipsPreConnectAnnouncements\(targets\)/,
-    );
+  it('handleCallInitiated uses preConnectMediaPolicy instead of ring strategy for greetings', () => {
+    expect(source).toMatch(/resolvePreConnectMediaPolicy\(/);
+    expect(source).toMatch(/preConnectMediaPolicy === PRE_CONNECT_MEDIA_POLICY\.GREETING/);
+    expect(source).not.toMatch(/playGreetingBeforeConnect !== false && !skipsPreConnectAnnouncements/);
   });
 
-  it('defers PSTN answer for DESK_FIRST targets without media preambles', async () => {
+  it('defers PSTN answer for DESK_FIRST and DESK_ONLY with NONE pre-connect media', async () => {
     const { shouldDeferPstnAnswerUntilDesk } = await import('../../lib/inboundCallControl.js');
     expect(shouldDeferPstnAnswerUntilDesk({
       targets: [{
@@ -76,6 +98,7 @@ describe('telephony / inbound ring-first desk SIP (Telnyx Find Me pattern)', () 
         callRecordingEnabled: true,
       },
       extPolicy: { action: 'ring' },
+      preConnectMediaPolicy: 'NONE',
     })).toBe(true);
     expect(shouldDeferPstnAnswerUntilDesk({
       targets: [{
@@ -88,12 +111,8 @@ describe('telephony / inbound ring-first desk SIP (Telnyx Find Me pattern)', () 
           { endpointType: 'mobile', source: 'push_token', registered: false },
         ],
       }],
-      greeting: {
-        playGreetingBeforeConnect: false,
-        playCallRecordingNotice: false,
-        callRecordingEnabled: true,
-      },
       extPolicy: { action: 'ring' },
+      preConnectMediaPolicy: 'NONE',
     })).toBe(true);
   });
 
@@ -173,9 +192,9 @@ describe('telephony / pre-connect announcement state machine', () => {
     );
   });
 
-  it('greeting speak.ended still enters startConnectFlow once', () => {
+  it('greeting speak.ended enters startConnectFlow with recording skip based on policy', () => {
     expect(source).toMatch(
-      /if \(session\.stage === 'greeting'\) \{[\s\S]*await startConnectFlow\(session, prisma\);/,
+      /if \(session\.stage === 'greeting'\) \{[\s\S]*await startConnectFlow\(session, prisma, \{ skipAnnouncements \}\);/,
     );
   });
 

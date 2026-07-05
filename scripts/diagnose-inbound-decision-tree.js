@@ -12,6 +12,12 @@ async function main() {
   const { resolveRingTargets } = require('../lib/inboundRouting.js');
   const { applyNumberRoutingToGreeting } = require('../lib/numberRouting.js');
   const { usesRingFirstPath, usesOptionARingPath, resolveDeviceRingStrategy } = require('../lib/ringTargetPolicy.js');
+  const {
+    PRE_CONNECT_MEDIA_POLICY,
+    resolvePreConnectMediaPolicy,
+    policyPlaysGreeting,
+    policyPlaysRecordingNotice,
+  } = require('../lib/preConnectMediaPolicy.js');
   const { loadCredentialConnectionId } = require('../lib/softphone.js');
   const { resolveExtensionInboundPolicy } = require('../lib/extensionInbound.js');
   const { isWithinBusinessHours } = require('../lib/businessHours.js');
@@ -60,6 +66,13 @@ async function main() {
     { credentialConnectionId: connectionId },
   );
 
+  const preConnectMediaPolicy = resolvePreConnectMediaPolicy({
+    phoneRecord: phone,
+    greeting: greeting || {},
+    routedExtension: phone.extension,
+    ivrWouldRun,
+  });
+
   const deferChecks = [];
   deferChecks.push({
     gate: 'ringsMobileApp (usesOptionARingPath)',
@@ -80,17 +93,9 @@ async function main() {
     detail: String(usesRingFirstPath(targets)),
   });
   deferChecks.push({
-    gate: 'playGreetingBeforeConnect === false (or DESK_FIRST skip)',
-    pass: greeting?.playGreetingBeforeConnect === false || require('../lib/ringTargetPolicy.js').skipsPreConnectAnnouncements(targets),
-    detail: String(greeting?.playGreetingBeforeConnect),
-  });
-  deferChecks.push({
-    gate: 'recording preamble disabled for defer (or DESK_FIRST skip)',
-    pass: require('../lib/ringTargetPolicy.js').skipsPreConnectAnnouncements(targets) || !(
-      greeting?.playCallRecordingNotice !== false
-      && greeting?.callRecordingEnabled !== false
-    ),
-    detail: `playCallRecordingNotice=${greeting?.playCallRecordingNotice} callRecordingEnabled=${greeting?.callRecordingEnabled}`,
+    gate: 'preConnectMediaPolicy === NONE',
+    pass: preConnectMediaPolicy === PRE_CONNECT_MEDIA_POLICY.NONE,
+    detail: preConnectMediaPolicy,
   });
 
   const firstDeferBlock = deferChecks.find((c) => !c.pass);
@@ -100,7 +105,7 @@ async function main() {
   if (businessHoursClosed && greeting?.businessHoursEnabled) {
     handleCallInitiatedBranch = 'after_hours_closed (speakCall)';
   } else if (greeting?.ivrEnabled && ivrOptions.length && !ringsMobileApp) {
-    handleCallInitiatedBranch = 'IVR gatherUsingSpeak (L1575)';
+    handleCallInitiatedBranch = 'IVR gatherUsingSpeak';
   } else if (extPolicy?.action === 'block') {
     handleCallInitiatedBranch = 'extPolicy block speakCall';
   } else if (extPolicy?.action === 'voicemail') {
@@ -110,11 +115,11 @@ async function main() {
   } else if (extPolicy?.action === 'screen') {
     handleCallInitiatedBranch = 'extPolicy screen gather';
   } else if (ringsMobileApp) {
-    handleCallInitiatedBranch = 'ringsMobileApp -> startConnectFlow skipAnnouncements (L1642)';
-  } else if (greeting?.playGreetingBeforeConnect !== false && !require('../lib/ringTargetPolicy.js').skipsPreConnectAnnouncements(targets)) {
-    handleCallInitiatedBranch = 'playGreetingBeforeConnect -> speakCall greeting (L1669) — desk dial NOT yet';
+    handleCallInitiatedBranch = 'ringsMobileApp -> startConnectFlow skipAnnouncements';
+  } else if (policyPlaysGreeting(preConnectMediaPolicy)) {
+    handleCallInitiatedBranch = 'preConnectMediaPolicy GREETING -> speakCall greeting — dial NOT yet';
   } else {
-    handleCallInitiatedBranch = 'startConnectFlow (L1680)';
+    handleCallInitiatedBranch = 'startConnectFlow -> startRinging';
   }
 
   const resolvedGreetingText = resolveGreetingMessage(
@@ -125,25 +130,26 @@ async function main() {
   let startConnectFlowBranch = 'not reached in handleCallInitiated';
   if (
     handleCallInitiatedBranch.includes('startConnectFlow')
-    || handleCallInitiatedBranch.includes('greeting')
+    || handleCallInitiatedBranch.includes('GREETING')
   ) {
-    const skipAnnouncements = ringsMobileApp || extPolicy?.action === 'forward';
-    const deskFirstSkip = require('../lib/ringTargetPolicy.js').skipsPreConnectAnnouncements(targets);
+    const skipAnnouncements = ringsMobileApp
+      || extPolicy?.action === 'forward'
+      || preConnectMediaPolicy === PRE_CONNECT_MEDIA_POLICY.NONE
+      || preConnectMediaPolicy === PRE_CONNECT_MEDIA_POLICY.GREETING;
     const preambleWouldPlay = !skipAnnouncements
-      && !deskFirstSkip
-      && greeting?.playCallRecordingNotice !== false
+      && policyPlaysRecordingNotice(preConnectMediaPolicy)
       && greeting?.callRecordingEnabled !== false
       && !deferPstnAnswerUntilAgent;
 
-    if (handleCallInitiatedBranch.includes('greeting')) {
+    if (handleCallInitiatedBranch.includes('GREETING')) {
       startConnectFlowBranch = 'after speak ended: startConnectFlow -> '
-        + (preambleWouldPlay ? 'preamble recording speak (L573) then dial' : 'startRinging -> dialDestination');
+        + (preambleWouldPlay ? 'recording notice once then startRinging' : 'startRinging -> dialDestination');
     } else if (preambleWouldPlay) {
-      startConnectFlowBranch = 'startConnectFlow -> preamble recording speak (L573) then startRinging';
+      startConnectFlowBranch = 'startConnectFlow -> recording notice once then startRinging';
     } else if (!targets.length) {
       startConnectFlowBranch = 'startConnectFlow -> routeToVoicemailOrHangup (no targets)';
     } else {
-      startConnectFlowBranch = 'startConnectFlow -> startRinging -> dialDestination (L581)';
+      startConnectFlowBranch = 'startConnectFlow -> startRinging -> dialDestination';
     }
   }
 
@@ -165,6 +171,7 @@ async function main() {
     ringTimeout,
     ringStrategy: strategy,
     runtimeValues: {
+      preConnectMediaPolicy,
       deferPstnAnswerUntilAgent,
       ivrWouldRun,
       playGreetingBeforeConnect: greeting?.playGreetingBeforeConnect,
@@ -175,7 +182,6 @@ async function main() {
       ringsMobileApp,
       usesRingFirstPath: usesRingFirstPath(targets),
       usesOptionARingPath: usesOptionARingPath(targets),
-      skipsPreConnectAnnouncements: require('../lib/ringTargetPolicy.js').skipsPreConnectAnnouncements(targets),
     },
     deferGateResults: deferChecks,
     firstDeferBlocker: firstDeferBlock?.gate ?? null,
