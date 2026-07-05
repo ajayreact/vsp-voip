@@ -11,6 +11,55 @@ describe('telephony / inbound ring-first desk SIP (Telnyx Find Me pattern)', () 
     __resetMemoryClaimStateForTests();
   });
 
+  it('DESK_FIRST defers PSTN answer even when greeting and recording notices are enabled', async () => {
+    const { shouldDeferPstnAnswerUntilDesk } = await import('../../lib/inboundCallControl.js');
+    expect(shouldDeferPstnAnswerUntilDesk({
+      targets: [{
+        type: 'app',
+        endpointType: 'desk',
+        deviceRingStrategy: 'DESK_FIRST',
+        user: { id: 'u1', telnyxSipUsername: 'gencred-desk-1' },
+        endpoints: [{ endpointType: 'desk', source: 'v3_desk_device', registered: true }],
+      }],
+      greeting: {
+        playGreetingBeforeConnect: true,
+        playCallRecordingNotice: true,
+        callRecordingEnabled: true,
+      },
+      extPolicy: { action: 'ring' },
+    })).toBe(true);
+  });
+
+  it('SIMULTANEOUS still blocked from ring-first when greeting before connect is enabled', async () => {
+    const { shouldDeferPstnAnswerUntilDesk } = await import('../../lib/inboundCallControl.js');
+    expect(shouldDeferPstnAnswerUntilDesk({
+      targets: [{
+        type: 'app',
+        endpointType: 'desk',
+        deviceRingStrategy: 'SIMULTANEOUS',
+        user: { id: 'u1', telnyxSipUsername: 'gencred-desk-1', pushDeviceToken: 'push' },
+        endpoints: [{ endpointType: 'desk', source: 'extension_device', registered: true }],
+      }],
+      greeting: {
+        playGreetingBeforeConnect: true,
+        playCallRecordingNotice: true,
+        callRecordingEnabled: true,
+      },
+      extPolicy: { action: 'ring' },
+    })).toBe(false);
+  });
+
+  it('startConnectFlow skips preamble when DESK_FIRST policy is active', () => {
+    expect(source).toMatch(/deskFirstSkipAnnouncements = skipsPreConnectAnnouncements/);
+    expect(source).toMatch(/!deskFirstSkipAnnouncements/);
+  });
+
+  it('handleCallInitiated skips greeting-before-connect for DESK_FIRST targets', () => {
+    expect(source).toMatch(
+      /playGreetingBeforeConnect !== false && !skipsPreConnectAnnouncements\(targets\)/,
+    );
+  });
+
   it('defers PSTN answer for DESK_FIRST targets without media preambles', async () => {
     const { shouldDeferPstnAnswerUntilDesk } = await import('../../lib/inboundCallControl.js');
     expect(shouldDeferPstnAnswerUntilDesk({
