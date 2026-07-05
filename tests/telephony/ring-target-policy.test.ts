@@ -9,7 +9,9 @@ import {
 } from '../../lib/ringTargetPolicy.js';
 import { ENDPOINT_TYPES } from '../../lib/ringTargetEndpoints.js';
 
-describe('ringTargetPolicy / extension 101 production override', () => {
+describe('ringTargetPolicy / Asuitech ext 101 production override', () => {
+  const ASUITECH_TENANT_ID = '00000000-0000-4000-8000-000000000001';
+
   const ext101DeskTarget = {
     type: 'app',
     endpointType: ENDPOINT_TYPES.DESK,
@@ -34,13 +36,19 @@ describe('ringTargetPolicy / extension 101 production override', () => {
     ],
   };
 
-  it('resolves extension 101 to DESK_FIRST via temporary override', () => {
-    expect(resolveDeviceRingStrategy({ extensionNumber: '101' })).toBe(
-      EXTENSION_DEVICE_RING_STRATEGY.DESK_FIRST,
-    );
-    expect(resolveDeviceRingStrategy({ extensionNumber: '102' })).toBe(
-      EXTENSION_DEVICE_RING_STRATEGY.SIMULTANEOUS,
-    );
+  it('resolves Asuitech extension 101 to DESK_FIRST via tenant-scoped override', () => {
+    expect(resolveDeviceRingStrategy({
+      tenantId: ASUITECH_TENANT_ID,
+      extensionNumber: '101',
+    })).toBe(EXTENSION_DEVICE_RING_STRATEGY.DESK_FIRST);
+    expect(resolveDeviceRingStrategy({
+      tenantId: 'other-tenant-id',
+      extensionNumber: '101',
+    })).toBe(EXTENSION_DEVICE_RING_STRATEGY.SIMULTANEOUS);
+    expect(resolveDeviceRingStrategy({
+      tenantId: ASUITECH_TENANT_ID,
+      extensionNumber: '102',
+    })).toBe(EXTENSION_DEVICE_RING_STRATEGY.SIMULTANEOUS);
   });
 
   it('extension 101 with desk + stale push uses ring-first, not Option A', () => {
