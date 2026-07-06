@@ -32,22 +32,36 @@ describe('grandstreamPvalueConfig', () => {
   };
 
   it('builds P-value XML with required SIP fields', () => {
+    // P-value numbers verified against Grandstream's official XML Configuration
+    // File Generator template and the FusionPBX grandstream/grp26xx provisioning
+    // template (P47=SIP Server, P48=Outbound Proxy, P130=SIP Transport,
+    // P40=Local SIP Port — both host fields carry "host:port", not host alone).
     const xml = buildGrandstreamPvalueXml(ctx);
     expect(xml).toContain('<gs_provision');
     expect(xml).toContain('<P271>1</P271>');
     expect(xml).toContain('<P270>Ajay</P270>');
-    expect(xml).toContain('<P47>sip.telnyx.com</P47>');
+    expect(xml).toContain('<P47>sip.telnyx.com:5061</P47>');
     expect(xml).toContain('<P35>gencred-ajay</P35>');
     expect(xml).toContain('<P34>secret</P34>');
-    expect(xml).toContain('<P191>2</P191>');
+    expect(xml).toContain('<P130>2</P130>'); // 2 = TLS
+    expect(xml).toContain('<P48>sip.telnyx.com:5061</P48>'); // outbound proxy, host:port
+    expect(xml).not.toContain('<P4026>'); // not a valid P-value on this device family
+    expect(xml).not.toContain('<P191>'); // P191 is "Enable Call Features", unrelated to transport
+    expect(xml).not.toContain('<P280>'); // not a valid P-value — DTMF is 3 separate booleans
   });
 
-  it('emits UDP transport (P191=0) and matching port 5060 for a default desk profile', () => {
+  it('emits UDP transport (P130=0) and outbound proxy with port for a default desk profile', () => {
     // Regression: buildProvisionContext previously defaulted to TLS (P191=2) with
     // remote/local port forced to 5061, while the platform's desk phones actually
     // register over UDP on 5060 — producing a phone config with a mismatched
     // Outbound Proxy/Transport/Port combination that Telnyx's SIP edge would
     // never accept an INVITE against.
+    //
+    // Also a regression for the P-value mapping bug: P4026 does not exist on
+    // GRP26xx (Outbound Proxy is P48), and P130/P191 were swapped relative to
+    // their real meaning (P130=Transport, P191=unrelated "Enable Call Features"),
+    // which is why Outbound Proxy/Transport showed blank/stale on the physical
+    // phone even though the server-generated XML looked plausible.
     const deviceTemplateService = require('../../lib/v3/deviceTemplateService.js');
     const provisionCtx = deviceTemplateService.buildProvisionContext({
       tenant: { id: 't1', name: 'Acme', timezone: 'America/New_York' },
@@ -61,10 +75,22 @@ describe('grandstreamPvalueConfig', () => {
     expect(provisionCtx.sip.outboundProxy).toBe('sip.telnyx.com:5060');
 
     const xml = buildGrandstreamPvalueXml(provisionCtx);
-    expect(xml).toContain('<P191>0</P191>'); // 0 = UDP
-    expect(xml).toContain('<P40>5060</P40>'); // remote SIP port
-    expect(xml).toContain('<P130>5060</P130>'); // local SIP port
-    expect(xml).toContain('<P4026>sip.telnyx.com</P4026>'); // outbound proxy host
+    expect(xml).toContain('<P130>0</P130>'); // 0 = UDP (real Transport P-value)
+    expect(xml).toContain('<P40>5060</P40>'); // local SIP port (fixed)
+    expect(xml).toContain('<P47>sip.telnyx.com:5060</P47>'); // SIP server, host:port
+    expect(xml).toContain('<P48>sip.telnyx.com:5060</P48>'); // outbound proxy, host:port
+  });
+
+  it('maps DTMF mode to the three independent P2301/P2302/P2303 booleans', () => {
+    const rfc2833Xml = buildGrandstreamPvalueXml(ctx);
+    expect(rfc2833Xml).toContain('<P2301>0</P2301>'); // in-audio: off
+    expect(rfc2833Xml).toContain('<P2302>1</P2302>'); // RFC2833: on
+    expect(rfc2833Xml).toContain('<P2303>0</P2303>'); // SIP INFO: off
+
+    const infoXml = buildGrandstreamPvalueXml({ ...ctx, sip: { ...ctx.sip, dtmfMode: 'SIP INFO' } });
+    expect(infoXml).toContain('<P2301>0</P2301>');
+    expect(infoXml).toContain('<P2302>0</P2302>');
+    expect(infoXml).toContain('<P2303>1</P2303>');
   });
 
   it('builds MAC-based provision filename and optional manual URL', () => {
