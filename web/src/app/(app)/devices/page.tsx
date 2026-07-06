@@ -1,11 +1,14 @@
 'use client';
 
+import 'sweetalert2/dist/sweetalert2.min.css';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Plus, Smartphone } from 'lucide-react';
+import Swal from 'sweetalert2';
 import { PortalPageHeader } from '@/components/portal/page-header';
 import { getMe, isUnauthorizedError } from '@/lib/api';
-import { createV3Device, getV3DeviceVendors, getV3Devices, getV3Health, provisionV3DeskDevice, updateV3Device, type DeskDevice } from '@/lib/v3-api';
+import { createV3Device, getV3DeviceVendors, getV3Devices, getV3Health, provisionV3DeskDevice, removeV3Device, updateV3Device, type DeskDevice } from '@/lib/v3-api';
+import { SWAL_THEME } from '@/lib/swal-theme';
 
 const STATUS_CLASS: Record<string, string> = {
   CREATED: 'bg-slate-100 text-slate-700',
@@ -34,7 +37,7 @@ export default function DevicesPage() {
       getV3DeviceVendors(),
       getV3Health(),
     ]);
-    setItems(devicesRes.items || []);
+    setItems((devicesRes.items || []).filter((d) => d.status !== 'REMOVED'));
     setVendors(vendorsRes.vendors || []);
     setEmployees((healthRes.employees || []).map((e) => ({
       employeeId: e.employeeId,
@@ -102,6 +105,37 @@ export default function DevicesPage() {
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Provision failed');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function onRemove(device: DeskDevice) {
+    const macLabel = device.macAddress || 'unknown MAC';
+    const confirm = await Swal.fire({
+      ...SWAL_THEME,
+      title: 'Remove desk phone?',
+      html: [
+        `Remove <strong>${device.vendor} ${device.model || ''}</strong> with MAC <code>${macLabel}</code>?`,
+        'This clears the employee assignment and deletes the provisioning record.',
+        'Call history and employee records are not affected.',
+      ].join('<br /><br />'),
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Remove device',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#e11d48',
+    });
+    if (!confirm.isConfirmed) return;
+
+    setBusy(device.id);
+    setError('');
+    try {
+      await removeV3Device(device.id);
+      if (assignId === device.id) setAssignId(null);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Remove failed');
     } finally {
       setBusy('');
     }
@@ -220,6 +254,7 @@ export default function DevicesPage() {
                 <td className="px-4 py-3 space-x-2">
                   <button type="button" onClick={() => { setAssignId(d.id); setAssignForm({ employeeId: d.employeeId || '', extensionId: d.extensionId || '' }); }} className="text-indigo-600 hover:underline">Assign</button>
                   <button type="button" disabled={!d.extensionId || busy === d.id} onClick={() => onProvision(d.id)} className="text-indigo-600 hover:underline disabled:opacity-50">Provision</button>
+                  <button type="button" disabled={busy === d.id} onClick={() => onRemove(d)} className="text-rose-600 hover:underline disabled:opacity-50">Remove</button>
                 </td>
               </tr>
             ))}

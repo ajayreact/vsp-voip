@@ -345,10 +345,33 @@ export async function updateV3Device(id: string, data: Partial<DeskDevice>) {
 }
 
 export async function removeV3Device(id: string) {
-  return apiFetch<{ success: boolean; device: DeskDevice }>(`/api/v3/devices/${id}`, {
+  return apiFetch<{ success: boolean; removed: RemovedDeskDevice }>(`/api/v3/devices/${id}`, {
     method: 'DELETE',
   });
 }
+
+export async function removeV3DeviceByMac(macAddress: string) {
+  const encodedMac = encodeURIComponent(macAddress.replace(/[^A-Fa-f0-9]/g, ''));
+  return apiFetch<{ success: boolean; removed: RemovedDeskDevice }>(`/api/v3/devices/by-mac/${encodedMac}`, {
+    method: 'DELETE',
+  });
+}
+
+export type RemovedDeskDevice = {
+  removed: true;
+  id: string;
+  tenantId: string;
+  vendor: string;
+  model: string | null;
+  macAddress: string | null;
+  serialNumber: string | null;
+  employeeId: string | null;
+  extensionId: string | null;
+  status: string;
+  provisionUrl: string | null;
+  configVersion: number;
+  provisionVersion: number;
+};
 
 export async function provisionV3DeskDevice(deviceId: string, regenerate = false) {
   return apiFetch<{

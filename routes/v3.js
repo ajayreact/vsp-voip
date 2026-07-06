@@ -550,17 +550,33 @@ router.put('/devices/:id', adminOnly, async (req, res) => {
   }
 });
 
+router.delete('/devices/by-mac/:mac', adminOnly, async (req, res) => {
+  try {
+    if (!requireTenant(req, res)) return;
+    const prisma = await getPrisma();
+    const removed = await deviceService.removeDeviceByMac(
+      prisma,
+      req.user.tenantId,
+      req.params.mac,
+      { req, actor: req.user },
+    );
+    res.json({ success: true, removed });
+  } catch (error) {
+    sendError(res, error, 'Failed to remove device');
+  }
+});
+
 router.delete('/devices/:id', adminOnly, async (req, res) => {
   try {
     if (!requireTenant(req, res)) return;
     const prisma = await getPrisma();
-    const device = await deviceService.removeDevice(
+    const removed = await deviceService.removeDevice(
       prisma,
       req.user.tenantId,
       req.params.id,
       { req, actor: req.user },
     );
-    res.json({ success: true, device });
+    res.json({ success: true, removed });
   } catch (error) {
     sendError(res, error, 'Failed to remove device');
   }

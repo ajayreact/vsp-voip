@@ -5,7 +5,7 @@ const deviceService = require('../../lib/v3/deviceService.js');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const auditService = require('../../lib/v3/auditService.js');
 
-function fakePrisma(store: { devices: any[]; extensions: any[]; users: any[]; tenants: any[] }) {
+function fakePrisma(store: { devices: any[]; extensions: any[]; users: any[]; tenants: any[]; runtimeLinks?: any[] }) {
   return {
     v3DeskDevice: {
       findMany: vi.fn(async ({ where }: any) => store.devices.filter((d) => {
@@ -30,8 +30,46 @@ function fakePrisma(store: { devices: any[]; extensions: any[]; users: any[]; te
         Object.assign(device, data);
         return { ...device, tenant: store.tenants[0] };
       }),
+      delete: vi.fn(async ({ where }: any) => {
+        const idx = store.devices.findIndex((d) => d.id === where.id);
+        if (idx === -1) throw new Error('not found');
+        const [removed] = store.devices.splice(idx, 1);
+        return removed;
+      }),
       count: vi.fn(async () => store.devices.filter((d) => d.status !== 'REMOVED').length),
     },
+    v3RuntimeLink: {
+      deleteMany: vi.fn(async ({ where }: any) => {
+        store.runtimeLinks = (store.runtimeLinks || []).filter((link: any) => {
+          if (where.tenantId && link.tenantId !== where.tenantId) return true;
+          if (where.v3EntityType && link.v3EntityType !== where.v3EntityType) return true;
+          if (where.v3EntityId && link.v3EntityId !== where.v3EntityId) return true;
+          return false;
+        });
+        return { count: 1 };
+      }),
+    },
+    $transaction: vi.fn(async (fn: any) => fn({
+      v3RuntimeLink: {
+        deleteMany: vi.fn(async ({ where }: any) => {
+          store.runtimeLinks = (store.runtimeLinks || []).filter((link: any) => {
+            if (where.tenantId && link.tenantId !== where.tenantId) return true;
+            if (where.v3EntityType && link.v3EntityType !== where.v3EntityType) return true;
+            if (where.v3EntityId && link.v3EntityId !== where.v3EntityId) return true;
+            return false;
+          });
+          return { count: 1 };
+        }),
+      },
+      v3DeskDevice: {
+        delete: vi.fn(async ({ where }: any) => {
+          const idx = store.devices.findIndex((d) => d.id === where.id);
+          if (idx === -1) throw new Error('not found');
+          const [removed] = store.devices.splice(idx, 1);
+          return removed;
+        }),
+      },
+    })),
     tenant: {
       findUnique: vi.fn(async () => store.tenants[0]),
     },
@@ -89,9 +127,21 @@ describe('V3 deviceService', () => {
     expect(device.status).toBe('ASSIGNED');
   });
 
-  it('soft-removes device without deleting row', async () => {
+  it('hard-deletes device, clears runtime link, and frees MAC', async () => {
     const store = {
-      devices: [{ id: 'd1', tenantId: 't1', vendor: 'yealink', status: 'CREATED', macAddress: 'AABBCC' }],
+      devices: [{
+        id: 'd1',
+        tenantId: 't1',
+        vendor: 'grandstream',
+        status: 'PROVISIONED',
+        macAddress: 'AABBCCDDEEFF',
+        employeeId: 'u1',
+        extensionId: 'e1',
+        provisionUrl: 'https://example.com/cfg.xml',
+        configVersion: 2,
+        provisionVersion: 2,
+      }],
+      runtimeLinks: [{ tenantId: 't1', v3EntityType: 'device', v3EntityId: 'd1' }],
       tenants: [{ id: 't1', name: 'Acme' }],
       extensions: [],
       users: [],
@@ -99,8 +149,29 @@ describe('V3 deviceService', () => {
     const prisma = fakePrisma(store);
     vi.spyOn(auditService, 'log').mockResolvedValue(undefined);
 
-    await deviceService.removeDevice(prisma, 't1', 'd1', { req: {} });
-    expect(store.devices[0].status).toBe('REMOVED');
-    expect(store.devices[0].removedAt).toBeTruthy();
+    const removed = await deviceService.removeDevice(prisma, 't1', 'd1', { req: {} });
+
+    expect(removed.removed).toBe(true);
+    expect(removed.macAddress).toBe('AABBCCDDEEFF');
+    expect(store.devices).toHaveLength(0);
+    expect(store.runtimeLinks).toHaveLength(0);
+    expect(auditService.log).toHaveBeenCalledWith(expect.anything(), {}, expect.objectContaining({ action: 'v3.device.removed' }));
+  });
+
+  it('removes device by MAC address', async () => {
+    const store = {
+      devices: [{ id: 'd1', tenantId: 't1', vendor: 'yealink', status: 'ASSIGNED', macAddress: 'AABBCC' }],
+      runtimeLinks: [],
+      tenants: [{ id: 't1', name: 'Acme' }],
+      extensions: [],
+      users: [],
+    };
+    const prisma = fakePrisma(store);
+    vi.spyOn(auditService, 'log').mockResolvedValue(undefined);
+
+    const removed = await deviceService.removeDeviceByMac(prisma, 't1', 'aa:bb:cc', { req: {} });
+
+    expect(removed.macAddress).toBe('AABBCC');
+    expect(store.devices).toHaveLength(0);
   });
 });
