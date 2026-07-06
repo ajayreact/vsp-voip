@@ -140,9 +140,79 @@ describe('telephony / inbound ring-first desk SIP (Telnyx Find Me pattern)', () 
     })).toBe(false);
   });
 
+  describe('Issue 1 fix — pilot-tenant desk-only ring-first fallback', () => {
+    const PILOT_TENANT_ID = 'pilot-tenant-id';
+    const OTHER_TENANT_ID = 'other-tenant-id';
+    const simultaneousDeskTarget = {
+      type: 'app',
+      endpointType: 'desk',
+      deviceRingStrategy: 'SIMULTANEOUS',
+      user: { id: 'u1', telnyxSipUsername: 'gencred-desk-1' },
+      endpoints: [{ endpointType: 'desk', source: 'v3_desk_device', registered: true }],
+    };
+
+    afterEach(() => {
+      delete process.env.DESK_RING_FIRST_PILOT_TENANT_IDS;
+    });
+
+    it('still does NOT defer SIMULTANEOUS desk targets for a tenant not in the allowlist', async () => {
+      process.env.DESK_RING_FIRST_PILOT_TENANT_IDS = PILOT_TENANT_ID;
+      const { shouldDeferPstnAnswerUntilDesk } = await import('../../lib/inboundCallControl.js');
+      expect(shouldDeferPstnAnswerUntilDesk({
+        targets: [simultaneousDeskTarget],
+        preConnectMediaPolicy: 'NONE',
+        extPolicy: { action: 'ring' },
+        tenantId: OTHER_TENANT_ID,
+      })).toBe(false);
+    });
+
+    it('does NOT defer for the pilot tenant when no allowlist is configured (opt-in only)', async () => {
+      const { shouldDeferPstnAnswerUntilDesk } = await import('../../lib/inboundCallControl.js');
+      expect(shouldDeferPstnAnswerUntilDesk({
+        targets: [simultaneousDeskTarget],
+        preConnectMediaPolicy: 'NONE',
+        extPolicy: { action: 'ring' },
+        tenantId: PILOT_TENANT_ID,
+      })).toBe(false);
+    });
+
+    it('defers SIMULTANEOUS desk-only targets for an allowlisted pilot tenant', async () => {
+      process.env.DESK_RING_FIRST_PILOT_TENANT_IDS = PILOT_TENANT_ID;
+      const { shouldDeferPstnAnswerUntilDesk } = await import('../../lib/inboundCallControl.js');
+      expect(shouldDeferPstnAnswerUntilDesk({
+        targets: [simultaneousDeskTarget],
+        preConnectMediaPolicy: 'NONE',
+        extPolicy: { action: 'ring' },
+        tenantId: PILOT_TENANT_ID,
+      })).toBe(true);
+    });
+
+    it('does not defer for the allowlisted pilot tenant when any target is not desk-capable', async () => {
+      process.env.DESK_RING_FIRST_PILOT_TENANT_IDS = PILOT_TENANT_ID;
+      const { shouldDeferPstnAnswerUntilDesk } = await import('../../lib/inboundCallControl.js');
+      expect(shouldDeferPstnAnswerUntilDesk({
+        targets: [
+          simultaneousDeskTarget,
+          { type: 'app', endpointType: 'mobile', user: { id: 'u2' }, endpoints: [] },
+        ],
+        preConnectMediaPolicy: 'NONE',
+        extPolicy: { action: 'ring' },
+        tenantId: PILOT_TENANT_ID,
+      })).toBe(false);
+    });
+  });
+
   it('shouldDeferPstnAnswerUntilDesk uses usesRingFirstPath not target.type', () => {
-    expect(source).toMatch(/if \(!usesRingFirstPath\(targets\)\) return false;/);
+    expect(source).toMatch(/if \(!usesRingFirstPath\(targets\)\) \{/);
     expect(source).toMatch(/endpointType: target\?\.endpointType/);
+  });
+
+  it('shouldDeferPstnAnswerUntilDesk only widens the gate for the pilot-tenant allowlist', () => {
+    // Issue 1 fix: non-DESK_ONLY/DESK_FIRST tenants must keep relying solely on
+    // usesRingFirstPath — the desk-only fallback is opt-in via tenant allowlist
+    // (lib/telephony/deskRingFirstPilot.js), not a global default change.
+    expect(source).toMatch(/isDeskOnlyRingFirstPilotTenant\(tenantId\)/);
+    expect(source).toMatch(/allTargetsDeskOnly/);
   });
 
   it('resolveDialBridgeOnAnswer is false when PSTN answer is deferred', async () => {
