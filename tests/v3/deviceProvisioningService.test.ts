@@ -88,4 +88,62 @@ describe('V3 deviceProvisioningService', () => {
     expect(result.config.format).toBe('grandstream-compatible');
     expect(auditService.log).toHaveBeenCalledWith(expect.anything(), {}, expect.objectContaining({ action: 'v3.device.provisioned' }));
   });
+
+  it('regenerates config from live extension/SIP data — no stale values reused', async () => {
+    const store = {
+      devices: [{ id: 'd1', tenantId: 't1', vendor: 'grandstream', extensionId: 'e1', employeeId: 'u1', status: 'PROVISIONED', configVersion: 1, provisionVersion: 1, metadata: { provisionKey: 'old-key' } }],
+      extensions: [],
+      users: [{ id: 'u1', name: 'Jane', telnyxSipUsername: 'sip-jane-old', telnyxSipPassword: 'old-pass' }],
+      tenants: [{ id: 't1', name: 'Acme', timezone: 'America/New_York' }],
+    };
+    const prisma = fakePrisma(store);
+    vi.spyOn(provisioningService, 'ensureExtensionProvisioned').mockResolvedValue({ ok: true, provisioned: true });
+    vi.spyOn(auditService, 'log').mockResolvedValue(undefined);
+    // getExtensionSipCredentials hits real Telnyx/credential plumbing that
+    // isn't mocked here; letting it fail is fine — generateDeviceConfig
+    // falls back to the freshly-read User row (refreshedUser), which is
+    // exactly the "no caching" path this test is verifying.
+    prisma.extensionDevice = { findFirst: vi.fn(async () => null) };
+
+    const first = await deviceProvisioningService.provisionDevice(prisma, 't1', 'd1', { regenerate: false }, { req: {}, actor: { sub: 'admin' } });
+    expect(first.config.body).toContain('sip-jane-old');
+    const keyAfterFirst = store.devices[0].metadata.provisionKey;
+    expect(keyAfterFirst).toBe('old-key'); // plain provision reuses existing key
+
+    // Credentials rotate directly in the DB (e.g. SIP credential
+    // reconciliation) between the two provisioning calls.
+    store.users[0].telnyxSipUsername = 'sip-jane-new';
+    store.users[0].telnyxSipPassword = 'new-pass';
+
+    const second = await deviceProvisioningService.provisionDevice(prisma, 't1', 'd1', { regenerate: true }, { req: {}, actor: { sub: 'admin' } });
+
+    expect(second.config.body).toContain('sip-jane-new');
+    expect(second.config.body).not.toContain('sip-jane-old');
+    expect(store.devices[0].configVersion).toBe(2);
+    expect(store.devices[0].provisionVersion).toBe(2);
+    // Regenerate must rotate the provisioning cache key, not reuse it.
+    expect(store.devices[0].metadata.provisionKey).not.toBe('old-key');
+  });
+
+  it('keeps extension and employee assignment unchanged across provision/regenerate', async () => {
+    const store = {
+      devices: [{ id: 'd1', tenantId: 't1', vendor: 'yealink', extensionId: 'e1', employeeId: 'u1', status: 'ASSIGNED', configVersion: 1, provisionVersion: 1 }],
+      extensions: [],
+      users: [{ id: 'u1', name: 'Jane', telnyxSipUsername: 'sip-jane', telnyxSipPassword: 'pass' }],
+      tenants: [{ id: 't1', name: 'Acme', timezone: 'America/New_York' }],
+    };
+    const prisma = fakePrisma(store);
+    vi.spyOn(provisioningService, 'ensureExtensionProvisioned').mockResolvedValue({ ok: true, provisioned: true });
+    vi.spyOn(extensionProvisioning, 'getExtensionSipCredentials').mockResolvedValue({
+      provisioningProfile: { sip: { username: 'sip-jane', password: 'pass' } },
+      configExport: {},
+    });
+    vi.spyOn(auditService, 'log').mockResolvedValue(undefined);
+    prisma.extensionDevice = { findFirst: vi.fn(async () => null) };
+
+    await deviceProvisioningService.provisionDevice(prisma, 't1', 'd1', { regenerate: true }, { req: {}, actor: { sub: 'admin' } });
+
+    expect(store.devices[0].extensionId).toBe('e1');
+    expect(store.devices[0].employeeId).toBe('u1');
+  });
 });
