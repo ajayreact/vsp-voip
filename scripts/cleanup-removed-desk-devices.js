@@ -15,10 +15,17 @@
  *
  * Dry-run by default. Pass --apply to actually delete.
  *
+ * IMPORTANT: must be run with `tsx`, not plain `node`. This script (via
+ * db.js) loads the generated Prisma client from generated/prisma/client.ts —
+ * plain `node` cannot resolve a .ts import and fails with
+ * "Cannot find module '.../generated/prisma/client.js'". This matches every
+ * other script in this repo that touches the database directly (see e.g.
+ * scripts/verify-sip-identity.js).
+ *
  * Usage:
- *   node scripts/cleanup-removed-desk-devices.js
- *   node scripts/cleanup-removed-desk-devices.js --apply
- *   node scripts/cleanup-removed-desk-devices.js --apply --tenant-id=<uuid>
+ *   npx tsx scripts/cleanup-removed-desk-devices.js
+ *   npx tsx scripts/cleanup-removed-desk-devices.js --apply
+ *   npx tsx scripts/cleanup-removed-desk-devices.js --apply --tenant-id=<uuid>
  */
 require('dotenv').config();
 
