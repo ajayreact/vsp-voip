@@ -43,14 +43,14 @@ describe('grandstreamPvalueConfig', () => {
     expect(xml).toContain('<P47>sip.telnyx.com:5061</P47>');
     expect(xml).toContain('<P35>gencred-ajay</P35>');
     expect(xml).toContain('<P34>secret</P34>');
-    expect(xml).toContain('<P130>2</P130>'); // 2 = TLS
+    expect(xml).toContain('<P130>1</P130>'); // 1 = TCP (forced — see transport test below)
     expect(xml).toContain('<P48>sip.telnyx.com:5061</P48>'); // outbound proxy, host:port
     expect(xml).not.toContain('<P4026>'); // not a valid P-value on this device family
     expect(xml).not.toContain('<P191>'); // P191 is "Enable Call Features", unrelated to transport
     expect(xml).not.toContain('<P280>'); // not a valid P-value — DTMF is 3 separate booleans
   });
 
-  it('emits UDP transport (P130=0) and outbound proxy with port for a default desk profile', () => {
+  it('emits TCP transport (P130=1) and outbound proxy with port for a default desk profile', () => {
     // Regression: buildProvisionContext previously defaulted to TLS (P191=2) with
     // remote/local port forced to 5061, while the platform's desk phones actually
     // register over UDP on 5060 — producing a phone config with a mismatched
@@ -70,15 +70,27 @@ describe('grandstreamPvalueConfig', () => {
       device: { id: 'd1', vendor: 'grandstream', macAddress: 'AABBCCDDEEFF', configVersion: 1, provisionVersion: 1 },
     });
 
-    expect(provisionCtx.sip.transport).toBe('UDP');
     expect(provisionCtx.sip.port).toBe(5060);
     expect(provisionCtx.sip.outboundProxy).toBe('sip.telnyx.com:5060');
 
     const xml = buildGrandstreamPvalueXml(provisionCtx);
-    expect(xml).toContain('<P130>0</P130>'); // 0 = UDP (real Transport P-value)
+    expect(xml).toContain('<P130>1</P130>'); // 1 = TCP (forced, see transport-forcing test)
     expect(xml).toContain('<P40>5060</P40>'); // local SIP port (fixed)
     expect(xml).toContain('<P47>sip.telnyx.com:5060</P47>'); // SIP server, host:port
     expect(xml).toContain('<P48>sip.telnyx.com:5060</P48>'); // outbound proxy, host:port
+  });
+
+  it('forces TCP transport (P130=1) regardless of the upstream sip.transport value', () => {
+    // Runtime evidence (2026-07-06 packet capture, GRP2601 fw 1.0.7.11): the
+    // ~1738-byte multi-codec UDP INVITE fragments into 2 IP packets and gets
+    // zero SIP response, while every unfragmented REGISTER on the identical
+    // path succeeds. Transport is intentionally hardcoded to TCP for this
+    // vendor's builder to remove the IP-fragmentation dependency for SIP
+    // signaling, independent of whatever transport was requested upstream.
+    for (const requested of ['UDP', 'TLS', 'TCP', undefined]) {
+      const xml = buildGrandstreamPvalueXml({ ...ctx, sip: { ...ctx.sip, transport: requested } });
+      expect(xml).toContain('<P130>1</P130>');
+    }
   });
 
   it('maps DTMF mode to the three independent P2301/P2302/P2303 booleans', () => {
