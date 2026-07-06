@@ -344,8 +344,25 @@ export async function updateV3Device(id: string, data: Partial<DeskDevice>) {
   });
 }
 
+export type DeletedDeskDevice = {
+  id: string;
+  deleted: true;
+  vendor: string;
+  model: string | null;
+  macAddress: string | null;
+  serialNumber: string | null;
+  status: DeskDeviceStatus;
+  employeeId: string | null;
+  extensionId: string | null;
+};
+
+/**
+ * Hard-deletes the device's provisioning registration (device record,
+ * provisioning profile/URL, config version, and provisioning cache key).
+ * Does NOT delete the assigned Employee, Extension, or SIP credentials.
+ */
 export async function removeV3Device(id: string) {
-  return apiFetch<{ success: boolean; device: DeskDevice }>(`/api/v3/devices/${id}`, {
+  return apiFetch<{ success: boolean; device: DeletedDeskDevice }>(`/api/v3/devices/${id}`, {
     method: 'DELETE',
   });
 }
