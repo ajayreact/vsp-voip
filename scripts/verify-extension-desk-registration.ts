@@ -4,10 +4,16 @@ import 'dotenv/config';
  * Verifies Phase A desk credential provisioning and registration tracking.
  *
  * Usage:
- *   npx tsx scripts/verify-extension-desk-registration.ts
- *   npx tsx scripts/verify-extension-desk-registration.ts --extension-number 101
- *   npx tsx scripts/verify-extension-desk-registration.ts --poll-seconds 120
- *   npx tsx scripts/verify-extension-desk-registration.ts --simulate-webhook
+ *   npx tsx scripts/verify-extension-desk-registration.ts --tenant-id <id>
+ *   npx tsx scripts/verify-extension-desk-registration.ts --tenant-id <id> --extension-number 101
+ *   npx tsx scripts/verify-extension-desk-registration.ts --tenant-id <id> --poll-seconds 120
+ *   npx tsx scripts/verify-extension-desk-registration.ts --tenant-id <id> --simulate-webhook
+ *
+ * --tenant-id is required whenever more than one tenant has an extension with
+ * the requested number: extension numbers are only unique per tenant, and a
+ * tenant-less lookup previously used `findFirst` with no tenant filter, which
+ * silently matched the WRONG tenant's extension row (e.g. it returned VSP
+ * Internal's extension 100 while investigating Symplore's extension 100).
  *
  * For live desk phone test, register in Zoiper/Linphone using printed settings, then run with --poll-seconds 120.
  */
@@ -21,18 +27,20 @@ function parseArgs() {
   let extensionNumber = '101';
   let pollSeconds = 0;
   let simulateWebhook = false;
+  let tenantId: string | null = null;
 
   for (let i = 0; i < args.length; i += 1) {
     if (args[i] === '--extension-number') extensionNumber = args[i + 1] || extensionNumber;
     if (args[i] === '--poll-seconds') pollSeconds = Number(args[i + 1] || 0);
     if (args[i] === '--simulate-webhook') simulateWebhook = true;
+    if (args[i] === '--tenant-id') tenantId = args[i + 1] || tenantId;
   }
 
-  return { extensionNumber, pollSeconds, simulateWebhook };
+  return { extensionNumber, pollSeconds, simulateWebhook, tenantId };
 }
 
 async function main() {
-  const { extensionNumber, pollSeconds, simulateWebhook } = parseArgs();
+  const { extensionNumber, pollSeconds, simulateWebhook, tenantId } = parseArgs();
 
   const { PrismaClient } = await import('../generated/prisma/client.js');
   const { PrismaPg } = await import('@prisma/adapter-pg');
@@ -47,16 +55,28 @@ async function main() {
   });
 
   try {
-    const extension = await prisma.extension.findFirst({
-      where: { extensionNumber, status: 'ACTIVE' },
+    const matches = await prisma.extension.findMany({
+      where: { extensionNumber, status: 'ACTIVE', ...(tenantId ? { tenantId } : {}) },
+      include: { tenant: { select: { id: true, name: true } } },
     });
 
-    if (!extension) {
-      console.error(`Extension ${extensionNumber} not found`);
+    if (matches.length === 0) {
+      console.error(`Extension ${extensionNumber} not found${tenantId ? ` for tenant ${tenantId}` : ''}`);
       process.exit(1);
     }
 
+    if (matches.length > 1) {
+      console.error(`FAIL — Extension number ${extensionNumber} is ambiguous across ${matches.length} tenants. Re-run with --tenant-id:`);
+      for (const m of matches) {
+        console.error(`  tenant ${m.tenant?.name || '(unknown)'} (${m.tenantId}) — extension id ${m.id}`);
+      }
+      process.exit(1);
+    }
+
+    const extension = matches[0];
+
     console.log('=== Extension desk SIP verification ===\n');
+    console.log(`Tenant: ${extension.tenant?.name || '(unknown)'} (${extension.tenantId})`);
     console.log(`Extension: ${extension.extensionNumber} — ${extension.displayName}`);
     console.log(`telnyxCredentialId: ${extension.telnyxCredentialId || 'MISSING'}`);
     console.log(`telnyxSipUsername:  ${extension.telnyxSipUsername || 'MISSING'}`);
