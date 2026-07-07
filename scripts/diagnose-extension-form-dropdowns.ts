@@ -5,12 +5,9 @@ const EMAIL = process.env.SEED_ADMIN_EMAIL || 'admin@asuitech.com';
 const PASSWORD = process.env.SEED_ADMIN_PASSWORD || 'Admin@123';
 
 async function main() {
-  const { PrismaClient } = await import('../generated/prisma/client.js');
-  const { PrismaPg } = await import('@prisma/adapter-pg');
+  const { getPrisma } = await import('../db.js');
 
-  const prisma = new PrismaClient({
-    adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
-  });
+  const prisma = await getPrisma();
 
   try {
     const [userCount, extCount, phoneCount] = await Promise.all([

@@ -30,11 +30,8 @@ const TELNYX_API_KEY = process.env.TELNYX_API_KEY?.trim();
 const EXPECTED_CALL_CONTROL_ID = process.env.TELNYX_CALL_CONTROL_APP_ID?.trim() || null;
 
 async function getPrisma() {
-  const { PrismaClient } = require('../generated/prisma/client.js');
-  const { PrismaPg } = require('@prisma/adapter-pg');
-  return new PrismaClient({
-    adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
-  });
+  const { getPrisma: getSharedPrisma } = require('../db');
+  return getSharedPrisma();
 }
 
 async function lookupTelnyxNumber(e164) {

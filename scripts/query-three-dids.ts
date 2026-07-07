@@ -1,11 +1,8 @@
 import 'dotenv/config';
 
 async function main() {
-  const { PrismaClient } = await import('../generated/prisma/client.js');
-  const { PrismaPg } = await import('@prisma/adapter-pg');
-  const prisma = new PrismaClient({
-    adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
-  });
+  const { getPrisma } = await import('../db.js');
+  const prisma = await getPrisma();
   const nums = ['+19563961388', '+17748123836', '+13099880196'];
   for (const n of nums) {
     const p = await prisma.phoneNumber.findFirst({

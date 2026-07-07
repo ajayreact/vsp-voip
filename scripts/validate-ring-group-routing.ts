@@ -68,12 +68,9 @@ async function main() {
   } = await import('../lib/inboundRouting.js');
   const { resolveRingGroupEntityTargets } = await import('../lib/ringGroupRouter.js');
   const { loadCredentialConnectionId } = await import('../lib/telnyxSipProfile.js');
-  const { PrismaClient } = await import('../generated/prisma/client.js');
-  const { PrismaPg } = await import('@prisma/adapter-pg');
+  const { getPrisma } = await import('../db.js');
 
-  const prisma = new PrismaClient({
-    adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
-  });
+  const prisma = await getPrisma();
 
   let exitCode = staticChecks.some((c) => !c.pass) ? 1 : 0;
 

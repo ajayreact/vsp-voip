@@ -39,13 +39,10 @@ async function main() {
     process.exit(1);
   }
 
-  const { PrismaClient } = await import('../generated/prisma/client.js');
-  const { PrismaPg } = await import('@prisma/adapter-pg');
+  const { getPrisma } = await import('../db.js');
   const { ensureExtensionTelnyxCredential } = await import('../lib/extensionSip.js');
 
-  const prisma = new PrismaClient({
-    adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
-  });
+  const prisma = await getPrisma();
 
   try {
     const extensions = await prisma.extension.findMany({

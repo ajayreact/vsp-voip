@@ -11,13 +11,10 @@ async function main() {
   const { resolveExtensionRingTargets, formatTargetDialTo } = await import('../lib/inboundRouting.js');
   const { resolveExtensionCallPolicy } = await import('../lib/extensionInbound.js');
 
-  const { PrismaClient } = await import('../generated/prisma/client.js');
-  const { PrismaPg } = await import('@prisma/adapter-pg');
+  const { getPrisma } = await import('../db.js');
   const { loadCredentialConnectionId } = await import('../lib/telnyxSipProfile.js');
 
-  const prisma = new PrismaClient({
-    adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
-  });
+  const prisma = await getPrisma();
 
   try {
     const connectionId = await loadCredentialConnectionId(prisma);

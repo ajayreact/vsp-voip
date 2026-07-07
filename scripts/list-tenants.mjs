@@ -1,7 +1,7 @@
 import 'dotenv/config';
-import { PrismaClient } from '../generated/prisma/client.js';
+import { getPrisma } from '../db.js';
 
-const prisma = new PrismaClient();
+const prisma = await getPrisma();
 const tenants = await prisma.tenant.findMany({
   select: {
     id: true,

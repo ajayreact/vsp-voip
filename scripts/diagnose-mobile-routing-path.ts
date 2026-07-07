@@ -11,8 +11,7 @@ function formatUs(number: string): string {
 }
 
 async function main() {
-  const { PrismaClient } = await import('../generated/prisma/client.js');
-  const { PrismaPg } = await import('@prisma/adapter-pg');
+  const { getPrisma } = await import('../db.js');
   const { resolveOwnershipChain } = await import('../lib/pbxOwnership.js');
 
   const ONLINE_WINDOW_MS = 5 * 60 * 1000;
@@ -54,9 +53,7 @@ async function main() {
     return rows;
   }
 
-  const prisma = new PrismaClient({
-    adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
-  });
+  const prisma = await getPrisma();
 
   try {
     console.log('=== MOBILE ROUTING PATH DIAGNOSTIC ===\n');

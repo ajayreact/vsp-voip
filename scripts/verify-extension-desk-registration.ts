@@ -34,17 +34,20 @@ function parseArgs() {
 async function main() {
   const { extensionNumber, pollSeconds, simulateWebhook } = parseArgs();
 
-  const { PrismaClient } = await import('../generated/prisma/client.js');
-  const { PrismaPg } = await import('@prisma/adapter-pg');
+  // Use the shared db.js loader instead of importing the generated Prisma
+  // client directly: the custom `prisma-client` generator only ever emits
+  // `generated/prisma/client.ts` (no compiled `.js`), so a hardcoded
+  // `../generated/prisma/client.js` specifier never resolves. db.js already
+  // encodes the correct `.ts`-then-`.js` fallback used everywhere else in
+  // the app.
+  const { getPrisma, disconnectPrisma } = await import('../db.js');
   const { getTelephonyCredential } = await import('../lib/telnyxCallControl.js');
   const { checkTelephonyCredentialRegistration } = await import('../lib/voiceTelemetry.js');
   const { loadTelnyxConnectionContext } = await import('../lib/telnyxSipProfile.js');
   const { handleTelnyxVoiceTelemetryEvent } = await import('../lib/voiceTelemetry.js');
   const { DEFAULT_SIP_SERVER, DEFAULT_SIP_PORT, DEFAULT_SIP_PORT_TLS } = await import('../lib/telnyxSipProfile.js');
 
-  const prisma = new PrismaClient({
-    adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
-  });
+  const prisma = await getPrisma();
 
   try {
     const extension = await prisma.extension.findFirst({
@@ -153,7 +156,7 @@ async function main() {
     console.log('Tracking pipeline test (no SIP client):');
     console.log(`  npx tsx scripts/verify-extension-desk-registration.ts --extension-number ${extensionNumber} --simulate-webhook`);
   } finally {
-    await prisma.$disconnect();
+    await disconnectPrisma();
   }
 }
 
