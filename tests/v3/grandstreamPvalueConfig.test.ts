@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const {
   buildGrandstreamPvalueXml,
+  buildGrandstreamDialPlan,
   buildGrandstreamProvisionFilename,
   buildGrandstreamConfigServerPath,
   buildGrandstreamProvisionUrl,
@@ -111,5 +112,56 @@ describe('grandstreamPvalueConfig', () => {
     expect(buildGrandstreamConfigServerPath()).toBe('https://api.vspphone.com/provision/');
     const url = buildGrandstreamProvisionUrl('EC74D751E3E7', 'abc123');
     expect(url).toBe('https://api.vspphone.com/provision/cfgec74d751e3e7.xml?key=abc123');
+  });
+
+  describe('dedicated-credential pilot dial plan (P290)', () => {
+    it('returns null when pilot flag is off', () => {
+      expect(buildGrandstreamDialPlan({
+        dedicatedDeskCredentialPilot: false,
+        extensionDialTargets: [{ extensionNumber: '101', did: '+19563961388' }],
+      })).toBeNull();
+    });
+
+    it('builds extension→DID replace rules with escaped E.164 plus sign', () => {
+      const plan = buildGrandstreamDialPlan({
+        dedicatedDeskCredentialPilot: true,
+        extensionDialTargets: [
+          { extensionNumber: '100', did: '+13139215654' },
+          { extensionNumber: '101', did: '+19563961388' },
+        ],
+      });
+      expect(plan).toBe(
+        '{ <100=\\+13139215654> | <101=\\+19563961388> | x+ | \\+x+ | *x+ | *xx*x+ }',
+      );
+    });
+
+    it('emits P290 in provisioning XML for pilot tenants with sibling DIDs', () => {
+      const xml = buildGrandstreamPvalueXml({
+        ...ctx,
+        dedicatedDeskCredentialPilot: true,
+        extensionDialTargets: [{ extensionNumber: '101', did: '+19563961388' }],
+      });
+      expect(xml).toContain(
+        '<P290>{ <101=\\+19563961388> | x+ | \\+x+ | *x+ | *xx*x+ }</P290>',
+      );
+    });
+
+    it('omits P290 when pilot tenant has no sibling DIDs to map', () => {
+      const xml = buildGrandstreamPvalueXml({
+        ...ctx,
+        dedicatedDeskCredentialPilot: true,
+        extensionDialTargets: [],
+      });
+      expect(xml).not.toContain('<P290>');
+    });
+
+    it('omits P290 for non-pilot tenants even when extensionDialTargets are present', () => {
+      const xml = buildGrandstreamPvalueXml({
+        ...ctx,
+        dedicatedDeskCredentialPilot: false,
+        extensionDialTargets: [{ extensionNumber: '101', did: '+19563961388' }],
+      });
+      expect(xml).not.toContain('<P290>');
+    });
   });
 });
