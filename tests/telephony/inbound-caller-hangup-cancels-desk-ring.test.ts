@@ -54,7 +54,9 @@ describe('PSTN caller hangup cancels ringing desk leg', () => {
       inboundCallControlId: inboundId,
     });
 
-    inboundCallControl = freshRequire(inboundCallControlPath);
+    delete nodeRequire.cache[callControlSessionStorePath];
+    delete nodeRequire.cache[inboundCallControlPath];
+    inboundCallControl = nodeRequire(inboundCallControlPath);
 
     const prisma = {
       callLog: { create: vi.fn().mockResolvedValue({}) },

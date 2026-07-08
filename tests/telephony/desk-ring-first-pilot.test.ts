@@ -22,6 +22,7 @@ function makePrisma(deskExtensionIds: string[]) {
 }
 
 const deskTarget = (extensionId: string) => ({ type: 'app', extensionId });
+const deskSipTarget = (extensionId: string) => ({ type: 'sip', extensionId, sipUsername: 'gencred-desk' });
 const phoneTarget = () => ({ type: 'phone', phone: '+13135551212' });
 
 describe('Issue 1 fix — deskRingFirstPilot allowlist gate', () => {
@@ -74,6 +75,18 @@ describe('Issue 1 fix — shouldDeferPstnAnswerForPilot', () => {
       prisma,
       tenantId: PILOT_TENANT_ID,
       targets: [deskTarget('ext-101')],
+      businessHoursClosed: false,
+      extPolicyAction: null,
+    });
+    expect(result).toBe(true);
+  });
+
+  it('defers for pilot sip desk targets (sip-first ring order after dedicated desk credential)', async () => {
+    const prisma = makePrisma(['ext-101']);
+    const result = await shouldDeferPstnAnswerForPilot({
+      prisma,
+      tenantId: PILOT_TENANT_ID,
+      targets: [deskSipTarget('ext-101'), deskTarget('ext-101')],
       businessHoursClosed: false,
       extPolicyAction: null,
     });
@@ -143,7 +156,7 @@ describe('Issue 1 fix — shouldDeferPstnAnswerForPilot', () => {
     expect(result).toBe(false);
   });
 
-  it('does not defer for non-app ring targets (e.g. external forward-to-phone)', async () => {
+  it('does not defer for non-app/non-sip ring targets (e.g. external forward-to-phone)', async () => {
     const prisma = makePrisma([]);
     const result = await shouldDeferPstnAnswerForPilot({
       prisma,
