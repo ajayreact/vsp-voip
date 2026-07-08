@@ -130,7 +130,7 @@ describe('Symplore pilot — dedicated desk Telnyx credential ring targets', () 
     };
   }
 
-  it('rings both the app target and the dedicated desk sip target when the desk credential is distinct', async () => {
+  it('rings the dedicated desk sip target before the app target when the desk credential is distinct', async () => {
     const prisma = {
       user: { findUnique: vi.fn().mockResolvedValue(pilotExtension().user) },
     };
@@ -138,10 +138,10 @@ describe('Symplore pilot — dedicated desk Telnyx credential ring targets', () 
 
     const resolution = await resolveExtensionRingTargets(prisma, extension, 'conn-1');
     expect(resolution?.targets).toHaveLength(2);
-    expect(resolution?.targets[0].type).toBe('app');
-    expect(resolution?.targets[0].user.telnyxSipUsername).toBe('gencred-suresh-app');
-    expect(resolution?.targets[1].type).toBe('sip');
-    expect(resolution?.targets[1].sipUsername).toBe('gencred-suresh-desk');
+    expect(resolution?.targets[0].type).toBe('sip');
+    expect(resolution?.targets[0].sipUsername).toBe('gencred-suresh-desk');
+    expect(resolution?.targets[1].type).toBe('app');
+    expect(resolution?.targets[1].user.telnyxSipUsername).toBe('gencred-suresh-app');
   });
 
   it('does not double-ring when the extension has not been backfilled yet (desk credential equals app credential)', async () => {
