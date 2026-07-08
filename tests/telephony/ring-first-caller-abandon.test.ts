@@ -72,6 +72,7 @@ describe('Ring-first PSTN caller abandon lifecycle', () => {
       return null;
     });
     delete nodeRequire.cache[inboundCallControlPath];
+    telnyxCallControl.hangupCall = hangupSpy;
     inboundCallControl = nodeRequire(inboundCallControlPath);
   }
 
@@ -168,5 +169,20 @@ describe('Ring-first PSTN caller abandon lifecycle', () => {
 
     expect(dialNextSpy).not.toHaveBeenCalled();
     expect(vmSpy).not.toHaveBeenCalled();
+  });
+
+  it('unknown leg hangup during ring does not delete session while dial is in flight', async () => {
+    const { inboundId, session } = ringFirstSession({
+      dialInFlight: { ringIndex: 0, startedAt: Date.now() },
+      outboundLegs: [{ callControlId: null, status: 'ringing', targetIndex: 0 }],
+    });
+    bindSession(session, inboundId);
+
+    await inboundCallControl.handleHangup(prisma, {
+      call_control_id: 'v3:unregistered-leg',
+      hangup_cause: 'normal_clearing',
+    });
+
+    expect(deleteSessionSpy).not.toHaveBeenCalled();
   });
 });
