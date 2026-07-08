@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 const nodeRequire = createRequire(import.meta.url);
 const inboundCallControl: any = nodeRequire('../../lib/inboundCallControl.js');
 
-const { sanitizeDisplayName, resolveAgentRingDisplayName } = inboundCallControl;
+const { sanitizeDisplayName, resolveAgentRingDisplayName, resolveAgentRingFrom } = inboundCallControl;
 
 /**
  * Regression coverage for the Desk->Desk / Extension->Extension voicemail bug.
@@ -85,5 +85,24 @@ describe('telephony / agent ring display name sanitization', () => {
     const long = 'A'.repeat(200);
     const result = sanitizeDisplayName(long);
     expect(result).toHaveLength(128);
+  });
+
+  describe('resolveAgentRingFrom() for internal extension rings', () => {
+    it('uses agentRingFrom E.164 instead of ext: shorthand', () => {
+      expect(resolveAgentRingFrom({
+        callKind: 'internal',
+        from: 'ext:100',
+        agentRingFrom: '+13139215654',
+        to: 'ext:101',
+      })).toBe('+13139215654');
+    });
+
+    it('does not pass ext: labels to Telnyx when agentRingFrom is missing', () => {
+      expect(resolveAgentRingFrom({
+        callKind: 'internal',
+        from: 'ext:100',
+        to: '+19563961388',
+      })).toBe('+19563961388');
+    });
   });
 });
