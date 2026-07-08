@@ -135,17 +135,16 @@ describe('grandstreamPvalueConfig', () => {
       );
     });
 
-    it('emits P290 with XML-escaped replace-rule brackets for Grandstream parser', () => {
+    it('emits P290 in CDATA so replace-rule brackets survive Grandstream XML parse', () => {
       const xml = buildGrandstreamPvalueXml({
         ...ctx,
         dedicatedDeskCredentialPilot: true,
         extensionDialTargets: [{ extensionNumber: '101', did: '+19563961388' }],
       });
-      // Raw < > in P290 are dropped by the phone XML parser; must use &lt; &gt;
       expect(xml).toContain(
-        '<P290>{ &lt;101=\\+19563961388&gt; | x+ | \\+x+ | *x+ | *xx*x+ }</P290>',
+        '<P290><![CDATA[{ <101=\\+19563961388> | x+ | \\+x+ | *x+ | *xx*x+ }]]></P290>',
       );
-      expect(xml).not.toContain('<P290>{ <101=');
+      expect(xml).not.toContain('&lt;101=');
     });
 
     it('omits P290 when pilot tenant has no sibling DIDs to map', () => {
